@@ -16,3 +16,4 @@ categories = ["science", "algorithms"]
 
 [workspace.dependencies]
 itertools = "0.10.5"
+geo = "0.24.1"
