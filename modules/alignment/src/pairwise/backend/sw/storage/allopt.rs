@@ -1,4 +1,4 @@
-use super::{AlignmentSeed, Score, Storage, BestDirectionTracer, GapTracer, Tracer};
+use super::{AlignmentSeed, BestDirectionTracer, GapTracer, Score, Storage, Tracer};
 
 // An efficient algorithm to locate all locally optimal alignments between two sequences allowing for gaps
 // 10.1093/bioinformatics/9.6.729
@@ -34,7 +34,6 @@ pub struct AllOptimal {
 
     // Main cache
     diagonal: Option<Path>,
-    savediag: bool,
     cache: Vec<Option<Path>>,
 
     // Gapped paths caches
@@ -50,7 +49,6 @@ impl AllOptimal {
         Self {
             minscore: 0,
             diagonal: None,
-            savediag: false,
             cache: vec![None; 128],
             best_gap_row: None,
             best_gap_col: vec![None; 128],
@@ -204,7 +202,7 @@ impl Storage for AllOptimal {
     fn reset(&mut self, newrows: usize, _: usize) {
         self.cache.clear();
         self.diagonal = None;
-        self.savediag = false;
+        self.best_gap_row = None;
 
         // TODO: reuse result vectors when possible
         self.results.clear();
@@ -212,6 +210,9 @@ impl Storage for AllOptimal {
 
         self.cache.clear();
         self.cache.resize(newrows, None);
+
+        self.best_gap_col.clear();
+        self.best_gap_col.resize(newrows, None);
     }
 
     fn finalize(&mut self) -> Vec<AlignmentSeed> {
