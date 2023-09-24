@@ -15,3 +15,4 @@ categories.workspace = true
 [dependencies]
 itertools = { workspace = true }
 geo = { workspace = true }
+num = { workspace = true }

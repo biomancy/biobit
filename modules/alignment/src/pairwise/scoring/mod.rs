@@ -1,18 +1,29 @@
+use num::PrimInt;
+
 pub use delegate::Delegate;
 
 mod delegate;
 pub mod gaps;
 pub mod symbols;
+pub mod equiv;
 
-pub trait ScoringScheme: gaps::Scorer + symbols::Scorer {}
+pub trait Score: PrimInt {}
 
-pub fn default() -> Delegate<symbols::MatchMismatch, gaps::Affine> {
-    Delegate {
-        symbols: symbols::MatchMismatch { same: 1, diff: -2 },
-        gaps: gaps::Affine { open: -5, extend: -1 },
-    }
+impl<T: PrimInt> Score for T {}
+
+
+pub trait Scheme: gaps::Scorer<Score=<Self as Scheme>::Score> + symbols::Scorer<Score=<Self as Scheme>::Score, Symbol=<Self as Scheme>::Symbol> + equiv::Classifier<Symbol=<Self as Scheme>::Symbol>
+{
+    type Score: Score;
+    type Symbol;
 }
 
-pub fn compose<S: symbols::Scorer, G: gaps::Scorer>(symbols: S, gaps: G) -> Delegate<S, G> {
-    Delegate { symbols, gaps }
+pub fn compose<ScoreType, Symbol, S, G, E>(symbols: S, gaps: G, equiv: E) -> Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
+    Delegate::new(symbols, gaps, equiv)
 }

@@ -1,4 +1,7 @@
-use super::{Alignable, Score, ScoringScheme, Tracer};
+use crate::Alignable;
+use crate::pairwise::scoring;
+
+use super::Tracer;
 
 // Optimal alignments in linear space: https://doi.org/10.1093/bioinformatics/4.1.11
 
@@ -33,22 +36,22 @@ use super::{Alignable, Score, ScoringScheme, Tracer};
 // D:
 //      gaprow = current D(i-1) value (vertical seq1 gaps)
 
-pub struct FullScan {
-    left: Score,
-    diagonal: Score,
-    scores: Vec<Score>,
-    gapcol: Vec<Score>,
-    gaprow: Score,
+pub struct FullScan<S: scoring::Score> {
+    left: S,
+    diagonal: S,
+    scores: Vec<S>,
+    gapcol: Vec<S>,
+    gaprow: S,
 }
 
-impl FullScan {
+impl<S: scoring::Score> FullScan<S> {
     pub fn new(capacity: usize) -> Self {
         Self {
-            left: 0,
-            diagonal: 0,
+            left: S::zero(),
+            diagonal: S::zero(),
             scores: Vec::with_capacity(capacity),
             gapcol: Vec::with_capacity(capacity),
-            gaprow: 0,
+            gaprow: S::zero(),
         }
     }
 
@@ -60,16 +63,28 @@ impl FullScan {
             self.gapcol.reserve(diff);
         }
     }
+}
 
-    fn solve_first_col(&mut self, seq1: &impl Alignable, seq2: &impl Alignable, skip_last: usize,
-                       scorer: &mut impl ScoringScheme, tracer: &mut impl Tracer) {
+impl<S: scoring::Score> FullScan<S>
+{
+    fn solve_first_col<Smb, Scheme, Seq1, Seq2, Trace>(
+        &mut self,
+        seq1: &Seq1, seq2: &Seq2, skip_last: usize,
+        scorer: &mut Scheme, tracer: &mut Trace,
+    )
+        where
+            Scheme: scoring::Scheme<Symbol=Smb, Score=S>,
+            Seq1: Alignable<Symbol=Smb>,
+            Seq2: Alignable<Symbol=Smb>,
+            Trace: Tracer<Score=S>
+    {
         tracer.first_col_start();
 
         let s2 = seq2.at(0);
         // Initialize gap-col
         // (required in later recursion, set to 0 for faster initialization)
         self.gapcol.clear();
-        self.gapcol.resize(seq1.len(), 0);
+        self.gapcol.resize(seq1.len(), S::zero());
 
         // Initialize scores, the first column - only equiv are allowed
         // (assuming that gap-row scores will be always <= 0)
@@ -77,22 +92,29 @@ impl FullScan {
         // TODO: verify that extend is faster
         self.scores.extend((0..seq1.len() - skip_last).map(|row| {
             let equiv = scorer.score(row, seq1.at(row), 0, s2);
-            if equiv > 0 {
+            if equiv > S::zero() {
                 tracer.equivalent(row, 0, equiv);
                 equiv
             } else {
                 tracer.none(row, 0);
-                0
+                S::zero()
             }
         }));
 
         tracer.first_col_end();
     }
 
-    pub fn scan_up_triangle(
-        &mut self, seq1: &impl Alignable, seq2: &impl Alignable, offset: usize,
-        scorer: &mut impl ScoringScheme, tracer: &mut impl Tracer,
-    ) {
+    pub fn scan_up_triangle<Smb, Scheme, Seq1, Seq2, Trace>(
+        &mut self,
+        seq1: &Seq1, seq2: &Seq2, offset: usize,
+        scorer: &mut Scheme, tracer: &mut Trace,
+    )
+        where
+            Scheme: scoring::Scheme<Symbol=Smb, Score=S>,
+            Seq1: Alignable<Symbol=Smb>,
+            Seq2: Alignable<Symbol=Smb>,
+            Trace: Tracer<Score=S>
+    {
         if seq1.len() == 0 || seq2.len() == 0 {
             return;
         }
@@ -101,19 +123,19 @@ impl FullScan {
         for col in 1..(seq2.len() - offset) {
             tracer.col_start(col);
 
-            self.gaprow = 0;
+            self.gaprow = S::zero();
             self.diagonal = self.scores[0];
 
 
             // First element
             // (assuming that gap-col scores will be always <= 0)
             let equiv = scorer.score(0, seq1.at(0), col, seq2.at(col));
-            self.scores[0] = if equiv > 0 {
+            self.scores[0] = if equiv > S::zero() {
                 tracer.equivalent(0, col, equiv);
                 equiv
             } else {
                 tracer.none(0, col);
-                0
+                S::zero()
             };
 
             for row in 1..(seq1.len() - col - offset) {
@@ -123,44 +145,44 @@ impl FullScan {
                 let mut opened = self.scores[row - 1] + scorer.seq1_gap_open(row);
                 let mut extended = self.gaprow + scorer.seq1_gap_extend(row);
 
-                self.gaprow = if opened > extended && opened > 0 {
+                self.gaprow = if opened > extended && opened > S::zero() {
                     tracer.row_gap_open(row, col, opened);
                     opened
-                } else if extended > 0 {
+                } else if extended > S::zero() {
                     tracer.row_gap_extend(row, col, extended);
                     extended
                 } else {
-                    0
+                    S::zero()
                 };
 
                 // Horizontal/column gaps
                 opened = self.left + scorer.seq2_gap_open(col);
                 extended = self.gapcol[row] + scorer.seq2_gap_extend(col);
 
-                self.gapcol[row] = if opened > extended && opened > 0 {
+                self.gapcol[row] = if opened > extended && opened > S::zero() {
                     tracer.col_gap_open(row, col, opened);
                     opened
-                } else if extended > 0 {
+                } else if extended > S::zero() {
                     tracer.col_gap_extend(row, col, extended);
                     extended
                 } else {
-                    0
+                    S::zero()
                 };
 
                 // Best scores
                 let equiv = self.diagonal + scorer.score(row, seq1.at(row), col, seq2.at(col));
-                self.scores[row] = if equiv > self.gaprow && equiv > self.gapcol[row] && equiv > 0 {
+                self.scores[row] = if equiv > self.gaprow && equiv > self.gapcol[row] && equiv > S::zero() {
                     tracer.equivalent(row, col, equiv);
                     equiv
-                } else if self.gapcol[row] > self.gaprow && self.gapcol[row] > 0 {
+                } else if self.gapcol[row] > self.gaprow && self.gapcol[row] > S::zero() {
                     tracer.gap_col(row, col, self.gapcol[row]);
                     self.gapcol[row]
-                } else if self.gaprow > 0 {
+                } else if self.gaprow > S::zero() {
                     tracer.gap_row(row, col, self.gaprow);
                     self.gaprow
                 } else {
                     tracer.none(row, col);
-                    0
+                    S::zero()
                 };
 
                 self.diagonal = self.left;
@@ -170,8 +192,16 @@ impl FullScan {
         }
     }
 
-    pub fn scan_all(&mut self, seq1: &impl Alignable, seq2: &impl Alignable,
-                    scorer: &mut impl ScoringScheme, tracer: &mut impl Tracer) {
+    pub fn scan_all<Smb, Scheme, Seq1, Seq2, Trace>(
+        &mut self, seq1: &Seq1, seq2: &Seq2,
+        scorer: &mut Scheme, tracer: &mut Trace,
+    )
+        where
+            Scheme: scoring::Scheme<Symbol=Smb, Score=S>,
+            Seq1: Alignable<Symbol=Smb>,
+            Seq2: Alignable<Symbol=Smb>,
+            Trace: Tracer<Score=S>
+    {
         if seq1.len() == 0 || seq2.len() == 0 {
             return;
         }
@@ -180,19 +210,19 @@ impl FullScan {
         for col in 1..seq2.len() {
             tracer.col_start(col);
 
-            self.gaprow = 0;
+            self.gaprow = S::zero();
             self.diagonal = self.scores[0];
 
 
             // First element
             // (assuming that gap-col scores will be always <= 0)
             let equiv = scorer.score(0, seq1.at(0), col, seq2.at(col));
-            self.scores[0] = if equiv > 0 {
+            self.scores[0] = if equiv > S::zero() {
                 tracer.equivalent(0, col, equiv);
                 equiv
             } else {
                 tracer.none(0, col);
-                0
+                S::zero()
             };
 
             for row in 1..seq1.len() {
@@ -202,44 +232,44 @@ impl FullScan {
                 let mut opened = self.scores[row - 1] + scorer.seq1_gap_open(row);
                 let mut extended = self.gaprow + scorer.seq1_gap_extend(row);
 
-                self.gaprow = if opened > extended && opened > 0 {
+                self.gaprow = if opened > extended && opened > S::zero() {
                     tracer.row_gap_open(row, col, opened);
                     opened
-                } else if extended > 0 {
+                } else if extended > S::zero() {
                     tracer.row_gap_extend(row, col, extended);
                     extended
                 } else {
-                    0
+                    S::zero()
                 };
 
                 // Horizontal/column gaps
                 opened = self.left + scorer.seq2_gap_open(col);
                 extended = self.gapcol[row] + scorer.seq2_gap_extend(col);
 
-                self.gapcol[row] = if opened > extended && opened > 0 {
+                self.gapcol[row] = if opened > extended && opened > S::zero() {
                     tracer.col_gap_open(row, col, opened);
                     opened
-                } else if extended > 0 {
+                } else if extended > S::zero() {
                     tracer.col_gap_extend(row, col, extended);
                     extended
                 } else {
-                    0
+                    S::zero()
                 };
 
                 // Best scores
                 let equiv = self.diagonal + scorer.score(row, seq1.at(row), col, seq2.at(col));
-                self.scores[row] = if equiv > self.gaprow && equiv > self.gapcol[row] && equiv > 0 {
+                self.scores[row] = if equiv > self.gaprow && equiv > self.gapcol[row] && equiv > S::zero() {
                     tracer.equivalent(row, col, equiv);
                     equiv
-                } else if self.gapcol[row] > self.gaprow && self.gapcol[row] > 0 {
+                } else if self.gapcol[row] > self.gaprow && self.gapcol[row] > S::zero() {
                     tracer.gap_col(row, col, self.gapcol[row]);
                     self.gapcol[row]
-                } else if self.gaprow > 0 {
+                } else if self.gaprow > S::zero() {
                     tracer.gap_row(row, col, self.gaprow);
                     self.gaprow
                 } else {
                     tracer.none(row, col);
-                    0
+                    S::zero()
                 };
 
                 self.diagonal = self.left;

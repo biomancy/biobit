@@ -1,56 +1,63 @@
-pub use super::super::Score;
+use crate::pairwise::scoring::Score;
 
 // Gap scoring function MUST be additive
-// In other words, you can have whatever gapopen / gapextend scores you want as long as scores are additive (!)
-
+// We can have whatever gapopen / gapextend scores you want as long as it's context independent
 pub trait Scorer {
-    fn seq1_gap_open(&self, pos: usize) -> Score;
-    fn seq1_gap_extend(&self, pos: usize) -> Score;
+    type Score: Score;
 
-    fn seq2_gap_open(&self, pos: usize) -> Score;
-    fn seq2_gap_extend(&self, pos: usize) -> Score;
+    fn seq1_gap_open(&self, pos: usize) -> Self::Score;
+    fn seq1_gap_extend(&self, pos: usize) -> Self::Score;
+
+    fn seq2_gap_open(&self, pos: usize) -> Self::Score;
+    fn seq2_gap_extend(&self, pos: usize) -> Self::Score;
 }
 
 pub trait PosInvariantScorer {
-    fn gap_open(&self) -> Score;
-    fn gap_extend(&self) -> Score;
+    type GapScore: Score;
+
+    fn gap_open(&self) -> Self::GapScore;
+    fn gap_extend(&self) -> Self::GapScore;
 }
 
 impl<T: PosInvariantScorer> Scorer for T {
+    type Score = <Self as PosInvariantScorer>::GapScore;
+
     #[inline(always)]
-    fn seq1_gap_open(&self, _: usize) -> Score {
+    fn seq1_gap_open(&self, _: usize) -> Self::Score {
         self.gap_open()
     }
 
     #[inline(always)]
-    fn seq1_gap_extend(&self, _: usize) -> Score {
+    fn seq1_gap_extend(&self, _: usize) -> Self::Score {
         self.gap_extend()
     }
 
     #[inline(always)]
-    fn seq2_gap_open(&self, _: usize) -> Score {
+    fn seq2_gap_open(&self, _: usize) -> Self::Score {
         self.gap_open()
     }
 
     #[inline(always)]
-    fn seq2_gap_extend(&self, _: usize) -> Score {
+    fn seq2_gap_extend(&self, _: usize) -> Self::Score {
         self.gap_extend()
     }
 }
 
-pub struct Affine {
-    pub open: Score,
-    pub extend: Score,
+pub struct Affine<S: Score> {
+    pub open: S,
+    pub extend: S,
 }
 
-impl PosInvariantScorer for Affine {
+impl<S: Score> PosInvariantScorer for Affine<S> {
+    type GapScore = S;
+
     #[inline(always)]
-    fn gap_open(&self) -> Score {
+    fn gap_open(&self) -> Self::GapScore {
         self.open
     }
 
     #[inline(always)]
-    fn gap_extend(&self) -> Score {
+    fn gap_extend(&self) -> Self::GapScore {
         self.extend
     }
 }

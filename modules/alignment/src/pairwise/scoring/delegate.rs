@@ -1,45 +1,101 @@
-use super::{gaps, symbols};
-use super::super::{Score, Symbol};
+use std::marker::PhantomData;
 
-pub struct Delegate<S: symbols::Scorer, G: gaps::Scorer> {
+use crate::pairwise::scoring::{equiv, gaps, Score, symbols};
+
+pub struct Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
     pub symbols: S,
     pub gaps: G,
+    pub equiv: E,
+    symbol: PhantomData<Symbol>,
+    score: PhantomData<ScoreType>,
 }
 
-impl<S: symbols::Scorer, G: gaps::Scorer> gaps::Scorer for Delegate<S, G> {
+impl<ScoreType, Symbol, S, G, E> Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
+    pub fn new(symbols: S, gaps: G, equiv: E) -> Self {
+        Delegate { symbols, gaps, equiv, symbol: Default::default(), score: Default::default() }
+    }
+}
+
+impl<ScoreType, Symbol, S, G, E> gaps::Scorer for Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
+    type Score = ScoreType;
+
     #[inline(always)]
-    fn seq1_gap_open(&self, pos: usize) -> Score {
+    fn seq1_gap_open(&self, pos: usize) -> Self::Score {
         self.gaps.seq1_gap_open(pos)
     }
 
     #[inline(always)]
-    fn seq1_gap_extend(&self, pos: usize) -> Score {
+    fn seq1_gap_extend(&self, pos: usize) -> Self::Score {
         self.gaps.seq1_gap_extend(pos)
     }
 
     #[inline(always)]
-    fn seq2_gap_open(&self, pos: usize) -> Score {
+    fn seq2_gap_open(&self, pos: usize) -> Self::Score {
         self.gaps.seq2_gap_open(pos)
     }
 
     #[inline(always)]
-    fn seq2_gap_extend(&self, pos: usize) -> Score {
+    fn seq2_gap_extend(&self, pos: usize) -> Self::Score {
         self.gaps.seq2_gap_extend(pos)
     }
 }
 
-impl<S: symbols::Scorer, G: gaps::Scorer> symbols::EquivClassifier for Delegate<S, G> {
+impl<ScoreType, Symbol, S, G, E> equiv::Classifier for Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
+    type Symbol = Symbol;
+
     #[inline(always)]
-    fn classify(&self, s1: Symbol, s2: Symbol) -> symbols::EquivType {
-        self.symbols.classify(s1, s2)
+    fn classify(&self, s1: &Self::Symbol, s2: &Self::Symbol) -> equiv::Type {
+        self.equiv.classify(s1, s2)
     }
 }
 
-impl<S: symbols::Scorer, G: gaps::Scorer> symbols::Scorer for Delegate<S, G> {
+impl<ScoreType, Symbol, S, G, E> symbols::Scorer for Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
+    type Score = ScoreType;
+    type Symbol = Symbol;
+
     #[inline(always)]
-    fn score(&self, posa: usize, a: Symbol, posb: usize, b: Symbol) -> Score {
+    fn score(&self, posa: usize, a: &Self::Symbol, posb: usize, b: &Self::Symbol) -> Self::Score {
         self.symbols.score(posa, a, posb, b)
     }
 }
 
-impl<S: symbols::Scorer, G: gaps::Scorer> super::ScoringScheme for Delegate<S, G> {}
+impl<ScoreType, Symbol, S, G, E> super::Scheme for Delegate<ScoreType, Symbol, S, G, E>
+    where
+        ScoreType: Score,
+        S: symbols::Scorer<Symbol=Symbol, Score=ScoreType>,
+        G: gaps::Scorer<Score=ScoreType>,
+        E: equiv::Classifier<Symbol=Symbol>
+{
+    type Score = ScoreType;
+    type Symbol = Symbol;
+}

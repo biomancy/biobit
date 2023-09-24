@@ -1,22 +1,24 @@
-use super::{AlignmentSeed, BestDirectionTracer, GapTracer, Score, Storage, Tracer};
+use crate::pairwise::scoring;
+use crate::pairwise::sw::algo::{BestDirectionTracer, GapTracer, Tracer};
+use crate::pairwise::sw::storage::{AlignmentSeed, Storage};
 
 // An efficient algorithm to locate all locally optimal alignments between two sequences allowing for gaps
 // 10.1093/bioinformatics/9.6.729
 
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
-struct Path {
+struct Path<S: scoring::Score> {
     pub start: (usize, usize),
     pub end: (usize, usize),
-    pub score: Score,
+    pub score: S,
 }
 
-impl Path {
-    fn new(start: (usize, usize), score: Score) -> Self {
+impl<S: scoring::Score> Path<S> {
+    fn new(start: (usize, usize), score: S) -> Self {
         Self { start, end: start, score }
     }
 
-    fn extend(&mut self, row: usize, col: usize, newscore: Score) {
+    fn extend(&mut self, row: usize, col: usize, newscore: S) {
         // debug_assert!(self.score < newscore);
         if newscore > self.score {
             self.end = (row, col);
@@ -28,26 +30,26 @@ impl Path {
     }
 }
 
-pub struct AllOptimal {
+pub struct AllOptimal<S: scoring::Score> {
     // Thresholds
-    pub minscore: Score,
+    pub minscore: S,
 
     // Main cache
-    diagonal: Option<Path>,
-    cache: Vec<Option<Path>>,
+    diagonal: Option<Path<S>>,
+    cache: Vec<Option<Path<S>>>,
 
     // Gapped paths caches
-    best_gap_row: Option<Path>,
-    best_gap_col: Vec<Option<Path>>,
+    best_gap_row: Option<Path<S>>,
+    best_gap_col: Vec<Option<Path<S>>>,
 
     // Cache for finished paths in each row
-    results: Vec<Vec<Path>>,
+    results: Vec<Vec<Path<S>>>,
 }
 
-impl AllOptimal {
-    pub fn new() -> Self {
+impl<S: scoring::Score> AllOptimal<S> {
+    pub fn new(minscore: S) -> Self {
         Self {
-            minscore: 0,
+            minscore,
             diagonal: None,
             cache: vec![None; 128],
             best_gap_row: None,
@@ -56,7 +58,7 @@ impl AllOptimal {
         }
     }
 
-    fn save(&mut self, p: Path) {
+    fn save(&mut self, p: Path<S>) {
         if p.score < self.minscore {
             return;
         }
@@ -76,7 +78,7 @@ impl AllOptimal {
     }
 
     #[inline(always)]
-    fn update_diagonal(&mut self, newdiag: Option<Path>) {
+    fn update_diagonal(&mut self, newdiag: Option<Path<S>>) {
         // Try to save the previous diagonal if it wasn't consumed before
         if let Some(diagonal) = self.diagonal.take() {
             self.save(diagonal);
@@ -87,9 +89,11 @@ impl AllOptimal {
     }
 }
 
-impl BestDirectionTracer for AllOptimal {
+impl<S: scoring::Score> BestDirectionTracer for AllOptimal<S> {
+    type Score = S;
+
     #[inline(always)]
-    fn gap_row(&mut self, row: usize, col: usize, score: Score) {
+    fn gap_row(&mut self, row: usize, _: usize, _: S) {
         let newdiag = self.cache[row].take();
 
         // debug_assert!(self.best_gap_row.as_ref().unwrap().end == (row, col));
@@ -100,7 +104,7 @@ impl BestDirectionTracer for AllOptimal {
     }
 
     #[inline(always)]
-    fn gap_col(&mut self, row: usize, col: usize, score: Score) {
+    fn gap_col(&mut self, row: usize, _: usize, _: S) {
         let newdiag = self.cache[row].take();
 
         // debug_assert!(self.best_gap_col[row].as_ref().unwrap().end == (row, col));
@@ -111,7 +115,7 @@ impl BestDirectionTracer for AllOptimal {
     }
 
     #[inline(always)]
-    fn equivalent(&mut self, row: usize, col: usize, score: Score) {
+    fn equivalent(&mut self, row: usize, col: usize, score: S) {
         let newdiag = self.cache[row].take();
 
         match self.diagonal.take() {
@@ -135,9 +139,11 @@ impl BestDirectionTracer for AllOptimal {
     }
 }
 
-impl GapTracer for AllOptimal {
+impl<S: scoring::Score> GapTracer for AllOptimal<S> {
+    type Score = S;
+
     #[inline(always)]
-    fn row_gap_open(&mut self, row: usize, col: usize, score: Score) {
+    fn row_gap_open(&mut self, row: usize, col: usize, score: S) {
         self.best_gap_row = match &self.cache[row - 1] {
             None => { unreachable!() }
             Some(x) => {
@@ -149,7 +155,7 @@ impl GapTracer for AllOptimal {
     }
 
     #[inline(always)]
-    fn row_gap_extend(&mut self, row: usize, col: usize, score: Score) {
+    fn row_gap_extend(&mut self, row: usize, col: usize, score: S) {
         match &mut self.best_gap_row {
             None => { unreachable!() }
             Some(x) => {
@@ -159,7 +165,7 @@ impl GapTracer for AllOptimal {
     }
 
     #[inline(always)]
-    fn col_gap_open(&mut self, row: usize, col: usize, score: Score) {
+    fn col_gap_open(&mut self, row: usize, col: usize, score: S) {
         self.best_gap_col[row] = match &self.cache[row] {
             None => { unreachable!() }
             Some(x) => {
@@ -171,7 +177,7 @@ impl GapTracer for AllOptimal {
     }
 
     #[inline(always)]
-    fn col_gap_extend(&mut self, row: usize, col: usize, score: Score) {
+    fn col_gap_extend(&mut self, row: usize, col: usize, score: S) {
         match &mut self.best_gap_col[row] {
             None => { unreachable!() }
             Some(x) => {
@@ -181,14 +187,16 @@ impl GapTracer for AllOptimal {
     }
 }
 
-impl Tracer for AllOptimal {
+impl<S: scoring::Score> Tracer for AllOptimal<S> {
+    type Score = S;
+
     #[inline(always)]
     fn first_col_end(&mut self) {
         self.diagonal = None;
     }
 
     #[inline(always)]
-    fn col_end(&mut self, col: usize) {
+    fn col_end(&mut self, _: usize) {
         if let Some(diagonal) = self.diagonal.take() {
             self.save(diagonal);
         };
@@ -198,7 +206,7 @@ impl Tracer for AllOptimal {
 }
 
 
-impl Storage for AllOptimal {
+impl<S: scoring::Score> Storage for AllOptimal<S> {
     fn reset(&mut self, newrows: usize, _: usize) {
         self.cache.clear();
         self.diagonal = None;
@@ -215,7 +223,7 @@ impl Storage for AllOptimal {
         self.best_gap_col.resize(newrows, None);
     }
 
-    fn finalize(&mut self) -> Vec<AlignmentSeed> {
+    fn finalize(&mut self) -> Vec<AlignmentSeed<S>> {
         {
             let mut cache = Vec::new();
             std::mem::swap(&mut cache, &mut self.cache);

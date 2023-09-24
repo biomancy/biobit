@@ -2,20 +2,19 @@ use std::ops::Range;
 
 pub use tracemat::TraceMatrix;
 
-use super::Score;
-use super::algo::{BestDirectionTracer, GapTracer, Tracer};
-use super::super::super::{AlignmentStep};
+use crate::pairwise::Step;
+use crate::pairwise::sw::algo::Tracer;
 
 mod tracemat;
 
 pub struct TracedAlignment {
-    pub ops: Vec<AlignmentStep>,
+    pub ops: Vec<Step>,
     pub seq1: Range<usize>,
     pub seq2: Range<usize>,
 }
 
 pub trait TraceMat: Tracer {
-    fn reset(&mut self, rows: usize, cols: usize);
+    fn reset(&mut self, newrows: usize, newcols: usize);
     fn trace(&self, row: usize, col: usize) -> Result<TracedAlignment, ()>;
 }
 

@@ -2,7 +2,7 @@
 members = ["modules/*"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 rust-version = "1.67.0"
 authors = ["Aleksandr Fedorov <anfedorov@hse.ru>"]
@@ -15,5 +15,6 @@ license = "MIT"
 categories = ["science", "algorithms"]
 
 [workspace.dependencies]
-itertools = "0.10.5"
-geo = "0.24.1"
+itertools = "0.11.0"
+geo = "0.25.1"
+num = "0.4"

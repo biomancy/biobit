@@ -1,7 +1,9 @@
+use std::marker::PhantomData;
 use std::ops::Range;
 
-use super::{BestDirectionTracer, GapTracer, Score, TracedAlignment, TraceMat, Tracer};
-use super::super::super::super::{AlignmentOp, AlignmentStep};
+use crate::pairwise::{Op, scoring, Step};
+use crate::pairwise::sw::algo::{BestDirectionTracer, GapTracer, Tracer};
+use crate::pairwise::sw::traceback::{TracedAlignment, TraceMat};
 
 // TODO: implement to use only 2 bits
 #[repr(u8)]
@@ -20,50 +22,51 @@ pub enum GapTrace {
     Extend,
 }
 
-impl TryFrom<Trace> for AlignmentOp {
+impl TryFrom<Trace> for Op {
     type Error = ();
 
     fn try_from(value: Trace) -> Result<Self, Self::Error> {
         match value {
             Trace::Start => Err(()),
-            Trace::GapRow => Ok(AlignmentOp::GapFirst),
-            Trace::GapCol => Ok(AlignmentOp::GapSecond),
-            Trace::Equivalent => Ok(AlignmentOp::Equivalent)
+            Trace::GapRow => Ok(Op::GapFirst),
+            Trace::GapCol => Ok(Op::GapSecond),
+            Trace::Equivalent => Ok(Op::Equivalent)
         }
     }
 }
 
 
 struct RunningTrace {
-    pub op: AlignmentOp,
+    pub op: Op,
     pub len: usize,
 }
 
 impl RunningTrace {
-    pub fn new(op: AlignmentOp, len: usize) -> Self {
+    pub fn new(op: Op, len: usize) -> Self {
         Self { op, len }
     }
 
-    pub fn save(self, saveto: &mut Vec<AlignmentStep>) {
+    pub fn save(self, saveto: &mut Vec<Step>) {
         let tail = self.len % (u8::MAX as usize);
         if tail > 0 {
-            saveto.push(AlignmentStep { op: self.op, len: tail as u8 });
+            saveto.push(Step { op: self.op, len: tail as u8 });
         }
         for _ in 0..(self.len / (u8::MAX as usize)) {
-            saveto.push(AlignmentStep { op: self.op, len: u8::MAX });
+            saveto.push(Step { op: self.op, len: u8::MAX });
         }
     }
 }
 
-pub struct TraceMatrix {
+pub struct TraceMatrix<S: scoring::Score> {
     best: Vec<Trace>,
     row_gap: Vec<GapTrace>,
     col_gap: Vec<GapTrace>,
     rows: usize,
     cols: usize,
+    phantom: PhantomData<S>,
 }
 
-impl TraceMatrix {
+impl<S: scoring::Score> TraceMatrix<S> {
     pub fn new() -> Self {
         Self {
             best: Vec::new(),
@@ -71,25 +74,32 @@ impl TraceMatrix {
             col_gap: Vec::new(),
             rows: 0,
             cols: 0,
+            phantom: Default::default(),
         }
     }
 }
 
-impl Tracer for TraceMatrix {}
+impl<S: scoring::Score> Default for TraceMatrix<S> {
+    fn default() -> Self { Self::new() }
+}
 
-impl BestDirectionTracer for TraceMatrix {
+impl<S: scoring::Score> Tracer for TraceMatrix<S> { type Score = S; }
+
+impl<S: scoring::Score> BestDirectionTracer for TraceMatrix<S> {
+    type Score = S;
+
     #[inline(always)]
-    fn gap_row(&mut self, row: usize, col: usize, _: Score) {
+    fn gap_row(&mut self, row: usize, col: usize, _: Self::Score) {
         self.best[(row + 1) * self.cols + (col + 1)] = Trace::GapRow;
     }
 
     #[inline(always)]
-    fn gap_col(&mut self, row: usize, col: usize, _: Score) {
+    fn gap_col(&mut self, row: usize, col: usize, _: Self::Score) {
         self.best[(row + 1) * self.cols + (col + 1)] = Trace::GapCol;
     }
 
     #[inline(always)]
-    fn equivalent(&mut self, row: usize, col: usize, _: Score) {
+    fn equivalent(&mut self, row: usize, col: usize, _: Self::Score) {
         self.best[(row + 1) * self.cols + (col + 1)] = Trace::Equivalent;
     }
 
@@ -99,29 +109,31 @@ impl BestDirectionTracer for TraceMatrix {
     }
 }
 
-impl GapTracer for TraceMatrix {
+impl<S: scoring::Score> GapTracer for TraceMatrix<S> {
+    type Score = S;
+
     #[inline(always)]
-    fn row_gap_open(&mut self, row: usize, col: usize, _: Score) {
+    fn row_gap_open(&mut self, row: usize, col: usize, _: Self::Score) {
         self.row_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Open;
     }
 
     #[inline(always)]
-    fn row_gap_extend(&mut self, row: usize, col: usize, _: Score) {
+    fn row_gap_extend(&mut self, row: usize, col: usize, _: Self::Score) {
         self.row_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Extend;
     }
 
     #[inline(always)]
-    fn col_gap_open(&mut self, row: usize, col: usize, _: Score) {
+    fn col_gap_open(&mut self, row: usize, col: usize, _: Self::Score) {
         self.col_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Open;
     }
 
     #[inline(always)]
-    fn col_gap_extend(&mut self, row: usize, col: usize, _: Score) {
+    fn col_gap_extend(&mut self, row: usize, col: usize, _: Self::Score) {
         self.col_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Extend;
     }
 }
 
-impl TraceMat for TraceMatrix {
+impl<S: scoring::Score> TraceMat for TraceMatrix<S> {
     fn reset(&mut self, rows: usize, cols: usize) {
         self.rows = rows + 1;
         self.cols = cols + 1;
@@ -203,22 +215,10 @@ impl TraceMat for TraceMatrix {
         }
         result.reverse();
 
-        return Ok(TracedAlignment {
+        Ok(TracedAlignment {
             ops: result,
             seq1: seq1range,
             seq2: seq2range,
-        });
+        })
     }
 }
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use super::super::test_suite;
-//
-//     #[test]
-//     fn test() {
-//         let mut tracer = TraceMatrix::new();
-//         test_suite::run_all(&mut tracer);
-//     }
-// }
