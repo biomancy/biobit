@@ -1,3 +1,5 @@
+name: "Rust & Python CI checks"
+
 on:
   push:
     branches:
@@ -6,8 +8,10 @@ on:
     tags:
       - '*'
   pull_request:
+    branches:
+      - main
+      - dev
 
-name: "Rust & Python CI checks"
 jobs:
   rust:
     name: Rust CI
