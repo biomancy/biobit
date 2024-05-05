@@ -5,7 +5,7 @@ from .sample import Sample
 from .seqrun import SeqRun
 
 
-@define(slots=True, frozen=True, eq=True, order=True, repr=True, hash=True)
+@define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
 class Experiment:
     """
     A class representing a biological experiment, which consists of a biological material isolated from a sample,

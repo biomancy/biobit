@@ -1,7 +1,7 @@
 from attrs import define, field
 
 
-@define(repr=True, hash=True, slots=True, frozen=True, eq=True, order=True)
+@define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
 class Sample:
     """
     A class to represent a sample in a biological experiment.
@@ -38,3 +38,12 @@ class Sample:
         for k, v in value.items():
             if not v:
                 raise ValueError(f"Empty attributes are not allowed: {k} -> {v}")
+
+    # def __repr__(self) -> str:
+    #     return f"Sample({self.ind}, {self.organism}, {self.attributes}, {self.description})"
+    #
+    # def __str__(self) -> str:
+    #     return (f"Sample({self.ind}):\n"
+    #             f"\tOrganism: {', '.join(self.organism)}\n"
+    #             f"\tAttributes: {', '.join(f'{k}={v}' for k, v in self.attributes.items())}\n"
+    #             f"\tDescription: {self.description or '.'}")

@@ -34,7 +34,7 @@ class SeqLayout(Enum):
 SeqLayoutLike = SeqLayout | Literal["paired", "single", "pe", "se"]
 
 
-@define(hash=True, slots=True, frozen=True, eq=True, order=True)
+@define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
 class SeqRun:
     """
     A class to represent a single run in a sequencing experiment.
@@ -109,18 +109,18 @@ class SeqRun:
         if value is not None and not value:
             raise ValueError("If specified, description must be non-empty. Use None to indicate lack of description")
 
-    def __repr__(self) -> str:
-        files = ", ".join(map(str, self.files))
-        return f"SeqRun({self.ind}, {self.machine}, {self.layout}, ({files}), {self.reads}, {self.bases}, {self.description})"
-
-    def __str__(self) -> str:
-        fields = [
-            f"\tMachine: {self.machine}",
-            f"\tLayout: {self.layout}",
-            f"\tFiles: {', '.join(map(str, self.files))}",
-            f"\tReads: {self.reads if self.reads else '.'}",
-            f"\tBases: {self.bases if self.bases else '.'}",
-            f"\tDescription: {self.description if self.description else '.'}"
-        ]
-        body = "\n".join(fields)
-        return f"SeqRun({self.ind}):\n{body}"
+    # def __repr__(self) -> str:
+    #     files = ", ".join(map(str, self.files))
+    #     return f"SeqRun({self.ind}, {self.machine}, {self.layout}, ({files}), {self.reads}, {self.bases}, {self.description})"
+    #
+    # def __str__(self) -> str:
+    #     fields = [
+    #         f"\tMachine: {self.machine}",
+    #         f"\tLayout: {self.layout}",
+    #         f"\tFiles: {', '.join(map(str, self.files))}",
+    #         f"\tReads: {self.reads if self.reads else '.'}",
+    #         f"\tBases: {self.bases if self.bases else '.'}",
+    #         f"\tDescription: {self.description if self.description else '.'}"
+    #     ]
+    #     body = "\n".join(fields)
+    #     return f"SeqRun({self.ind}):\n{body}"
