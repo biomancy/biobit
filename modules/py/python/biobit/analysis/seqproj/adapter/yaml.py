@@ -13,12 +13,17 @@ _YAML_CONVERTER = cattrs.preconf.pyyaml.make_converter()
 
 
 def _unstructure_hook(exp: Experiment) -> dict:
-    return {
+    dictionary = {
         "ind": exp.ind,
         "sample": exp.sample.ind,
         "library": _YAML_CONVERTER.unstructure(exp.library),
         "runs": _YAML_CONVERTER.unstructure(exp.runs)
     }
+    if exp.attributes:
+        dictionary["attributes"] = exp.attributes
+    if exp.description:
+        dictionary["description"] = exp.description
+    return dictionary
 
 
 def _structure_hook(data: dict, ttype: type) -> Project:
@@ -33,7 +38,9 @@ def _structure_hook(data: dict, ttype: type) -> Project:
         data["ind"],
         samples_mapping[data["sample"]],
         _YAML_CONVERTER.structure(data["library"], Library),
-        _YAML_CONVERTER.structure(data["runs"], tuple[SeqRun, ...])
+        _YAML_CONVERTER.structure(data["runs"], tuple[SeqRun, ...]),
+        _YAML_CONVERTER.structure(data["attributes"], dict[str, str]) if "attributes" in data else {},
+        _YAML_CONVERTER.structure(data["description"], str) if "description" in data else None,
     ) for data in data["experiments"])
 
     return Project(data["ind"], tuple(experiments), samples)

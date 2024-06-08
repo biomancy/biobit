@@ -8,7 +8,7 @@ from .seqrun import SeqRun
 @define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
 class Experiment:
     """
-    A class representing a biological experiment, which consists of a biological material isolated from a sample,
+    A class representing a sequencing experiment, which consists of a biological material isolated from a sample,
     turned into a sequencing library, and sequenced one or more times.
 
     Attributes
@@ -21,6 +21,8 @@ class Experiment:
         The library generated from the sample.
     runs : tuple[SeqRun, ...]
         The sequencing runs performed on the library.
+    attributes : dict[str, str]
+        Additional descriptive attributes for the library, optional. E.g. {'title': 'Hela-rep-2'}, etc.
     description : str
         A description of the experiment, if available.
     """
@@ -29,6 +31,7 @@ class Experiment:
     library: Library = field()
     runs: tuple[SeqRun, ...] = field(converter=lambda x: tuple(x))
     # Optional fields
+    attributes: dict[str, str] = field(factory=dict)
     description: str | None = field(default=None)
 
     @ind.validator

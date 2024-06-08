@@ -29,10 +29,14 @@ def _ensure_correctness(project: Project, serializer, deserializer):
 ])
 @pytest.mark.parametrize("lib", [
     Library(("transcriptome",), ("poly-A", "nuclear fraction"), Stranding.Unknown),
-    Library(("DNA",), ("Total DNA",), Stranding.Reverse),
+    Library(("DNA",), ("Total DNA",), Stranding.Reverse, {"Efficiency": "10%"}),
 ])
 def test_yaml_adapter(runs, sample, lib):
-    exp = Experiment("Experiment", sample, lib, runs)
-    project = Project("Project", (exp,), (sample,))
+    for exp in [
+        Experiment("Experiment", sample, lib, runs),
+        Experiment("Experiment", sample, lib, runs, {"A": "B"}),
+        Experiment("Experiment", sample, lib, runs, {"A": "B", "C": "D"}, "Test"),
+    ]:
+        project = Project("Project", (exp,), (sample,))
 
-    _ensure_correctness(project, yaml.dumps, yaml.loads)
+        _ensure_correctness(project, yaml.dumps, yaml.loads)

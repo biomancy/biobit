@@ -1,3 +1,3 @@
-from .load_bioproj import load_bioproj
+from .load_seqproj import load_seqproj
 
-__all__ = ["load_bioproj"]
+__all__ = ["load_seqproj"]

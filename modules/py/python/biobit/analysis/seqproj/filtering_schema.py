@@ -83,7 +83,9 @@ class FilteringSchema:
                 if not runs:
                     continue
                 # Add the experiment to the list of passed experiments
-                passed_experiments.append(Experiment(exp.ind, exp.sample, exp.library, runs, exp.description))
+                passed_experiments.append(
+                    Experiment(exp.ind, exp.sample, exp.library, runs, exp.attributes, exp.description)
+                )
 
             # Keep only samples that are present in at least one experiment
             samples = {exp.sample.ind for exp in passed_experiments}

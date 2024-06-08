@@ -16,7 +16,7 @@ class Project:
 
     def __init__(
             self, source: seqproj.Project, resfolder: os.PathLike[str], *,
-            bioexp2descriptor: Callable[[seqproj.Experiment], str] = descriptor.from_bioexp,
+            bioexp2descriptor: Callable[[seqproj.Experiment], str] = descriptor.from_seqexp,
             ensure_exists: bool = False
     ):
         resfolder = Path(resfolder)

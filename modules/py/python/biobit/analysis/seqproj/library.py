@@ -48,18 +48,21 @@ class Library:
         Were there any selection/enrichment steps during library generation?
     stranding : Stranding
         What is the stranding of the library?
+    attributes : dict[str, str]
+        Additional descriptive attributes for the library, optional. E.g. {'RIP Ab': 'Z22', 'RIN': '7'}, etc.
     """
     source: tuple[str, ...] = field(converter=lambda x: tuple(x))
     selection: tuple[str, ...] = field(converter=lambda x: tuple(x))
     stranding: Stranding = field(converter=lambda x: Stranding.normalize(x))
+    attributes: dict[str, str] = field(factory=dict)
 
     @source.validator
-    def check_source(self, _, value):
+    def _check_source(self, _, value):
         if not value:
             raise ValueError("Library source must be specified")
 
     @selection.validator
-    def check_selection(self, _, value):
+    def _check_selection(self, _, value):
         if not value:
             raise ValueError("Library selection method must be specified")
 

@@ -5,12 +5,12 @@ from typing import Callable
 from biobit.analysis import seqproj
 from . import descriptor
 
-__all__ = ["from_bioproj"]
+__all__ = ["from_seqproj"]
 
 
-def from_bioproj(
+def from_seqproj(
         project: seqproj.Project, saveto: os.PathLike[str] | TextIOBase, *,
-        bioexp2desc: Callable[[seqproj.Experiment], str] = descriptor.from_bioexp
+        seqexp2desc: Callable[[seqproj.Experiment], str] = descriptor.from_seqexp
 ) -> str:
     """
     Converts a given bio project into an input file (design) for the nf-core/rnaseq pipeline.
@@ -23,13 +23,13 @@ def from_bioproj(
 
     :param project: The project object to be converted.
     :param saveto: The destination for the output. This can be a file path (as a string or Path object) or a TextIO stream.
-    :param bioexp2desc: A function that converts a bioproj experiment into a human-readable descriptor (sample column).
+    :param seqexp2desc: A function that converts a seqproj experiment into a human-readable descriptor (sample column).
     :return: The content of the generated input file.
     """
     # Columns
     lines = ["sample,fastq_1,fastq_2,strandedness"]
     for exp in project.experiments:
-        descriptor = bioexp2desc(exp)
+        descriptor = seqexp2desc(exp)
 
         # Convert stranding to the nf-core/rnaseq format
         match exp.library.stranding:
