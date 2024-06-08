@@ -9,6 +9,7 @@ pub trait Alignable {
     }
     fn len(&self) -> usize;
     fn at(&self, pos: usize) -> &Self::Symbol;
+    fn reversed(self) -> Reversed<Self> where Self: Sized { Reversed::new(self) }
 }
 
 impl<'a, T: Copy> Alignable for &'a [T] {
