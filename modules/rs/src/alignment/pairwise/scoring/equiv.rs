@@ -1,3 +1,5 @@
+use crate::core::alignment;
+
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Type {
@@ -41,6 +43,16 @@ impl Classifier for Equality {
             Type::Match
         } else {
             Type::Mismatch
+        }
+    }
+}
+
+impl From<Type> for alignment::pairwise::Op {
+    fn from(value: Type) -> Self {
+        match value {
+            Type::Match => alignment::pairwise::Op::Match,
+            Type::Mismatch => alignment::pairwise::Op::Mismatch,
+            Type::Equivalent => alignment::pairwise::Op::Equivalent,
         }
     }
 }

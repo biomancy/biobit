@@ -1,4 +1,4 @@
-/// Traits to mark collections supporting multiple read-only or mutable views to the underlying data.
+/// Traits to mark ds supporting multiple read-only or mutable views to the underlying data.
 ///
 /// These traits return a simple facade, and the actual views are constructed by calling
 /// facade methods. Introducing a facade might seem redundant, but it is necessary to ensure a

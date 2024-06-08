@@ -22,3 +22,4 @@ geo = "0.28.0"
 num = "0.4.1"
 eyre = "0.6.12"
 pyo3 = { version = "0.21.2", features = ["eyre"] }
+noodles = { version = "0.76.0", features = ["bam", "sam"] }

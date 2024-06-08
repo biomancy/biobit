@@ -1,5 +1,3 @@
-pub use alignable::Alignable;
-
-pub mod alignable;
+pub use crate::core::alignment::alignable::Alignable;
 
 pub mod pairwise;
