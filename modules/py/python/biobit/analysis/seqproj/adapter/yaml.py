@@ -1,4 +1,5 @@
 import os
+from collections import Counter
 from io import TextIOBase
 
 import cattrs.preconf.pyyaml
@@ -30,8 +31,9 @@ def _structure_hook(data: dict, ttype: type) -> Project:
     assert ttype is Project
 
     samples = _YAML_CONVERTER.structure(data["samples"], tuple[Sample, ...])
-    if len(samples) != len(set(s.ind for s in samples)):
-        raise ValueError("Sample IDs must be unique")
+    non_unique = [(k, v) for k, v in Counter(s.ind for s in samples).items() if v >= 2]
+    if non_unique:
+        raise ValueError(f"Sample IDs must be unique, got: {non_unique}")
 
     samples_mapping = {s.ind: s for s in samples}
     experiments = tuple(Experiment(
