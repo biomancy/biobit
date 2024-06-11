@@ -26,42 +26,44 @@ def run(
         partition: Partition[_T],
         resolution: Resolution[list[Overlap[_T]], Counts[_T]],
 ) -> tuple[_K, Counts[_T], CountingStats]:
-    if len(partition) == 0:
-        raise ValueError("Partition must have at least one interval")
-
     launched_at = time.time()
-
-    # Build the index
-    skeleton = {
-        (partition.contig, Orientation.fwd): IntervalTree(),
-        (partition.contig, Orientation.rev): IntervalTree(),
-        (partition.contig, Orientation.dual): IntervalTree(),
-    }
-    assert all(i.contig == partition.contig for i in partition.intervals)
-
-    start, end = partition.rng.start, partition.rng.end
-    for interval, data in zip(partition.intervals, partition.data):
-        skeleton[(partition.contig, interval.orient)].addi(
-            interval.rng.start, interval.rng.end, data=data
-        )
-        start = min(start, interval.rng.start)
-        end = max(end, interval.rng.end)
-
-    # Sanity check
-    if start != partition.rng.start or end != partition.rng.end:
-        raise ValueError(
-            f"Partition intervals do not cover the entire partition range: "
-            f"expected {partition.rng}, but got {(start, end)}"
-        )
-
-    index: GenomicIndex[_T] = GenomicIndex(skeleton)
-
-    # Count reads
     counts: dict[_T | None, float] = defaultdict(float)
-    for blocks in source.fetch(partition.contig, partition.rng.start, partition.rng.end):
-        overlaps = [index.overlap(partition.contig, blocks.orientation, rng=rng) for rng in blocks.blocks]
-        for k, v in resolution(overlaps).items():
-            counts[k] += v
+
+    if len(partition) == 0:
+        for _ in source.fetch(partition.contig, partition.rng.start, partition.rng.end):
+            for k, v in resolution([]).items():
+                counts[k] += v
+    else:
+        # Build the index
+        skeleton = {
+            (partition.contig, Orientation.fwd): IntervalTree(),
+            (partition.contig, Orientation.rev): IntervalTree(),
+            (partition.contig, Orientation.dual): IntervalTree(),
+        }
+        assert all(i.contig == partition.contig for i in partition.intervals)
+
+        start, end = partition.rng.start, partition.rng.end
+        for interval, data in zip(partition.intervals, partition.data):
+            skeleton[(partition.contig, interval.orient)].addi(
+                interval.rng.start, interval.rng.end, data=data
+            )
+            start = min(start, interval.rng.start)
+            end = max(end, interval.rng.end)
+
+        # Sanity check
+        if start != partition.rng.start or end != partition.rng.end:
+            raise ValueError(
+                f"Partition intervals do not cover the entire partition range: "
+                f"expected {partition.rng}, but got {(start, end)}"
+            )
+
+        index: GenomicIndex[_T] = GenomicIndex(skeleton)
+
+        # Count reads
+        for blocks in source.fetch(partition.contig, partition.rng.start, partition.rng.end):
+            overlaps = [index.overlap(partition.contig, blocks.orientation, rng=rng) for rng in blocks.blocks]
+            for k, v in resolution(overlaps).items():
+                counts[k] += v
 
     finished_at = time.time()
 
