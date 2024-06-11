@@ -42,17 +42,17 @@ class Library:
 
     Attributes
     ----------
-    source : tuple[str, ...]
+    source : set[str]
         What molecules were used to generate the library?
-    selection : tuple[str, ...]
+    selection : set[str]
         Were there any selection/enrichment steps during library generation?
     stranding : Stranding
         What is the stranding of the library?
     attributes : dict[str, str]
         Additional descriptive attributes for the library, optional. E.g. {'RIP Ab': 'Z22', 'RIN': '7'}, etc.
     """
-    source: tuple[str, ...] = field(converter=lambda x: tuple(x))
-    selection: tuple[str, ...] = field(converter=lambda x: tuple(x))
+    source: set[str] = field(converter=lambda x: set(x))
+    selection: set[str] = field(converter=lambda x: set(x))
     stranding: Stranding = field(converter=lambda x: Stranding.normalize(x))
     attributes: dict[str, str] = field(factory=dict)
 

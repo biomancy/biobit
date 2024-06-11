@@ -67,9 +67,9 @@ def test_seqrun_validators():
 
 
 def test_sample_creation():
-    sample = Sample("S1", ("Homo sapiens",), {"Confluence": "75%", "Source": "HeLa"}, "Description")
+    sample = Sample("S1", {"Homo sapiens"}, {"Confluence": "75%", "Source": "HeLa"}, "Description")
     assert sample.ind == "S1"
-    assert sample.organism == ("Homo sapiens",)
+    assert sample.organism == {"Homo sapiens"}
     assert sample.attributes == {"Confluence": "75%", "Source": "HeLa"}
     assert sample.description == "Description"
     # assert repr(sample) == f"Sample(S1, ('Homo sapiens',), {{'Confluence': '75%', 'Source': 'HeLa'}}, Description)"
@@ -80,9 +80,9 @@ def test_sample_creation():
 
 
 def test_sample_without_description():
-    sample = Sample("Mmus", ("Mus musculus",))
+    sample = Sample("Mmus", {"Mus musculus"})
     assert sample.ind == "Mmus"
-    assert sample.organism == ("Mus musculus",)
+    assert sample.organism == {"Mus musculus"}
     assert sample.attributes == {}
     assert sample.description is None
 
@@ -99,13 +99,13 @@ def test_sample_with_empty_organism():
 
 def test_sample_with_empty_attributes():
     with pytest.raises(ValueError):
-        Sample("Sample", ("Organism",), {"Confluence": ""})
+        Sample("Sample", {"Organism"}, {"Confluence": ""})
 
 
 def test_library_creation():
     library = Library(source=("DNA",), selection=("PCR",), stranding=Stranding.Forward)
-    assert library.source == ("DNA",)
-    assert library.selection == ("PCR",)
+    assert library.source == {"DNA"}
+    assert library.selection == {"PCR"}
     assert library.stranding == Stranding.Forward
     # assert repr(library) == "Library(('DNA',), ('PCR',), forward)"
     # assert str(library) == ("Library:\n"
@@ -133,9 +133,9 @@ def test_library_stranding_normalization_invalid():
 
 def test_library_creation_invalid_source():
     with pytest.raises(ValueError):
-        Library(source=(), selection=("PCR",), stranding=Stranding.Forward)
+        Library(source=set(), selection={"PCR"}, stranding=Stranding.Forward)
 
 
 def test_library_creation_invalid_selection():
     with pytest.raises(ValueError):
-        Library(source=("DNA",), selection=(), stranding=Stranding.Forward)
+        Library(source={"DNA"}, selection=set(), stranding=Stranding.Forward)

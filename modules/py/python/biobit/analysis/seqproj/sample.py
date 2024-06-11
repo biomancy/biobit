@@ -10,15 +10,15 @@ class Sample:
     ----------
     ind : str
         Sample ID, must be unique within the project.
-    organism : tuple[str, ...]
-        Organism(s) from which the sample was derived. E.g. ('Homo sapiens',), ('Mus musculus', 'HSV-1'), etc.
+    organism : set[str]
+        Organism(s) from which the sample was derived. E.g. {'Homo sapiens'}, {'Mus musculus', 'HSV-1'}, etc.
     attributes: dict[str, str]
         Additional descriptive attributes for the sample, optional. E.g. {'Confluence': '75%', 'Source': 'HeLa'}, etc.
     description: str
         A description of the sample, if available.
     """
     ind: str = field()
-    organism: tuple[str, ...] = field(converter=lambda x: tuple(x))
+    organism: set[str] = field(converter=lambda x: set(x))
     # Optional meta information
     attributes: dict[str, str] = field(factory=dict)
     description: str | None = field(default=None)
