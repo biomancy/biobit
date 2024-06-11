@@ -48,7 +48,7 @@ class Partition(Generic[_T]):
         for d, i in zip(data, intervals):
             contigs[i.contig].append((i, d))
 
-        result = []
+        result: list[Partition[_T]] = []
         # Add empty partitions for contigs without annotations
         for contig, size in contig_size.items():
             if contig not in contigs:
