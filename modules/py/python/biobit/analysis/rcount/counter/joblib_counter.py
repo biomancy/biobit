@@ -1,15 +1,16 @@
 import copy
 import time
-from attrs import define
-from attrs import field
 from collections import defaultdict
 from collections.abc import Iterable
-from intervaltree import IntervalTree
-from joblib import Parallel, delayed
 from typing import TypeVar, cast
 
+from attrs import define
+from attrs import field
+from intervaltree import IntervalTree
+from joblib import Parallel, delayed
+
+from biobit.core import Interval, Orientation
 from biobit.ds.gindex import Overlap, GenomicIndex
-from biobit.core import Interval, Orientation, Range
 from .partition import Partition
 from .reads_counter import MultiReadsCounter, CountingStats
 from ..resolve import Counts, Resolution
@@ -38,21 +39,26 @@ def run(
     }
     assert all(i.contig == partition.contig for i in partition.intervals)
 
-    start, end = partition.intervals[0].rng.start, partition.intervals[0].rng.end
+    start, end = partition.rng.start, partition.rng.end
     for interval, data in zip(partition.intervals, partition.data):
         skeleton[(partition.contig, interval.orient)].addi(
             interval.rng.start, interval.rng.end, data=data
         )
-
         start = min(start, interval.rng.start)
         end = max(end, interval.rng.end)
 
+    # Sanity check
+    if start != partition.rng.start or end != partition.rng.end:
+        raise ValueError(
+            f"Partition intervals do not cover the entire partition range: "
+            f"expected {partition.rng}, but got {(start, end)}"
+        )
+
     index: GenomicIndex[_T] = GenomicIndex(skeleton)
-    index_range = Range(start, end)
 
     # Count reads
     counts: dict[_T | None, float] = defaultdict(float)
-    for blocks in source.fetch(partition.contig, index_range.start, index_range.end):
+    for blocks in source.fetch(partition.contig, partition.rng.start, partition.rng.end):
         overlaps = [index.overlap(partition.contig, blocks.orientation, rng=rng) for rng in blocks.blocks]
         for k, v in resolution(overlaps).items():
             counts[k] += v
@@ -64,7 +70,7 @@ def run(
 
     stats = CountingStats(
         time=finished_at - launched_at,
-        partition=Interval(partition.contig, index_range),
+        partition=Interval(partition.contig, partition.rng),
         inside=sum(counts.values()),
         outside=no_overlap,
         extra=source.stats()
@@ -84,22 +90,12 @@ class JoblibMultiReadsCounter(MultiReadsCounter[_T, _K]):
     _counts: dict[_K, Counts[_T]] = field(factory=dict, init=False)
     _stats: list[CountingStats] = field(factory=list, init=False)
 
-    def count(self, data: Iterable[_T], intervals: Iterable[Interval]):
+    def count(self, partitions: Iterable[Partition]) -> None:
         """
         Count the reads in the given intervals.
 
-        :param data: The data to count.
-        :param intervals: Intervals associated with the data.
+        :param partitions: Partitions to count reads in.
         """
-        _data, _intervals = list(data), list(intervals)
-        if len(_data) != len(_intervals):
-            raise ValueError(
-                f"Data and intervals must have the same length, got {len(_data)} and {len(_intervals)} respectively."
-            )
-
-        # Group data into local partitions to support the parallel counting
-        partitions = Partition.from_intervals(_data, _intervals)
-
         # Run the counting process
         results = self.parallel(
             delayed(run)(tag, copy.deepcopy(source), partition, self.resolution)
@@ -117,8 +113,6 @@ class JoblibMultiReadsCounter(MultiReadsCounter[_T, _K]):
 
     def counts(self) -> dict[_K, Counts[_T]]:
         return self._counts
-
-    # TODO: I want counts as dict kind of things!!!
 
     def sources(self) -> dict[_K, Source]:
         return self._sources
