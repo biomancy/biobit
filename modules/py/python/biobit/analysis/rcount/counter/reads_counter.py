@@ -3,6 +3,7 @@ from typing import Protocol, TypeVar, Iterable
 from attrs import define, field
 
 from biobit.core import Interval
+from .partition import Partition
 from ..resolve import Counts
 from ..source import Source
 
@@ -30,7 +31,7 @@ class CountingStats:
 
 
 class MultiReadsCounter(Protocol[_T, _K]):
-    def count(self, data: Iterable[_T], intervals: Iterable[Interval]):
+    def count(self, partition: Iterable[Partition[_T]]) -> None:
         ...
 
     def counts(self) -> dict[_K, Counts[_T]]:
