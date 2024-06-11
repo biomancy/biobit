@@ -2,8 +2,8 @@ from typing import Callable, Literal
 
 from pysam import AlignedSegment
 
-from .strand import Strand
 from biobit.analysis import seqproj
+from .strand import Strand
 
 StrandDeductor = Callable[[AlignedSegment], Strand]
 
@@ -37,9 +37,9 @@ def from_bioproj(experiment: seqproj.Experiment) -> StrandDeductor:
         case (seqproj.SeqLayout.Single, seqproj.Stranding.Reverse):
             return _f
         case (seqproj.SeqLayout.Paired, seqproj.Stranding.Forward):
-            return _fs
-        case (seqproj.SeqLayout.Paired, seqproj.Stranding.Reverse):
             return _sf
+        case (seqproj.SeqLayout.Paired, seqproj.Stranding.Reverse):
+            return _fs
         case _:
             raise ValueError(
                 f"Unsupported layout/stranding combination: {layout}/{experiment.library.stranding}\n"
