@@ -1,1 +1,1 @@
-mod alignment;
+mod pairwise;

@@ -1,2 +1,1 @@
-// mod bam;
-// mod data;
+pub mod bam;

@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 
 use geo::{Intersects, Line};
 
-use crate::analysis::alignment::pairwise::alignment::{CoalescedStep, Op, Step};
-use crate::analysis::alignment::pairwise::scoring;
-use crate::analysis::alignment::Alignable;
+use crate::alignment::pairwise::alignment::{CoalescedStep, Op, Step};
+use crate::alignment::pairwise::scoring;
+use crate::alignment::Alignable;
 
 pub fn disambiguate<Scheme, Seq1, Seq2>(
     ops: Vec<Step>,

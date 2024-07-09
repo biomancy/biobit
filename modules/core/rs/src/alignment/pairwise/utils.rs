@@ -1,61 +1,61 @@
-use super::op::Op;
-use super::step::Step;
+// use super::op::Op;
+// use super::step::Step;
 
-pub fn rle(steps: &[Step], len: usize) -> String {
-    // TODO collapse identical ops
-    let mut result = String::with_capacity(len * 4 + 1);
-    for step in steps {
-        result.push_str(&step.len.to_string());
-        result.push(step.op.symbol());
-    }
-    result
-}
-
-
-pub fn prettify(mut seq1: &str, mut seq2: &str, steps: &[Step], total: usize) -> String {
-    let mut lines = [
-        String::with_capacity(total + 1),
-        String::with_capacity(total + 1),
-        String::with_capacity(total + 1),
-    ];
-
-    for step in steps {
-        let len = step.len as usize;
-
-        let symbol = match step.op {
-            Op::GapFirst | Op::GapSecond => " ",
-            Op::Equivalent => "~",
-            Op::Match => "|",
-            Op::Mismatch => "*",
-        }
-            .repeat(len);
-        lines[1].push_str(&symbol);
-
-        match step.op {
-            Op::GapFirst => {
-                lines[0].push_str(&"-".repeat(len));
-                lines[2].push_str(&seq2[..len]);
-
-                seq2 = &seq2[len..];
-            }
-            Op::GapSecond => {
-                lines[0].push_str(&seq1[len..]);
-                lines[2].push_str(&"-".repeat(len));
-
-                seq1 = &seq1[len..];
-            }
-            Op::Equivalent | Op::Mismatch | Op::Match => {
-                lines[0].push_str(&seq1[len..]);
-                lines[2].push_str(&seq2[len..]);
-
-                seq1 = &seq1[len..];
-                seq2 = &seq2[len..];
-            }
-        };
-    }
-
-    lines.into_iter().collect()
-}
+// pub fn rle(steps: &[Step], len: usize) -> String {
+//     // TODO collapse identical ops
+//     let mut result = String::with_capacity(len * 4 + 1);
+//     for step in steps {
+//         result.push_str(&step.len.to_string());
+//         result.push(step.op.symbol());
+//     }
+//     result
+// }
+//
+//
+// pub fn prettify(mut seq1: &str, mut seq2: &str, steps: &[Step], total: usize) -> String {
+//     let mut lines = [
+//         String::with_capacity(total + 1),
+//         String::with_capacity(total + 1),
+//         String::with_capacity(total + 1),
+//     ];
+//
+//     for step in steps {
+//         let len = step.len as usize;
+//
+//         let symbol = match step.op {
+//             Op::GapFirst | Op::GapSecond => " ",
+//             Op::Equivalent => "~",
+//             Op::Match => "|",
+//             Op::Mismatch => "*",
+//         }
+//             .repeat(len);
+//         lines[1].push_str(&symbol);
+//
+//         match step.op {
+//             Op::GapFirst => {
+//                 lines[0].push_str(&"-".repeat(len));
+//                 lines[2].push_str(&seq2[..len]);
+//
+//                 seq2 = &seq2[len..];
+//             }
+//             Op::GapSecond => {
+//                 lines[0].push_str(&seq1[len..]);
+//                 lines[2].push_str(&"-".repeat(len));
+//
+//                 seq1 = &seq1[len..];
+//             }
+//             Op::Equivalent | Op::Mismatch | Op::Match => {
+//                 lines[0].push_str(&seq1[len..]);
+//                 lines[2].push_str(&seq2[len..]);
+//
+//                 seq1 = &seq1[len..];
+//                 seq2 = &seq2[len..];
+//             }
+//         };
+//     }
+//
+//     lines.into_iter().collect()
+// }
 
 // pub fn intersects(
 //     mut iter1: impl Iterator<Item=CoalescedStep>,

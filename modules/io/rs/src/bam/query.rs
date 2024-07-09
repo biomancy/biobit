@@ -1,11 +1,14 @@
 use std::io;
 
-use gat_lending_iterator::LendingIterator;
-use noodles::{bgzf, csi};
+use ::higher_kinded_types::prelude::*;
 use noodles::bam::{io::Reader, Record};
 use noodles::core::region::Interval;
 use noodles::csi::binning_index::index::reference_sequence::bin::Chunk;
 use noodles::sam::alignment::Record as _;
+use noodles::{bgzf, csi};
+
+use biobit_core_rs::LendingIterator;
+
 
 pub struct Query<'a, R> {
     reader: Reader<csi::io::Query<'a, R>>,
@@ -59,12 +62,14 @@ where
         ) {
             (Some(id), Some(start), Some(end)) => {
                 let alignment_interval = (start..=end).into();
-                Ok(id == self.reference_sequence_id && self.interval.intersects(alignment_interval))
+                Ok(
+                    id == self.reference_sequence_id
+                        && self.interval.intersects(alignment_interval),
+                )
             }
             _ => Ok(false),
         }
     }
-
 
     fn read(&mut self) -> io::Result<usize> {
         let mut processed = 0;
@@ -83,33 +88,17 @@ where
     }
 }
 
-
-impl<'a, R> LendingIterator for Query<'a, R>
+impl<'borrow, R> LendingIterator for Query<'borrow, R>
 where
     R: bgzf::io::BufRead + bgzf::io::Seek,
 {
-    type Item<'b>
-    where
-        Self: 'b,
-    = io::Result<&'b [Record]>;
+    type Item = For!(<'iter> = io::Result<&'iter [Record]>);
 
-    fn next(self: &'_ mut Self) -> Option<Self::Item<'_>> {
+    fn next(self: &'_ mut Self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.read() {
             Ok(0) => None,
             Ok(n) => Some(Ok(&self.cache[..n])),
             Err(e) => Some(Err(e)),
-        }
-    }
-}
-
-fn a() {
-    use super::reader::ReaderBuilder;
-    let mut reader = ReaderBuilder::new("file.bam").build();
-    let mut query = reader.query("chr1", 1, 100).unwrap();
-    while let Some(records) = query.next() {
-        let records = records.unwrap();
-        for record in records {
-            println!("{}", record.alignment_start().unwrap().unwrap());
         }
     }
 }

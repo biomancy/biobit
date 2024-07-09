@@ -1,3 +1,3 @@
-pub use crate::core::alignment::Alignable;
+pub use biobit_core_rs::alignment::Alignable;
 
 pub mod pairwise;

@@ -3,15 +3,15 @@ use std::fmt::Display;
 use super::strand::Strand;
 
 /// A type representing the orientation of an object in the genome
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Orientation {
     /// Object is located on the forward strand, also known as the positive strand or Watson strand.
-    Forward,
+    Forward = 1,
     /// Object is located on the reverse strand, also known as the negative strand or Crick strand.
-    Reverse,
+    Reverse = -1,
     /// Object is located on both strands (e.g. a CpG island or a bidirectional promoter).
-    Dual,
+    Dual = 0,
 }
 
 impl Orientation {
@@ -91,7 +91,7 @@ impl From<Strand> for Orientation {
     }
 }
 
-
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -129,11 +129,22 @@ mod tests {
         assert_eq!(Orientation::try_from('-'), Ok(Orientation::Reverse));
         assert_eq!(Orientation::try_from('='), Ok(Orientation::Dual));
         assert_eq!(Orientation::try_from('x'), Err(()));
+
+        assert_eq!(Orientation::try_from(1), Ok(Orientation::Forward));
+        assert_eq!(Orientation::try_from(-1), Ok(Orientation::Reverse));
+        assert_eq!(Orientation::try_from(0), Ok(Orientation::Dual));
+        assert_eq!(Orientation::try_from(2), Err(()));
     }
 
     #[test]
     fn test_orientation_try_from_strand() {
-        assert_eq!(Orientation::try_from(Strand::Forward), Ok(Orientation::Forward));
-        assert_eq!(Orientation::try_from(Strand::Reverse), Ok(Orientation::Reverse));
+        assert_eq!(
+            Orientation::try_from(Strand::Forward),
+            Ok(Orientation::Forward)
+        );
+        assert_eq!(
+            Orientation::try_from(Strand::Reverse),
+            Ok(Orientation::Reverse)
+        );
     }
 }

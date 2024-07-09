@@ -1,8 +1,8 @@
 use tracers::Tracers;
 
-use crate::analysis::alignment::pairwise::sw::{algo, storage, traceback};
-use crate::analysis::alignment::pairwise::{alignment, scoring};
-use crate::analysis::alignment::Alignable;
+use crate::alignment::pairwise::sw::{algo, storage, traceback};
+use crate::alignment::pairwise::{alignment, scoring};
+use crate::alignment::Alignable;
 
 mod tracers;
 

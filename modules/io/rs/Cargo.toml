@@ -13,4 +13,8 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
+noodles = { workspace = true }
+derive-getters = { workspace = true }
+derive_more = { workspace = true }
+higher-kinded-types = { workspace = true }
 biobit-core-rs = { path = "../../core/rs" }

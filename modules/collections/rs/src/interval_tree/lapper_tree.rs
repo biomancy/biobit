@@ -1,45 +1,52 @@
+use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From};
-use gat_lending_iterator::LendingIterator;
 use rust_lapper;
 
-use biobit_core_rs::loc::{Interval, LikeInterval};
-use biobit_core_rs::num::{PrimInt, Unsigned};
+use biobit_core_rs::{
+    loc::{Segment, SegmentLike},
+    num::{PrimInt, Unsigned},
+    LendingIterator,
+};
 
-use super::traits::{IntervalTree, IntervalTreeBuilder, IntervalTreeElement, IntervalTreeLendingIterator};
+use super::traits::{Builder, ITree};
 
 #[derive(Debug, Clone, From, Dissolve)]
-pub struct LapperIntervalTreeBuilder<Idx, T>(rust_lapper::Lapper<Idx, T>)
+pub struct LapperBuilder<Idx, T>(rust_lapper::Lapper<Idx, T>)
 where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync;
 
-impl<Idx, T> Default for LapperIntervalTreeBuilder<Idx, T>
+impl<Idx, T> Default for LapperBuilder<Idx, T>
 where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
-    fn default() -> Self { rust_lapper::Lapper::new(vec![]).into() }
+    fn default() -> Self {
+        rust_lapper::Lapper::new(vec![]).into()
+    }
 }
 
-impl<Idx, T> LapperIntervalTreeBuilder<Idx, T>
+impl<Idx, T> LapperBuilder<Idx, T>
 where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
-impl<Idx, T> IntervalTreeBuilder for LapperIntervalTreeBuilder<Idx, T>
+impl<Idx, T> Builder for LapperBuilder<Idx, T>
 where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
     type Idx = Idx;
     type Value = T;
-    type Tree = LapperIntervalTree<Idx, T>;
+    type Tree = LapperTree<Idx, T>;
 
-    fn add(mut self, interval: &impl LikeInterval<Idx=Idx>, value: T) -> Self {
+    fn add(mut self, interval: &impl SegmentLike<Idx = Idx>, value: T) -> Self {
         let elem = rust_lapper::Interval {
             start: interval.start(),
             stop: interval.end(),
@@ -49,28 +56,34 @@ where
         self
     }
 
-    fn build(self) -> Self::Tree { LapperIntervalTree(self.0) }
+    fn build(self) -> Self::Tree {
+        LapperTree(self.0)
+    }
 }
 
 #[derive(Debug, Clone, From, Dissolve)]
-pub struct LapperIntervalTree<Idx, T>(rust_lapper::Lapper<Idx, T>)
+pub struct LapperTree<Idx, T>(rust_lapper::Lapper<Idx, T>)
 where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync;
 
-impl<Idx, T> IntervalTree for LapperIntervalTree<Idx, T>
+impl<Idx, T> ITree for LapperTree<Idx, T>
 where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
     type Idx = Idx;
     type Value = T;
-    type Iter<'borrow> = LapperIntersectionIter<'borrow, Idx, T>
-    where
-        Self: 'borrow;
+    type Iter = For!(<'borrow> = LapperIntersectionIter<'borrow, Idx, T>);
 
-    fn intersection(&self, interval: &impl LikeInterval<Idx=Self::Idx>) -> Self::Iter<'_> {
-        let interval = Interval::new(interval.start(), interval.end())
+    fn intersection<'a>(
+        &'a self,
+        interval: &impl SegmentLike<Idx = Self::Idx>,
+    ) -> <Self::Iter as ForLt>::Of<'a>
+    where
+        <Self::Iter as ForLt>::Of<'a>: LendingIterator,
+    {
+        let interval = Segment::new(interval.start(), interval.end())
             .expect("Invalid interval (lapper intersection)");
 
         LapperIntersectionIter::<Idx, T>::new(
@@ -86,42 +99,36 @@ where
     Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
-    interval: Interval<Idx>,
+    interval: Segment<Idx>,
     inner: rust_lapper::IterFind<'a, Idx, T>,
 }
 
-impl<'a, Idx: PrimInt, T> IntervalTreeLendingIterator<'a, Idx, T> for LapperIntersectionIter<'a, Idx, T>
+impl<'borrow, Idx: PrimInt, T> LendingIterator for LapperIntersectionIter<'borrow, Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'a,
-    T: Eq + Clone + Send + Sync + 'a,
+    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'borrow,
+    T: Eq + Clone + Send + Sync + 'borrow,
 {
-    type Item<'b> = (&'b Interval<Idx>, &'a T)
-    where
-        Self: 'b,
-        Idx: 'b,
-        T: 'a;
+    type Item = For!(<'iter> = (&'iter Segment<Idx>, &'borrow T));
 
-    fn next(&mut self) -> Option<Self::Item<'_>> {
+    fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.inner.next() {
             None => None,
             Some(item) => {
-                self.interval.start = item.start;
-                self.interval.end = item.stop;
+                self.interval = Segment::new(item.start, item.stop).unwrap();
                 Some((&self.interval, &item.val))
             }
         }
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::traits::tests;
+    use super::*;
 
     #[test]
     fn test_lapper_interval_tree() {
-        let builder: LapperIntervalTreeBuilder<usize, usize> = rust_lapper::Lapper::new(vec![]).into();
+        let builder: LapperBuilder<usize, usize> = rust_lapper::Lapper::new(vec![]).into();
         tests::test_empty_tree(builder.clone());
         tests::test_single_interval_tree(builder.clone());
         tests::test_multi_interval_tree(builder);

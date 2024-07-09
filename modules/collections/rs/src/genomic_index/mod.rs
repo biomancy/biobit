@@ -1,4 +1,5 @@
-pub use overlap::{OverlapIntervals, OverlapSteps};
+pub use index::GenomicIndex;
+pub use overlap::{OverlapSegments, OverlapSteps};
 
-mod overlap;
 mod index;
+mod overlap;

@@ -1,6 +1,6 @@
-use crate::analysis::alignment::pairwise::scoring;
-use crate::analysis::alignment::pairwise::sw::algo::{BestorientationTracer, GapTracer, Tracer};
-use crate::analysis::alignment::pairwise::sw::storage::AlignmentSeed;
+use crate::alignment::pairwise::scoring;
+use crate::alignment::pairwise::sw::algo::{BestorientationTracer, GapTracer, Tracer};
+use crate::alignment::pairwise::sw::storage::AlignmentSeed;
 
 use super::Storage;
 

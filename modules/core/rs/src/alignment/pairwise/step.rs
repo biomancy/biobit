@@ -30,7 +30,8 @@ impl<Len: PrimUInt> Step<Len> {
                 match steps[writep].len.checked_add(&steps[readp].len) {
                     Some(x) => steps[writep].len = x,
                     None => {
-                        steps[readp].len = steps[readp].len - (Len::max_value() - steps[writep].len);
+                        steps[readp].len =
+                            steps[readp].len - (Len::max_value() - steps[writep].len);
                         debug_assert!(steps[readp].len > Len::zero());
                         steps[writep].len = Len::max_value();
 
@@ -47,14 +48,12 @@ impl<Len: PrimUInt> Step<Len> {
         steps.truncate(writep + 1);
     }
 
-
     /// Repack steps by using a different step size and optimizing the overall memory usage.
     /// Identical operations are merged as much as possible while steps exceeding the maximum length are split.
     pub fn repack<T: PrimUInt>() -> Step<T> {
         todo!("Implement repack")
     }
 }
-
 
 /// An alignment step with the start position in sequence coordinates
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -63,14 +62,13 @@ pub struct AlignedStep<Len: PrimUInt = u8, Seq1Offset: PrimUInt = u64, Seq2Offse
     pub start: Offset<Seq1Offset, Seq2Offset>,
 }
 
-
-impl<Len: PrimUInt, Seq1Offset: PrimUInt, Seq2Offset: PrimUInt> AlignedStep<Len, Seq1Offset, Seq2Offset>
+impl<Len: PrimUInt, Seq1Offset: PrimUInt, Seq2Offset: PrimUInt>
+    AlignedStep<Len, Seq1Offset, Seq2Offset>
 where
     Len: Into<Seq1Offset> + Into<Seq2Offset>,
 {
     /// Get the end position of the step in sequence coordinates (e.g. the alignment position after applying the step)
-    pub fn end(&self) -> Offset<Seq1Offset, Seq2Offset>
-    {
+    pub fn end(&self) -> Offset<Seq1Offset, Seq2Offset> {
         let mut end = self.start;
         match self.step.op {
             Op::GapFirst => end.seq1 = end.seq1 + self.step.len.into(),
@@ -87,23 +85,22 @@ where
 /// An iterator that keeps track of the current offset in the alignment
 pub struct AlignedStepIterator<
     'a,
-    T: Iterator<Item=&'a Step<Len>>,
+    T: Iterator<Item = &'a Step<Len>>,
     Len: PrimUInt + 'a = u8,
     Seq1Offset: PrimUInt = u64,
-    Seq2Offset: PrimUInt = u64
+    Seq2Offset: PrimUInt = u64,
 > {
     pub iter: Peekable<T>,
     pub offset: Offset<Seq1Offset, Seq2Offset>,
 }
 
-
 impl<
-    'a,
-    T: Iterator<Item=&'a Step<Len>>,
-    Len: PrimUInt,
-    Seq1Offset: PrimUInt,
-    Seq2Offset: PrimUInt
-> Iterator for AlignedStepIterator<'a, T, Len, Seq1Offset, Seq2Offset>
+        'a,
+        T: Iterator<Item = &'a Step<Len>>,
+        Len: PrimUInt,
+        Seq1Offset: PrimUInt,
+        Seq2Offset: PrimUInt,
+    > Iterator for AlignedStepIterator<'a, T, Len, Seq1Offset, Seq2Offset>
 where
     Len: Into<Seq1Offset> + Into<Seq2Offset>,
 {
@@ -126,6 +123,7 @@ where
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -136,10 +134,7 @@ mod tests {
                 op: Op::Match,
                 len: 5,
             },
-            start: Offset {
-                seq1: 0,
-                seq2: 0,
-            },
+            start: Offset { seq1: 0, seq2: 0 },
         };
         assert_eq!(step.end(), Offset { seq1: 5, seq2: 5 });
     }
@@ -147,49 +142,121 @@ mod tests {
     #[test]
     fn test_aligned_step_iterator() {
         let steps: Vec<Step<u8>> = vec![
-            Step { op: Op::Match, len: 1 },
-            Step { op: Op::GapFirst, len: 2 },
-            Step { op: Op::Match, len: 3 },
+            Step {
+                op: Op::Match,
+                len: 1,
+            },
+            Step {
+                op: Op::GapFirst,
+                len: 2,
+            },
+            Step {
+                op: Op::Match,
+                len: 3,
+            },
         ];
         let mut iter = AlignedStepIterator::<_, _, u64, u64> {
             iter: steps.iter().peekable(),
             offset: Offset { seq1: 10, seq2: 0 },
         };
-        assert_eq!(iter.next(), Some(AlignedStep {
-            step: Step { op: Op::Match, len: 1 },
-            start: Offset { seq1: 10, seq2: 0 },
-        }));
-        assert_eq!(iter.next(), Some(AlignedStep {
-            step: Step { op: Op::GapFirst, len: 2 },
-            start: Offset { seq1: 11, seq2: 1 },
-        }));
-        assert_eq!(iter.next(), Some(AlignedStep {
-            step: Step { op: Op::Match, len: 3 },
-            start: Offset { seq1: 13, seq2: 3 },
-        }));
+        assert_eq!(
+            iter.next(),
+            Some(AlignedStep {
+                step: Step {
+                    op: Op::Match,
+                    len: 1
+                },
+                start: Offset { seq1: 10, seq2: 0 },
+            })
+        );
+        assert_eq!(
+            iter.next(),
+            Some(AlignedStep {
+                step: Step {
+                    op: Op::GapFirst,
+                    len: 2
+                },
+                start: Offset { seq1: 11, seq2: 1 },
+            })
+        );
+        assert_eq!(
+            iter.next(),
+            Some(AlignedStep {
+                step: Step {
+                    op: Op::Match,
+                    len: 3
+                },
+                start: Offset { seq1: 13, seq2: 3 },
+            })
+        );
         assert_eq!(iter.next(), None);
     }
 
     #[test]
     fn test_step_optimize() {
         let mut steps: Vec<Step<u8>> = vec![
-            Step { op: Op::Match, len: 10 },
-            Step { op: Op::Match, len: 20 },
-            Step { op: Op::Match, len: 30 },
-            Step { op: Op::Match, len: 40 },
-            Step { op: Op::Match, len: 50 },
-            Step { op: Op::GapFirst, len: 200 },
-            Step { op: Op::GapFirst, len: 100 },
-            Step { op: Op::Match, len: 15 },
-            Step { op: Op::Match, len: 15 },
-            Step { op: Op::Match, len: 15 },
+            Step {
+                op: Op::Match,
+                len: 10,
+            },
+            Step {
+                op: Op::Match,
+                len: 20,
+            },
+            Step {
+                op: Op::Match,
+                len: 30,
+            },
+            Step {
+                op: Op::Match,
+                len: 40,
+            },
+            Step {
+                op: Op::Match,
+                len: 50,
+            },
+            Step {
+                op: Op::GapFirst,
+                len: 200,
+            },
+            Step {
+                op: Op::GapFirst,
+                len: 100,
+            },
+            Step {
+                op: Op::Match,
+                len: 15,
+            },
+            Step {
+                op: Op::Match,
+                len: 15,
+            },
+            Step {
+                op: Op::Match,
+                len: 15,
+            },
         ];
         Step::optimize(&mut steps);
-        assert_eq!(steps, vec![
-            Step { op: Op::Match, len: 150 },
-            Step { op: Op::GapFirst, len: 255 },
-            Step { op: Op::GapFirst, len: 45 },
-            Step { op: Op::Match, len: 45 },
-        ]);
+        assert_eq!(
+            steps,
+            vec![
+                Step {
+                    op: Op::Match,
+                    len: 150
+                },
+                Step {
+                    op: Op::GapFirst,
+                    len: 255
+                },
+                Step {
+                    op: Op::GapFirst,
+                    len: 45
+                },
+                Step {
+                    op: Op::Match,
+                    len: 45
+                },
+            ]
+        );
     }
 }

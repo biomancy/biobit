@@ -1,6 +1,6 @@
-use crate::analysis::alignment::pairwise::scoring;
-use crate::analysis::alignment::pairwise::sw::algo::{BestorientationTracer, GapTracer, Tracer};
-use crate::analysis::alignment::pairwise::sw::storage::{AlignmentSeed, Storage};
+use crate::alignment::pairwise::scoring;
+use crate::alignment::pairwise::sw::algo::{BestorientationTracer, GapTracer, Tracer};
+use crate::alignment::pairwise::sw::storage::{AlignmentSeed, Storage};
 
 // An efficient algorithm to locate all locally optimal alignments between two sequences allowing for gaps
 // 10.1093/bioinformatics/9.6.729

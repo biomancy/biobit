@@ -2,15 +2,14 @@ use std::fmt::Display;
 
 use super::orientation::Orientation;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[repr(i8)]
 pub enum Strand {
     /// The forward strand, also known as the positive strand or Watson strand.
-    Forward,
+    Forward = 1,
     /// The reverse strand, also known as the negative strand or Crick strand.
-    Reverse,
+    Reverse = -1,
 }
-
 
 impl Strand {
     /// Flip the strand from forward to reverse or vice versa.
@@ -38,7 +37,6 @@ impl Strand {
         }
     }
 }
-
 
 impl Display for Strand {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -82,7 +80,13 @@ impl TryFrom<Orientation> for Strand {
     }
 }
 
+impl Default for Strand {
+    fn default() -> Self {
+        Self::Forward
+    }
+}
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -122,5 +126,10 @@ mod tests {
         assert_eq!(Strand::try_from(Orientation::Forward), Ok(Strand::Forward));
         assert_eq!(Strand::try_from(Orientation::Reverse), Ok(Strand::Reverse));
         assert_eq!(Strand::try_from(Orientation::Dual), Err(()));
+    }
+
+    #[test]
+    fn test_strand_default() {
+        assert_eq!(Strand::default(), Strand::Forward);
     }
 }

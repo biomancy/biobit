@@ -1,8 +1,8 @@
 pub use allopt::AllOptimal;
 pub use best::Best;
 
-use crate::analysis::alignment::pairwise::scoring;
-use crate::analysis::alignment::pairwise::sw::algo::Tracer;
+use crate::alignment::pairwise::scoring;
+use crate::alignment::pairwise::sw::algo::Tracer;
 
 mod allopt;
 mod best;

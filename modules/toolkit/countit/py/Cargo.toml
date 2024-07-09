@@ -1,0 +1,29 @@
+[package]
+name = "biobit-countit-py"
+readme = "README.md"
+description = "Rust-powered Python library for biological data analysis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+exclude = ["test_*.py"]
+
+[lib]
+path = "src/rust/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { workspace = true }
+biobit-collections-rs = { path = "../../../collections/rs" }
+biobit-countit-rs = { path = "../rs" }
+biobit-core-py = { path = "../../../core/py" }
+biobit-io-py = { path = "../../../io/py" }
+derive_more = { workspace = true }
+derive-getters = { workspace = true }
+rayon = { workspace = true }
+higher-kinded-types = { workspace = true }
+noodles = { workspace = true }

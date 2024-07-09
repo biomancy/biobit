@@ -1,4 +1,4 @@
-use crate::core::alignment;
+use biobit_core_rs::alignment;
 
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

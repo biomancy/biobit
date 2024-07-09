@@ -24,7 +24,9 @@ pub trait Alignable {
     fn reversed(&self) -> Reversed<'_, Self>
     where
         Self: Sized,
-    { Reversed::new(&self) }
+    {
+        Reversed::new(&self)
+    }
 }
 
 impl<'a, T: Copy> Alignable for &'a [T] {
@@ -45,10 +47,14 @@ impl<T: Copy> Alignable for Vec<T> {
     type Symbol = T;
 
     #[inline(always)]
-    fn len(&self) -> usize { self.len() }
+    fn len(&self) -> usize {
+        self.len()
+    }
 
     #[inline(always)]
-    fn at(&self, pos: usize) -> &Self::Symbol { &self[pos] }
+    fn at(&self, pos: usize) -> &Self::Symbol {
+        &self[pos]
+    }
 }
 
 /// A helper struct that reverses the order of an alignable object.
@@ -62,7 +68,9 @@ impl<'a, T: Alignable> Alignable for Reversed<'a, T> {
 
     /// Returns true if the reversed object is empty.
     #[inline(always)]
-    fn is_empty(&self) -> bool { self.base.is_empty() }
+    fn is_empty(&self) -> bool {
+        self.base.is_empty()
+    }
 
     /// Total length of the reversed object.
     #[inline(always)]

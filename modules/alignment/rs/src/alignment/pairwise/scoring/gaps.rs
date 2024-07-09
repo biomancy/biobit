@@ -1,4 +1,4 @@
-use crate::analysis::alignment::pairwise::scoring::Score;
+use crate::alignment::pairwise::scoring::Score;
 
 // Gap scoring function MUST be additive
 // We can have whatever gapopen / gapextend scores you want as long as it's context independent

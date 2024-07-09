@@ -2,12 +2,20 @@ use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
+use ::higher_kinded_types::prelude::*;
 use derive_getters::{Dissolve, Getters};
 use noodles::{bam, bgzf, sam};
 use noodles::core::position::Position;
 use noodles::core::region::{Interval, Region};
+use noodles::csi::BinningIndex;
 
-use super::query::Query;
+use biobit_core_rs::LendingIterator;
+
+use super::{
+    indexed_reader::IndexedReader,
+    query::Query,
+    traits::IndexedBAM,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReaderBuilder {
@@ -58,33 +66,38 @@ impl ReaderBuilder {
         self
     }
 
-    pub fn build(self) -> Reader {
-        let mut reader = bam::io::indexed_reader::Builder::default()
-            .build_from_path(&self.filename)
-            .expect("Failed to read a BAM file");
-        let header = reader.read_header().expect("Failed to read a BAM header");
+    pub fn build(self) -> io::Result<Reader> {
+        let mut reader = IndexedReader::new(&self.filename)?;
+        let header = reader
+            .inner
+            .read_header()
+            .expect("Failed to read a BAM header");
 
         let batch_size = self.batch_size.unwrap_or_else(|| Self::DEFAULT_BATCH_SIZE);
-        let mut buffer = self.buffer.unwrap_or_else(|| Vec::with_capacity(batch_size));
+        let mut buffer = self
+            .buffer
+            .unwrap_or_else(|| Vec::with_capacity(batch_size));
 
         // Clear the buffer and resize it to the batch size
         buffer.clear();
         buffer.resize(batch_size, bam::Record::default());
 
-        Reader {
+        Ok(Reader {
+            filename: self.filename,
             inner: reader,
             header,
             buffer,
             inflags: self.inflags.unwrap_or(0),
             exflags: self.exflags.unwrap_or(0),
             minmapq: self.minmapq.unwrap_or(0),
-        }
+        })
     }
 }
 
 #[derive(Dissolve, Getters)]
 pub struct Reader {
-    inner: bam::io::IndexedReader<bgzf::reader::Reader<File>>,
+    filename: PathBuf,
+    inner: IndexedReader<bgzf::reader::Reader<File>>,
     header: sam::header::Header,
     buffer: Vec<bam::Record>,
     inflags: u16,
@@ -92,24 +105,41 @@ pub struct Reader {
     minmapq: u8,
 }
 
-impl Reader {
-    pub fn query<'a, 'b>(
-        &'a mut self, contig: &'b str, start: usize, end: usize,
-    ) -> io::Result<Query<'a, bgzf::reader::Reader<File>>> {
+impl IndexedBAM for Reader {
+    type Idx = usize;
+    type Ctg = String;
+    type Item = For!(<'iter> = &'iter [bam::Record]);
+
+    fn fetch<'borrow>(
+        &'borrow mut self,
+        contig: &Self::Ctg,
+        start: Self::Idx,
+        end: Self::Idx,
+    ) -> io::Result<
+        Box<
+            dyn 'borrow
+            + LendingIterator<Item=For!(<'iter> = io::Result<<Self::Item as ForLt>::Of<'iter>>)>,
+        >,
+    > {
         let region = Region::new(
-            contig,
+            contig.clone(),
             Interval::from(
                 Position::try_from(start + 1).unwrap()..=Position::try_from(end).unwrap(),
             ),
         );
 
-        let reference_sequence_id = self.header.reference_sequences()
+        let reference_sequence_id = self
+            .header
+            .reference_sequences()
             .get_index_of(region.name())
             .expect("Invalid reference sequence name");
-        let chunks = self.inner.index().query(reference_sequence_id, region.interval())?;
+        let chunks = self
+            .inner
+            .index
+            .query(reference_sequence_id, region.interval())?;
 
-        Ok(Query::new(
-            self.inner.get_mut(),
+        Ok(Box::new(Query::new(
+            self.inner.inner.get_mut(),
             chunks,
             reference_sequence_id,
             region.interval(),
@@ -117,6 +147,30 @@ impl Reader {
             self.inflags,
             self.exflags,
             self.minmapq,
-        ))
+        )))
+    }
+
+    fn cloned<'borrow>(
+        &'borrow self,
+    ) -> Box<dyn 'borrow + Sync + IndexedBAM<Idx=Self::Idx, Ctg=Self::Ctg, Item=Self::Item>>
+    where
+        Self: 'borrow,
+    {
+        Box::new((*self).clone())
+    }
+}
+
+impl Clone for Reader {
+    fn clone(&self) -> Self {
+        ReaderBuilder {
+            filename: self.filename.clone(),
+            inflags: Some(self.inflags),
+            exflags: Some(self.exflags),
+            minmapq: Some(self.minmapq),
+            buffer: None,
+            batch_size: Some(self.buffer.capacity()),
+        }
+            .build()
+            .unwrap()
     }
 }

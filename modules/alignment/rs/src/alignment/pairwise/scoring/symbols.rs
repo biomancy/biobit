@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::analysis::alignment::pairwise::scoring::Score;
+use crate::alignment::pairwise::scoring::Score;
 
 pub trait Scorer {
     type Score: Score;

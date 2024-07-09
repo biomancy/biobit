@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 use std::iter::Peekable;
 use std::ops::Range;
 
-use crate::analysis::alignment::pairwise::scoring;
+use crate::alignment::pairwise::scoring;
 
 pub mod utils;
 

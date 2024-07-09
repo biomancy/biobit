@@ -1,64 +1,80 @@
-use std::fmt::Debug;
+use ::higher_kinded_types::prelude::*;
 
-use gat_lending_iterator::LendingIterator;
+use biobit_core_rs::{
+    loc::{Segment, SegmentLike},
+    num::PrimInt,
+    LendingIterator,
+};
 
-use biobit_core_rs::loc::{Interval, LikeInterval};
-use biobit_core_rs::num::PrimInt;
-
-pub trait IntervalTreeBuilder {
+pub trait Builder {
     type Idx: PrimInt;
     type Value;
-    type Tree: IntervalTree;
+    type Tree: ITree;
 
-    fn add(self, interval: &impl LikeInterval<Idx=Self::Idx>, value: Self::Value) -> Self;
+    fn add(self, interval: &impl SegmentLike<Idx = Self::Idx>, value: Self::Value) -> Self;
     fn build(self) -> Self::Tree;
 }
 
-pub trait IntervalTreeElement<'iter, 'borrow>
-{
+pub trait TreeRecord<'borrow, 'iter> {
     type Idx: PrimInt + 'iter;
     type Value: 'borrow;
-    fn interval(&self) -> &'iter Interval<Self::Idx>;
+    fn interval(&self) -> &'iter Segment<Self::Idx>;
     fn value(&self) -> &'borrow Self::Value;
 }
 
-pub trait IntervalTreeLendingIterator<'borrow, Idx: PrimInt, Value> {
-    type Item<'iter>: IntervalTreeElement<'iter, 'borrow, Idx=Idx, Value=Value>
-    where
-        Self: 'iter;
-
-    fn next(&mut self) -> Option<Self::Item<'_>>;
-}
-
-
-pub trait IntervalTree
-{
+pub trait ITree {
     type Idx: PrimInt;
     type Value;
-    type Iter<'borrow>: IntervalTreeLendingIterator<'borrow, Self::Idx, Self::Value>
+    type Iter: ForLt;
+
+    fn intersection<'borrow>(
+        &'borrow self,
+        interval: &impl SegmentLike<Idx = Self::Idx>,
+    ) -> <Self::Iter as ForLt>::Of<'borrow>
     where
-        Self: 'borrow;
-    fn intersection(&self, interval: &impl LikeInterval<Idx=Self::Idx>) -> Self::Iter<'_>;
+        ITreeIter<'borrow, Self>: LendingIterator,
+        for<'iter> ITreeItem<'borrow, 'iter, Self>:
+            TreeRecord<'borrow, 'iter, Idx = Self::Idx, Value = Self::Value>;
 }
 
-impl<'a, 'b, Idx: PrimInt, Val> IntervalTreeElement<'a, 'b> for (&'a Interval<Idx>, &'b Val) {
+pub type ITreeIter<'borrow, T> = <<T as ITree>::Iter as ForLt>::Of<'borrow>;
+pub type ITreeItem<'borrow, 'iter, T> =
+    <<ITreeIter<'borrow, T> as LendingIterator>::Item as ForLt>::Of<'iter>;
+
+impl<'borrow, 'iter, Idx: PrimInt, Val> TreeRecord<'borrow, 'iter>
+    for (&'iter Segment<Idx>, &'borrow Val)
+{
     type Idx = Idx;
     type Value = Val;
 
-    fn interval(&self) -> &'a Interval<Self::Idx> { self.0 }
+    fn interval(&self) -> &'iter Segment<Self::Idx> {
+        self.0
+    }
 
-    fn value(&self) -> &'b Self::Value { self.1 }
+    fn value(&self) -> &'borrow Self::Value {
+        self.1
+    }
 }
-
 
 #[cfg(test)]
 pub mod tests {
+    use std::fmt::Debug;
+
     use super::*;
 
-    fn assert_iterator_eq<'a, Idx: PrimInt + Debug, T: PartialEq + Debug + 'a>(
-        mut iter: impl IntervalTreeLendingIterator<'a, Idx, T>,
-        expected: Vec<(Interval<Idx>, T)>,
-    ) {
+    type IterFromBuilder<'borrow, T> =
+        <<<T as Builder>::Tree as ITree>::Iter as ForLt>::Of<'borrow>;
+    type ItemFromBuilder<'borrow, 'iter, T> =
+        <<IterFromBuilder<'borrow, T> as LendingIterator>::Item as ForLt>::Of<'iter>;
+
+    fn assert_iterator_eq<'borrow, Idx, T, Iter>(mut iter: Iter, expected: Vec<(Segment<Idx>, T)>)
+    where
+        Idx: PrimInt + Debug,
+        T: PartialEq + Debug + 'borrow,
+        Iter: LendingIterator + 'borrow,
+        for<'iter> <<Iter as LendingIterator>::Item as ForLt>::Of<'iter>:
+            TreeRecord<'borrow, 'iter, Idx = Idx, Value = T>,
+    {
         for (interval, value) in expected {
             let elem = iter.next().unwrap();
             assert_eq!(elem.interval(), &interval);
@@ -69,72 +85,78 @@ pub mod tests {
 
     pub fn test_empty_tree<T>(builder: T)
     where
-        T: IntervalTreeBuilder<Idx=usize, Value=usize>,
-        <T as IntervalTreeBuilder>::Tree: IntervalTree<Idx=usize, Value=usize>,
+        T: Builder<Idx = usize, Value = usize>,
+        <T as Builder>::Tree: ITree<Idx = usize, Value = usize>,
+        for<'borrow> IterFromBuilder<'borrow, T>: LendingIterator,
+        for<'borrow, 'iter> ItemFromBuilder<'borrow, 'iter, T>:
+            TreeRecord<'borrow, 'iter, Idx = usize, Value = usize>,
     {
         let tree = builder.build();
-        assert_iterator_eq::<usize, usize>(
-            tree.intersection(&Interval::new(5, 15).unwrap()),
+        assert_iterator_eq::<usize, usize, _>(
+            tree.intersection(&Segment::new(5, 15).unwrap()),
             vec![],
         );
     }
 
-    pub fn test_single_interval_tree<T>(mut builder: T)
+    pub fn test_single_interval_tree<T>(builder: T)
     where
-        T: IntervalTreeBuilder<Idx=usize, Value=usize>,
-        <T as IntervalTreeBuilder>::Tree: IntervalTree<Idx=usize, Value=usize>,
+        T: Builder<Idx = usize, Value = usize>,
+        <T as Builder>::Tree: ITree<Idx = usize, Value = usize>,
+        for<'borrow> IterFromBuilder<'borrow, T>: LendingIterator,
+        for<'borrow, 'iter> ItemFromBuilder<'borrow, 'iter, T>:
+            TreeRecord<'borrow, 'iter, Idx = usize, Value = usize>,
     {
-        let tree = builder
-            .add(&Interval::new(10, 20).unwrap(), 1)
-            .build();
-
+        let tree = builder.add(&Segment::new(10, 20).unwrap(), 1).build();
 
         // Off-range queries
-        assert_iterator_eq::<usize, usize>(
-            tree.intersection(&Interval::new(5, 9).unwrap()),
+        assert_iterator_eq::<usize, usize, _>(
+            tree.intersection(&Segment::new(5, 9).unwrap()),
             vec![],
         );
-        assert_iterator_eq::<usize, usize>(
-            tree.intersection(&Interval::new(21, 25).unwrap()),
+        assert_iterator_eq::<usize, usize, _>(
+            tree.intersection(&Segment::new(21, 25).unwrap()),
             vec![],
         );
 
         // Touching query
-        assert_iterator_eq::<usize, usize>(
-            tree.intersection(&Interval::new(0, 10).unwrap()),
+        assert_iterator_eq::<usize, usize, _>(
+            tree.intersection(&Segment::new(0, 10).unwrap()),
             vec![],
         );
 
         // Intersecting queries
         for interval in [
-            Interval::new(5, 15).unwrap(),
-            Interval::new(15, 25).unwrap(),
-            Interval::new(5, 25).unwrap(),
+            Segment::new(5, 15).unwrap(),
+            Segment::new(15, 25).unwrap(),
+            Segment::new(5, 25).unwrap(),
         ] {
-            assert_iterator_eq::<usize, usize>(
+            assert_iterator_eq::<usize, usize, _>(
                 tree.intersection(&interval),
-                vec![(Interval::new(10, 20).unwrap(), 1)],
+                vec![(Segment::new(10, 20).unwrap(), 1)],
             );
         }
     }
 
-    pub fn test_multi_interval_tree<T>(mut builder: T)
+    pub fn test_multi_interval_tree<T>(builder: T)
     where
-        T: IntervalTreeBuilder<Idx=usize, Value=usize>,
-        <T as IntervalTreeBuilder>::Tree: IntervalTree<Idx=usize, Value=usize>,
+        T: Builder<Idx = usize, Value = usize>,
+        <T as Builder>::Tree: ITree<Idx = usize, Value = usize>,
+        for<'borrow> IterFromBuilder<'borrow, T>: LendingIterator,
+        for<'borrow, 'iter> ItemFromBuilder<'borrow, 'iter, T>:
+            TreeRecord<'borrow, 'iter, Idx = usize, Value = usize>,
     {
         let tree = builder
-            .add(&Interval::new(1, 10).unwrap(), 1)
-            .add(&Interval::new(5, 15).unwrap(), 2)
-            .add(&Interval::new(10, 20).unwrap(), 3)
+            .add(&Segment::new(1, 10).unwrap(), 1)
+            .add(&Segment::new(5, 15).unwrap(), 2)
+            .add(&Segment::new(10, 20).unwrap(), 3)
             .build();
-        let interval = Interval::new(5, 15).unwrap();
+        let interval = Segment::new(5, 15).unwrap();
 
         let mut iter = tree.intersection(&interval);
         for (interval, value) in [
-            (Interval::new(1usize, 10).unwrap(), 1usize),
-            (Interval::new(5, 15).unwrap(), 2),
-            (Interval::new(10, 20).unwrap(), 3),
+            (Segment::new(1usize, 10).unwrap(), 1usize),
+            (Segment::new(5, 15).unwrap(), 2),
+            (Segment::new(10, 20).unwrap(), 3),
         ] {
             let elem = iter.next().unwrap();
             assert_eq!(elem.interval(), &interval);

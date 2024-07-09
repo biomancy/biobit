@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::analysis::alignment::pairwise::scoring;
-use crate::analysis::alignment::pairwise::sw::{algo, storage, traceback};
+use crate::alignment::pairwise::scoring;
+use crate::alignment::pairwise::sw::{algo, storage, traceback};
 
 pub struct Tracers<S, Storage, TraceMat>
 where

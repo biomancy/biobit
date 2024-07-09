@@ -14,8 +14,8 @@ categories.workspace = true
 
 [dependencies]
 biobit-core-rs = { path = "../../core/rs" }
-gat-lending-iterator = { workspace = true }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
 by_address = { workspace = true }
+higher-kinded-types = { workspace = true }
 rust-lapper = "1.1.0"

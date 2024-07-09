@@ -1,5 +1,5 @@
-use crate::analysis::alignment::pairwise::scoring;
-use crate::analysis::alignment::Alignable;
+use crate::alignment::pairwise::scoring;
+use crate::alignment::Alignable;
 
 use super::Tracer;
 

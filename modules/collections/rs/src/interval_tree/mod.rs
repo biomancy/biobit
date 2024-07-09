@@ -1,5 +1,5 @@
-pub use lapper_tree::{LapperIntervalTree, LapperIntervalTreeBuilder};
-pub use traits::{IntervalTree, IntervalTreeBuilder, IntervalTreeElement, IntervalTreeLendingIterator};
+pub use lapper_tree::{LapperBuilder, LapperTree};
+pub use traits::{Builder, ITree, ITreeItem, ITreeIter, TreeRecord};
 
 mod lapper_tree;
 mod traits;

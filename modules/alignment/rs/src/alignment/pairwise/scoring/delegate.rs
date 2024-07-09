@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::analysis::alignment::pairwise::scoring::{equiv, gaps, symbols, Score};
+use crate::alignment::pairwise::scoring::{equiv, gaps, symbols, Score};
 
 pub struct Delegate<ScoreType, Symbol, S, G, E>
 where

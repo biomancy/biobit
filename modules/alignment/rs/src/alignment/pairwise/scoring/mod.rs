@@ -1,4 +1,4 @@
-use num::PrimInt;
+use biobit_core_rs::num::PrimInt;
 
 pub use delegate::Delegate;
 

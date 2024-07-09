@@ -1,6 +1,6 @@
 pub use local::FullScan;
 
-use crate::analysis::alignment::pairwise::scoring;
+use crate::alignment::pairwise::scoring;
 
 mod local;
 

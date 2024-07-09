@@ -16,7 +16,6 @@
 //
 // }
 
-
 // /// A genomic alignment between two sequences.
 // pub struct Alignment<ScoreType = i64, StepSizeType = u8, Seq1OffsetType = u64, Seq2OffsetType = u64>
 //     where
