@@ -4,7 +4,7 @@ from typing import Callable
 
 from attrs import define, field
 
-from biobit.analysis import seqproj
+from biobit.toolkit import seqproj
 from . import descriptor
 from .experiment import Experiment
 

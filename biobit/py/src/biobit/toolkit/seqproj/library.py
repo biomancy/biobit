@@ -1,38 +1,6 @@
-from enum import Enum
+from attrs import define, field, converters
 
-from attrs import define, field
-
-
-class Stranding(Enum):
-    Unstranded = "unstranded"
-    Forward = "forward"
-    Reverse = "reverse"
-    Unknown = "unknown"
-
-    def __repr__(self) -> str:
-        return f"Stranding({self.value})"
-
-    def __str__(self) -> str:
-        return self.value
-
-    @classmethod
-    def normalize(cls, value: 'str | Stranding') -> 'Stranding':
-        if isinstance(value, cls):
-            return value
-        elif isinstance(value, str):
-            match value.lower():
-                case 'unstranded' | 'u':
-                    return cls.Unstranded
-                case 'forward' | 'f':
-                    return cls.Forward
-                case 'reverse' | 'r':
-                    return cls.Reverse
-                case 'unknown' | 'x':
-                    return cls.Unknown
-                case _:
-                    raise ValueError(f"Unknown stranding: {value}")
-        else:
-            raise ValueError(f"Unknown stranding: {value}")
+from biobit.core.ngs import Strandedness
 
 
 @define(slots=True, frozen=True, eq=True, order=True, hash=True, repr=True, str=True)
@@ -43,17 +11,18 @@ class Library:
     Attributes
     ----------
     source : set[str]
-        What molecules were used to generate the library?
+        What molecules were used to generate the library? E.g. DNA, RNA, etc.
     selection : set[str]
-        Were there any selection/enrichment steps during library generation?
-    stranding : Stranding
-        What is the stranding of the library?
+        Were there any selection/enrichment steps during library generation? E.g. Poly-A, Ribo-Zero, RIP, etc.
+    strandedness : Strandedness
+        Indicates the relationship between molecules in the library and their source DNA/RNA strand. When not available,
+        should be set to None.
     attributes : dict[str, str]
-        Additional descriptive attributes for the library, optional. E.g. {'RIP Ab': 'Z22', 'RIN': '7'}, etc.
+        Additional descriptive attributes for the library, optional. E.g. {'Kit ID': '106-301'}, etc.
     """
     source: set[str] = field(converter=lambda x: set(x))
     selection: set[str] = field(converter=lambda x: set(x))
-    stranding: Stranding = field(converter=lambda x: Stranding.normalize(x))
+    strandedness: Strandedness | None = field(default=None, converter=converters.optional(lambda x: Strandedness(x)))
     attributes: dict[str, str] = field(factory=dict)
 
     @source.validator
@@ -65,12 +34,3 @@ class Library:
     def _check_selection(self, _, value):
         if not value:
             raise ValueError("Library selection method must be specified")
-
-    # def __repr__(self) -> str:
-    #     return f"Library({self.source}, {self.selection}, {self.stranding})"
-    #
-    # def __str__(self) -> str:
-    #     return (f"Library:\n"
-    #             f"\tSource: {', '.join(self.source)}\n"
-    #             f"\tSelection: {', '.join(self.selection)}\n"
-    #             f"\tStranding: {self.stranding}")

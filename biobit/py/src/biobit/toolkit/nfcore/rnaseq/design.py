@@ -2,7 +2,8 @@ import os
 from io import TextIOBase
 from typing import Callable
 
-from biobit.analysis import seqproj
+from biobit.core.ngs import Strandedness
+from biobit.toolkit import seqproj
 from . import descriptor
 
 __all__ = ["from_seqproj"]
@@ -32,20 +33,23 @@ def from_seqproj(
         descriptor = seqexp2desc(exp)
 
         # Convert stranding to the nf-core/rnaseq format
-        match exp.library.stranding:
-            case seqproj.Stranding.Unknown:
+        match exp.library.strandedness:
+            case None:
                 stranding = "auto"
             case other:
-                stranding = other.value
+                stranding = {
+                    Strandedness.Forward: "forward",
+                    Strandedness.Reverse: "reverse",
+                    Strandedness.Unstranded: "unstranded"
+                }[other]
 
         for run in exp.runs:
-            match run.layout:
-                case seqproj.SeqLayout.Paired:
-                    fastq1, fastq2 = run.files[0].as_posix(), run.files[1].as_posix()
-                case seqproj.SeqLayout.Single:
-                    fastq1, fastq2 = run.files[0].as_posix(), ""
-                case _:
-                    raise ValueError(f"Unsupported sequencing layout: {run.layout}")
+            if isinstance(run.layout, seqproj.Layout.Paired):
+                fastq1, fastq2 = run.layout.files
+            elif isinstance(run.layout, seqproj.Layout.Single):
+                fastq1, fastq2 = run.layout.file, ""
+            else:
+                raise ValueError(f"Unsupported sequencing layout: {run.layout}")
 
             lines.append(f"{descriptor},{fastq1},{fastq2},{stranding}")
 

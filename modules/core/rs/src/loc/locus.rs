@@ -4,16 +4,18 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use derive_getters::Dissolve;
+use derive_more::Constructor;
+use eyre::Report;
 use impl_tools::autoimpl;
 
 use crate::num::PrimInt;
 
 use super::contig::Contig;
 use super::orientation::Orientation;
-use super::segment::{Segment, SegmentLike};
+use super::segment::{AsSegment, Segment};
 
 ///  A locus is a physical region within a genome that has both coordinates (contig and range) and an orientation.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Dissolve)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Dissolve, Constructor)]
 pub struct Locus<Ctg: Contig, Idx: PrimInt> {
     pub contig: Ctg,
     pub segment: Segment<Idx>,
@@ -22,10 +24,10 @@ pub struct Locus<Ctg: Contig, Idx: PrimInt> {
 
 /// Trait for types that can be generally viewed as a genomic locus.
 #[autoimpl(for < T: trait + ? Sized > & T, Box < T >, Rc < T >, Arc < T >)]
-pub trait LocusLike {
+pub trait AsLocus {
     type Contig: Contig;
     type Idx: PrimInt;
-    type Segment: SegmentLike<Idx = Self::Idx>;
+    type Segment: AsSegment<Idx = Self::Idx>;
 
     /// Contig of the locus-like object.
     fn contig(&self) -> &Self::Contig;
@@ -38,10 +40,16 @@ pub trait LocusLike {
 
     /// Turn the locus-like object into a basic genomic locus.
     /// TODO: This should be removed in the future in favor of a more general approach, e.g. Into<Locus>.
-    fn as_locus(&self) -> Locus<Self::Contig, Self::Idx>;
+    fn as_locus(&self) -> Locus<Self::Contig, Self::Idx> {
+        Locus {
+            contig: self.contig().clone(),
+            segment: self.segment().as_segment(),
+            orientation: self.orientation(),
+        }
+    }
 }
 
-impl<Ctg: Contig, Idx: PrimInt> LocusLike for Locus<Ctg, Idx> {
+impl<Ctg: Contig, Idx: PrimInt> AsLocus for Locus<Ctg, Idx> {
     type Contig = Ctg;
     type Idx = Idx;
     type Segment = Segment<Idx>;
@@ -81,7 +89,7 @@ impl<Ctg: Contig, Idx: PrimInt> From<(Ctg, Segment<Idx>, Orientation)> for Locus
 }
 
 impl<Ctg: Contig, Idx: PrimInt> TryFrom<(Ctg, Range<Idx>, Orientation)> for Locus<Ctg, Idx> {
-    type Error = ();
+    type Error = Report;
 
     fn try_from(
         (contig, range, orientation): (Ctg, Range<Idx>, Orientation),

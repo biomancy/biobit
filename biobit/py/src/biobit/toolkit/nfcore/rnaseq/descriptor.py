@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from biobit.analysis import seqproj
+from biobit.toolkit import seqproj
 
 __all__ = ["from_seqexp", "to_expind"]
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Self
 
-from biobit.db.ensembl.abc import EnsemblAttribute
+from biobit.resources.ensembl.abc import EnsemblAttribute
 from .. import biomart
 
 

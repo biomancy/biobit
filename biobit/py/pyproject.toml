@@ -17,7 +17,6 @@ dependencies = [
     "sortedcontainers >= 2.4.0, < 3",
     "pandas >= 2.0.0, < 3",
     "joblib >= 1.2.0, < 2",
-    "biobit_core_py @ file:${PROJECT_ROOT}/../../modules/core/py",
 ]
 
 [build-system]
@@ -31,6 +30,9 @@ compatibility = "manylinux2014"
 profile = "release"
 python-source = "src"
 module-name = "biobit._biobit"
+exclude = [
+    "**/tests",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -42,8 +44,5 @@ dev = [
 ]
 
 [tool.mypy]
-follow_imports = "silent"
-
-[[tool.mypy.overrides]]
-module = "pybedtools,intervaltree,joblib"
-ignore_missing_imports = true
+check_untyped_defs = true
+exclude = ["test.*"]

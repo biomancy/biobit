@@ -5,7 +5,8 @@ from io import TextIOBase
 from pathlib import Path
 from typing import Any, Callable
 
-from biobit.analysis import seqproj
+from biobit.core.ngs import MatesOrientation
+from biobit.toolkit import seqproj
 
 RowHook = Callable[[dict[str, Any]], dict[str, Any] | None]
 
@@ -129,18 +130,16 @@ def load_seqproj(
 
         # Parse the experiment run
         library = seqproj.Library(
-            source=(row['library_source'],),
-            selection=(row['library_selection'],),
-            stranding=seqproj.Stranding.Unknown
+            source={row['library_source'],},
+            selection={row['library_selection'],},
+            strandedness=None
         )
-        files: tuple[Path, ...]
+        layout: seqproj.Layout
         match row['library_layout']:
             case 'PAIRED':
-                layout = seqproj.SeqLayout.Paired
-                files = (Path(row['fastq_1']), Path(row['fastq_2']))
+                layout = seqproj.Layout.Paired(MatesOrientation.Inward, (row['fastq_1'], row['fastq_2']))
             case 'SINGLE':
-                layout = seqproj.SeqLayout.Single
-                files = (Path(row['fastq_1']),)
+                layout = seqproj.Layout.Single(row['fastq_1'])
             case _:
                 raise ValueError(
                     f"Unknown library layout {row['library_layout']} in the fetch-ngs samplesheet, row: {row}"
@@ -148,11 +147,10 @@ def load_seqproj(
 
         read_count = int(row['read_count']) if 'read_count' in row else None
         base_count = int(row['base_count']) if 'base_count' in row else None
-        seqrun = seqproj.SeqRun(
+        seqrun = seqproj.Run(
             ind=row['run_accession'],
             machine=f"{row['instrument_platform']}: {row['instrument_model']}",
             layout=layout,
-            files=files,
             reads=read_count,
             bases=base_count
         )

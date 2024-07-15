@@ -3,7 +3,7 @@ use std::collections::{BTreeSet, HashSet};
 use by_address::ByThinAddress;
 use derive_getters::Dissolve;
 
-use biobit_core_rs::loc::{Segment, SegmentLike};
+use biobit_core_rs::loc::{AsSegment, Segment};
 use biobit_core_rs::num::PrimInt;
 
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve)]
@@ -25,12 +25,9 @@ impl<'a, Idx: PrimInt, T: ?Sized> OverlapSteps<'a, Idx, T> {
             annotation: Vec::with_capacity(annotation),
         }
     }
-    pub fn new() -> Self {
-        Self::with_capacity(
-            Self::DEFAULT_CAPACITY,
-            Self::DEFAULT_CAPACITY,
-            Self::DEFAULT_CAPACITY,
-        )
+
+    pub fn empty() -> Self {
+        Self::with_capacity(0, 0, 0)
     }
 
     pub fn build<'b>(
@@ -125,6 +122,31 @@ impl<'a, Idx: PrimInt, T: ?Sized> OverlapSteps<'a, Idx, T> {
         }
     }
 
+    pub fn reset<'b>(mut self) -> OverlapSteps<'b, Idx, T> {
+        self.clear();
+        let (cache, hitlen, boundaries, annotation) = self.dissolve();
+
+        // https://github.com/rust-lang/rfcs/pull/2802#issuecomment-871512348
+        let annotation: Vec<HashSet<ByThinAddress<&'b T>>> = annotation
+            .into_iter()
+            .map(|mut x| {
+                x.clear();
+                x.into_iter().map(|_| unreachable!()).collect()
+            })
+            .collect();
+
+        OverlapSteps {
+            cache,
+            hitlen,
+            boundaries,
+            annotation,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.hitlen.is_empty()
+    }
+
     pub fn len(&self) -> usize {
         self.hitlen.len()
     }
@@ -132,7 +154,7 @@ impl<'a, Idx: PrimInt, T: ?Sized> OverlapSteps<'a, Idx, T> {
 
 impl<'a, Idx: PrimInt, T> Default for OverlapSteps<'a, Idx, T> {
     fn default() -> Self {
-        Self::new()
+        Self::with_capacity(0, 0, 0)
     }
 }
 
@@ -145,15 +167,15 @@ pub struct OverlapSegments<'a, Idx: PrimInt, T: ?Sized> {
 
 impl<'a, Idx: PrimInt, T> Default for OverlapSegments<'a, Idx, T> {
     fn default() -> Self {
-        Self::new()
+        Self::with_capacity(0)
     }
 }
 
 impl<'a, Idx: PrimInt, T: ?Sized> OverlapSegments<'a, Idx, T> {
     pub const DEFAULT_CAPACITY: usize = 16;
 
-    pub fn new() -> Self {
-        Self::with_capacity(Self::DEFAULT_CAPACITY)
+    pub fn empty() -> Self {
+        Self::with_capacity(0)
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
@@ -191,7 +213,7 @@ impl<'a, Idx: PrimInt, T: ?Sized> OverlapSegments<'a, Idx, T> {
         let mut start = 0;
         self.hitlen.iter().map(move |&x| {
             if x == 0 {
-                return &self.segments[0..0];
+                &self.segments[0..0]
             } else {
                 let rng = start..(start + x);
                 start += x;
@@ -203,7 +225,7 @@ impl<'a, Idx: PrimInt, T: ?Sized> OverlapSegments<'a, Idx, T> {
         let mut start = 0;
         self.hitlen.iter().map(move |x| {
             if *x == 0 {
-                return &self.annotations[0..0];
+                &self.annotations[0..0]
             } else {
                 let rng = start..(start + x);
                 start += x;
@@ -216,13 +238,17 @@ impl<'a, Idx: PrimInt, T: ?Sized> OverlapSegments<'a, Idx, T> {
         let mut start = 0;
         self.hitlen.iter().map(move |x| {
             if *x == 0 {
-                return (&self.segments[0..0], &self.annotations[0..0]);
+                (&self.segments[0..0], &self.annotations[0..0])
             } else {
                 let rng = start..(start + x);
                 start += x;
                 (&self.segments[rng.clone()], &self.annotations[rng])
             }
         })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.hitlen.is_empty()
     }
 
     pub fn len(&self) -> usize {
@@ -328,7 +354,7 @@ mod tests {
             ((7..9).try_into().unwrap(), "c"),
         ]];
 
-        let mut query = OverlapSegments::new().reset();
+        let mut query = OverlapSegments::empty().reset();
         add_overlaps(&mut query, &data);
 
         ensure_overlaps(&query, &data);
@@ -351,7 +377,7 @@ mod tests {
             vec![],
         ];
 
-        let mut query = OverlapSegments::new().reset();
+        let mut query = OverlapSegments::empty().reset();
         add_overlaps(&mut query, &data);
 
         ensure_overlaps(&query, &data);
@@ -359,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_steps_single_1() {
-        let mut overlap = OverlapSegments::new().reset();
+        let mut overlap = OverlapSegments::empty().reset();
         add_overlaps(
             &mut overlap,
             &vec![vec![
@@ -369,7 +395,7 @@ mod tests {
             ]],
         );
 
-        let mut steps = OverlapSteps::new();
+        let mut steps = OverlapSteps::empty();
         let expected = [vec![
             (0, 1, vec![]),
             (1, 3, vec!["a"]),
@@ -407,17 +433,17 @@ mod tests {
 
     #[test]
     fn test_steps_empty() {
-        let mut overlap = OverlapSegments::new().reset();
+        let mut overlap = OverlapSegments::empty().reset();
         add_overlaps(&mut overlap, &vec![vec![]]);
 
-        let mut steps = OverlapSteps::new();
+        let mut steps = OverlapSteps::empty();
         steps.build([Segment::new(2, 8).unwrap()].iter().zip(overlap.iter()));
         ensure_steps(&steps, &[vec![(2, 8, vec![])]]);
     }
 
     #[test]
     fn test_steps_single_2() {
-        let mut overlap = OverlapSegments::new().reset();
+        let mut overlap = OverlapSegments::empty().reset();
         add_overlaps(
             &mut overlap,
             &vec![vec![
@@ -429,7 +455,7 @@ mod tests {
             ]],
         );
 
-        let mut steps = OverlapSteps::new();
+        let mut steps = OverlapSteps::empty();
         let expected = [vec![
             (0, 2, vec!["a"]),
             (2, 4, vec!["b"]),
@@ -463,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_steps_single_3() {
-        let mut overlap = OverlapSegments::new().reset();
+        let mut overlap = OverlapSegments::empty().reset();
         add_overlaps(
             &mut overlap,
             &vec![vec![
@@ -473,7 +499,7 @@ mod tests {
             ]],
         );
 
-        let mut steps = OverlapSteps::new();
+        let mut steps = OverlapSteps::empty();
         let expected = [vec![
             (0, 1, vec![]),
             (1, 2, vec!["a"]),
@@ -518,7 +544,7 @@ mod tests {
 
     #[test]
     fn test_steps_single_4() {
-        let mut overlap = OverlapSegments::new().reset();
+        let mut overlap = OverlapSegments::empty().reset();
         add_overlaps(
             &mut overlap,
             &vec![vec![
@@ -528,7 +554,7 @@ mod tests {
             ]],
         );
 
-        let mut steps = OverlapSteps::new();
+        let mut steps = OverlapSteps::empty();
         let expected = [vec![
             (0, 1, vec![]),
             (1, 2, vec!["a"]),
@@ -565,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_steps_multi_1() {
-        let mut overlap = OverlapSegments::new().reset();
+        let mut overlap = OverlapSegments::empty().reset();
         add_overlaps(
             &mut overlap,
             &vec![
@@ -592,7 +618,7 @@ mod tests {
             ],
         );
 
-        let mut steps = OverlapSteps::new();
+        let mut steps = OverlapSteps::empty();
         let expected = [
             vec![(0, 10, vec![])],
             vec![

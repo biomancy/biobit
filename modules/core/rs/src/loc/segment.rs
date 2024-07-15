@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use derive_getters::Dissolve;
+use eyre::{eyre, Report, Result};
 use impl_tools::autoimpl;
 use num::{NumCast, Unsigned};
 
@@ -20,8 +21,9 @@ pub struct Segment<Idx: PrimInt> {
 }
 
 /// Trait for types that can be generally viewed as half-open genomic segments [start, end).
-#[autoimpl(for < T: trait + ? Sized > & T, Box < T >, Rc < T >, Arc < T >)]
-pub trait SegmentLike {
+#[autoimpl(for <T: trait + ?Sized> &T, Box<T>, Rc<T>, Arc<T>)]
+#[allow(clippy::len_without_is_empty)]
+pub trait AsSegment {
     type Idx: PrimInt;
 
     /// Start position of the segment-like object.
@@ -61,7 +63,7 @@ pub trait SegmentLike {
     }
 }
 
-impl<T: PrimInt> SegmentLike for Segment<T> {
+impl<T: PrimInt> AsSegment for Segment<T> {
     type Idx = T;
 
     #[inline(always)]
@@ -75,11 +77,11 @@ impl<T: PrimInt> SegmentLike for Segment<T> {
 }
 
 impl<Idx: PrimInt> Segment<Idx> {
-    pub fn new(start: Idx, end: Idx) -> Result<Self, ()> {
+    pub fn new(start: Idx, end: Idx) -> Result<Self> {
         if start < end {
             Ok(Self { start, end })
         } else {
-            Err(())
+            Err(eyre!("Invalid segment: start >= end"))
         }
     }
 
@@ -140,6 +142,29 @@ impl<Idx: PrimInt> Segment<Idx> {
             false => None,
         }
     }
+
+    pub fn merge(mut segments: Vec<Self>) -> Vec<Self> {
+        // TODO: make it much more efficient and API-friendly. Why do I have union and merge? Can I merge in-place? Can I merge in a single pass? Do I need a separate namespace for this?
+        if segments.is_empty() {
+            return segments;
+        }
+        segments.sort_by_key(|x| x.start());
+
+        let mut merged = Vec::new();
+        let (mut start, mut end) = (segments[0].start(), segments[0].end());
+        for current in segments {
+            if current.start() > end {
+                merged.push(Segment::new(start, end).unwrap());
+                end = current.end();
+                start = current.start();
+            } else if current.end() > end {
+                end = current.end();
+            }
+        }
+        merged.push(Segment::new(start, end).unwrap());
+
+        merged
+    }
 }
 
 impl<Idx: PrimInt> Default for Segment<Idx> {
@@ -158,7 +183,7 @@ impl<Idx: PrimInt + Display> Display for Segment<Idx> {
 }
 
 impl<Idx: PrimInt> TryFrom<(Idx, Idx)> for Segment<Idx> {
-    type Error = ();
+    type Error = Report;
 
     fn try_from(value: (Idx, Idx)) -> Result<Self, Self::Error> {
         Self::new(value.0, value.1)
@@ -166,7 +191,7 @@ impl<Idx: PrimInt> TryFrom<(Idx, Idx)> for Segment<Idx> {
 }
 
 impl<Idx: PrimInt> TryFrom<Range<Idx>> for Segment<Idx> {
-    type Error = ();
+    type Error = Report;
 
     fn try_from(value: Range<Idx>) -> Result<Self, Self::Error> {
         Self::new(value.start, value.end)
@@ -203,9 +228,9 @@ mod tests {
 
     #[test]
     fn test_construct() {
-        assert_eq!(Segment::new(0, 10), Ok(Segment { start: 0, end: 10 }));
-        assert_eq!(Segment::new(1, 0), Err(()));
-        assert_eq!(Segment::new(0, 0), Err(()));
+        assert_eq!(Segment::new(0, 10).unwrap(), Segment { start: 0, end: 10 });
+        assert!(Segment::new(1, 0).is_err());
+        assert!(Segment::new(0, 0).is_err());
     }
 
     #[test]
@@ -338,5 +363,23 @@ mod tests {
         );
         assert_eq!(segment.union(&Segment::new(-1, 0).unwrap()), None);
         assert_eq!(segment.union(&Segment::new(11, 12).unwrap()), None);
+    }
+
+    #[test]
+    fn test_merge() {
+        let segments = vec![
+            Segment::new(1, 10).unwrap(),
+            Segment::new(5, 15).unwrap(),
+            Segment::new(20, 30).unwrap(),
+            Segment::new(25, 35).unwrap(),
+        ];
+        let merged = Segment::merge(segments);
+        assert_eq!(
+            merged,
+            vec![Segment::new(1, 15).unwrap(), Segment::new(20, 35).unwrap(),]
+        );
+
+        let merged = Segment::<isize>::merge(vec![]);
+        assert!(merged.is_empty());
     }
 }

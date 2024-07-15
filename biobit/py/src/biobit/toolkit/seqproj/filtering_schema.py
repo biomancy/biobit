@@ -7,7 +7,7 @@ from .experiment import Experiment
 from .library import Library
 from .project import Project
 from .sample import Sample
-from .seqrun import SeqRun, SeqLayout
+from .run import Run, Layout
 
 
 @define(slots=True)
@@ -15,7 +15,7 @@ class FilteringSchema:
     _project_filters: list[Callable[[Project], bool]] = field(factory=list, init=False)
     _experiment_filters: list[Callable[[Project, Experiment], bool]] = field(factory=list, init=False)
     _sample_filters: list[Callable[[Project, Sample], bool]] = field(factory=list, init=False)
-    _run_filters: list[Callable[[Project, Experiment, SeqRun], bool]] = field(factory=list, init=False)
+    _run_filters: list[Callable[[Project, Experiment, Run], bool]] = field(factory=list, init=False)
     _library_filters: list[Callable[[Project, Experiment, Library], bool]] = field(factory=list, init=False)
 
     def with_project_filters(self, *fns: Callable[[Project], bool]) -> "FilteringSchema":
@@ -30,7 +30,7 @@ class FilteringSchema:
         self._sample_filters.extend(fns)
         return self
 
-    def with_run_filters(self, *fns: Callable[[Project, Experiment, SeqRun], bool]) -> "FilteringSchema":
+    def with_run_filters(self, *fns: Callable[[Project, Experiment, Run], bool]) -> "FilteringSchema":
         self._run_filters.extend(fns)
         return self
 
@@ -52,9 +52,9 @@ class FilteringSchema:
             options = set(allowed)
         return self.with_sample_filters(lambda _, sample: sample.attributes.get(attribute) in options)
 
-    def with_seqlayout(self, allowed: Iterable[SeqLayout] | SeqLayout) -> "FilteringSchema":
-        if isinstance(allowed, SeqLayout):
-            options = {SeqLayout(allowed)}
+    def with_seqlayout(self, allowed: Iterable[Layout] | Layout) -> "FilteringSchema":
+        if isinstance(allowed, Layout):
+            options = {allowed}
         else:
             options = set(allowed)
         return self.with_run_filters(lambda _, __, run: run.layout in options)

@@ -3,7 +3,7 @@ from io import TextIOBase
 
 import cattrs.preconf.pyyaml
 
-from . import experiment, library, sample, seqrun
+from . import experiment, library, sample, run, layout
 from ...project import Project
 
 
@@ -11,7 +11,8 @@ def build():
     converter = cattrs.preconf.pyyaml.make_converter()
 
     library.register_hooks(converter)
-    seqrun.register_hooks(converter)
+    layout.register_hooks(converter)
+    run.register_hooks(converter)
     sample.register_hooks(converter)
     experiment.register_hooks(converter)
 

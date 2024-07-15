@@ -1,20 +1,18 @@
 use std::io;
 
 use ::higher_kinded_types::prelude::*;
-use noodles::bam::{io::Reader, Record};
-use noodles::core::region::Interval;
-use noodles::csi::binning_index::index::reference_sequence::bin::Chunk;
-use noodles::sam::alignment::Record as _;
-use noodles::{bgzf, csi};
+use noodles::{
+    bam, bam::io::Reader, bgzf, core::region::Interval, csi,
+    csi::binning_index::index::reference_sequence::bin::Chunk, sam::alignment::Record,
+};
 
 use biobit_core_rs::LendingIterator;
-
 
 pub struct Query<'a, R> {
     reader: Reader<csi::io::Query<'a, R>>,
     reference_sequence_id: usize,
     interval: Interval,
-    cache: &'a mut Vec<Record>,
+    cache: &'a mut Vec<bam::Record>,
     inflags: u16,
     exflags: u16,
     minmapq: u8,
@@ -29,7 +27,7 @@ where
         chunks: Vec<Chunk>,
         reference_sequence_id: usize,
         interval: Interval,
-        cache: &'a mut Vec<Record>,
+        cache: &'a mut Vec<bam::Record>,
         inflags: u16,
         exflags: u16,
         minmapq: u8,
@@ -45,7 +43,7 @@ where
         }
     }
 
-    fn is_record_ok(&self, record: &Record) -> io::Result<bool> {
+    fn is_record_ok(&self, record: &bam::Record) -> io::Result<bool> {
         let flags: u16 = record.flags().into();
         let mapq = record.mapping_quality().map(|x| x.get()).unwrap_or(255);
         let flags_ok = flags & self.inflags == self.inflags
@@ -92,9 +90,9 @@ impl<'borrow, R> LendingIterator for Query<'borrow, R>
 where
     R: bgzf::io::BufRead + bgzf::io::Seek,
 {
-    type Item = For!(<'iter> = io::Result<&'iter [Record]>);
+    type Item = For!(<'iter> = io::Result<&'iter [bam::Record]>);
 
-    fn next(self: &'_ mut Self) -> Option<<Self::Item as ForLt>::Of<'_>> {
+    fn next(&'_ mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.read() {
             Ok(0) => None,
             Ok(n) => Some(Ok(&self.cache[..n])),

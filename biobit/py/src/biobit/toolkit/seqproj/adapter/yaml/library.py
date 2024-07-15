@@ -1,16 +1,19 @@
+from typing import Any
+
 import cattrs.preconf.pyyaml
 
-from ...library import Library, Stranding
+from ...library import Library, Strandedness
 
 
 def register_hooks(converter: cattrs.Converter) -> cattrs.Converter:
     def unstructure(lib: Library) -> dict:
-        dictionary = {
+        dictionary: dict[str, Any] = {
             "source": tuple(lib.source),
             "selection": tuple(lib.selection),
-            "stranding": converter.unstructure(lib.stranding),
         }
 
+        if lib.strandedness:
+            dictionary["strandedness"] = str(lib.strandedness)
         if lib.attributes:
             dictionary["attributes"] = converter.unstructure(lib.attributes)
         return dictionary
@@ -20,10 +23,10 @@ def register_hooks(converter: cattrs.Converter) -> cattrs.Converter:
 
         source = converter.structure(data["source"], set[str])
         selection = converter.structure(data["selection"], set[str])
-        stranding = converter.structure(data["stranding"], Stranding)
+        strandedness = Strandedness(data["strandedness"]) if "strandedness" in data else None
         attributes = converter.structure(data["attributes"], dict[str, str]) if "attributes" in data else {}
 
-        return Library(source, selection, stranding, attributes)
+        return Library(source, selection, strandedness, attributes)
 
     converter.register_unstructure_hook(Library, unstructure)
     converter.register_structure_hook(Library, structure)

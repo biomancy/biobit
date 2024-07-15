@@ -4,18 +4,16 @@ use std::path::PathBuf;
 
 use ::higher_kinded_types::prelude::*;
 use derive_getters::{Dissolve, Getters};
+use eyre::Result;
 use noodles::{bam, bgzf, sam};
-use noodles::core::position::Position;
-use noodles::core::region::{Interval, Region};
+use noodles::core::{Position, Region};
+use noodles::core::region::Interval;
 use noodles::csi::BinningIndex;
 
-use biobit_core_rs::LendingIterator;
+use biobit_core_rs::source;
 
-use super::{
-    indexed_reader::IndexedReader,
-    query::Query,
-    traits::IndexedBAM,
-};
+use super::indexed_reader::IndexedReader;
+use super::query::Query;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReaderBuilder {
@@ -73,7 +71,7 @@ impl ReaderBuilder {
             .read_header()
             .expect("Failed to read a BAM header");
 
-        let batch_size = self.batch_size.unwrap_or_else(|| Self::DEFAULT_BATCH_SIZE);
+        let batch_size = self.batch_size.unwrap_or(Self::DEFAULT_BATCH_SIZE);
         let mut buffer = self
             .buffer
             .unwrap_or_else(|| Vec::with_capacity(batch_size));
@@ -87,8 +85,9 @@ impl ReaderBuilder {
             inner: reader,
             header,
             buffer,
+            batch_size,
             inflags: self.inflags.unwrap_or(0),
-            exflags: self.exflags.unwrap_or(0),
+            exflags: self.exflags.unwrap_or(516),
             minmapq: self.minmapq.unwrap_or(0),
         })
     }
@@ -100,31 +99,65 @@ pub struct Reader {
     inner: IndexedReader<bgzf::reader::Reader<File>>,
     header: sam::header::Header,
     buffer: Vec<bam::Record>,
+    batch_size: usize,
     inflags: u16,
     exflags: u16,
     minmapq: u8,
 }
 
-impl IndexedBAM for Reader {
-    type Idx = usize;
-    type Ctg = String;
-    type Item = For!(<'iter> = &'iter [bam::Record]);
+impl PartialEq for Reader {
+    fn eq(&self, other: &Self) -> bool {
+        self.filename == other.filename
+            && self.header == other.header
+            && self.batch_size == other.batch_size
+            && self.inflags == other.inflags
+            && self.exflags == other.exflags
+            && self.minmapq == other.minmapq
+    }
+}
+
+impl Clone for Reader {
+    fn clone(&self) -> Self {
+        Self {
+            filename: self.filename.clone(),
+            inner: IndexedReader::new(&self.filename).expect(
+                "Failed to open a BAM file; \
+                Note: the file had been opened before at least once without any errors.",
+            ),
+            header: self.header.clone(),
+            buffer: vec![bam::Record::default(); self.batch_size],
+            batch_size: self.batch_size,
+            inflags: self.inflags,
+            exflags: self.exflags,
+            minmapq: self.minmapq,
+        }
+    }
+}
+
+impl source::Core for Reader {
+    type Args = For!(<'fetch> = (&'fetch String, usize, usize));
+    type Item = For!(<'iter> = io::Result<&'iter [bam::Record]>);
+
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    fn with_batch_size(&mut self, batch_size: usize) {
+        self.batch_size = batch_size;
+    }
+}
+
+impl source::Source for Reader {
+    type Iter = For!(<'borrow> = Query<'borrow, bgzf::reader::Reader<File>>);
 
     fn fetch<'borrow>(
         &'borrow mut self,
-        contig: &Self::Ctg,
-        start: Self::Idx,
-        end: Self::Idx,
-    ) -> io::Result<
-        Box<
-            dyn 'borrow
-            + LendingIterator<Item=For!(<'iter> = io::Result<<Self::Item as ForLt>::Of<'iter>>)>,
-        >,
-    > {
+        args: <<Self as source::Core>::Args as ForLt>::Of<'_>,
+    ) -> Result<<Self::Iter as ForLt>::Of<'borrow>> {
         let region = Region::new(
-            contig.clone(),
+            args.0.clone(),
             Interval::from(
-                Position::try_from(start + 1).unwrap()..=Position::try_from(end).unwrap(),
+                Position::try_from(args.1 + 1).unwrap()..=Position::try_from(args.2).unwrap(),
             ),
         );
 
@@ -138,7 +171,7 @@ impl IndexedBAM for Reader {
             .index
             .query(reference_sequence_id, region.interval())?;
 
-        Ok(Box::new(Query::new(
+        Ok(Query::new(
             self.inner.inner.get_mut(),
             chunks,
             reference_sequence_id,
@@ -147,30 +180,6 @@ impl IndexedBAM for Reader {
             self.inflags,
             self.exflags,
             self.minmapq,
-        )))
-    }
-
-    fn cloned<'borrow>(
-        &'borrow self,
-    ) -> Box<dyn 'borrow + Sync + IndexedBAM<Idx=Self::Idx, Ctg=Self::Ctg, Item=Self::Item>>
-    where
-        Self: 'borrow,
-    {
-        Box::new((*self).clone())
-    }
-}
-
-impl Clone for Reader {
-    fn clone(&self) -> Self {
-        ReaderBuilder {
-            filename: self.filename.clone(),
-            inflags: Some(self.inflags),
-            exflags: Some(self.exflags),
-            minmapq: Some(self.minmapq),
-            buffer: None,
-            batch_size: Some(self.buffer.capacity()),
-        }
-            .build()
-            .unwrap()
+        ))
     }
 }

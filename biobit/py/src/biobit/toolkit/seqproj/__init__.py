@@ -1,8 +1,11 @@
 from . import adapter
 from .experiment import Experiment
-from .library import Library, Stranding
+from .layout import Layout, MatesOrientation
+from .library import Library, Strandedness
 from .project import Project
+from .run import Run
 from .sample import Sample
-from .seqrun import SeqLayout, SeqRun
 
-__all__ = ["adapter", "Experiment", "Library", "Stranding", "Project", "Sample", "SeqLayout", "SeqRun"]
+__all__ = [
+    "adapter", "Experiment", "Library", "Project", "Sample", "Strandedness", "MatesOrientation", "Layout", "Run"
+]

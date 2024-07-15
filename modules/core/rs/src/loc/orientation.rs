@@ -3,7 +3,7 @@ use std::fmt::Display;
 use super::strand::Strand;
 
 /// A type representing the orientation of an object in the genome
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Orientation {
     /// Object is located on the forward strand, also known as the positive strand or Watson strand.
@@ -11,6 +11,7 @@ pub enum Orientation {
     /// Object is located on the reverse strand, also known as the negative strand or Crick strand.
     Reverse = -1,
     /// Object is located on both strands (e.g. a CpG island or a bidirectional promoter).
+    #[default]
     Dual = 0,
 }
 
@@ -41,12 +42,6 @@ impl Orientation {
             Orientation::Reverse => '-',
             Orientation::Dual => '=',
         }
-    }
-}
-
-impl Default for Orientation {
-    fn default() -> Self {
-        Orientation::Dual
     }
 }
 

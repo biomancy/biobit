@@ -6,7 +6,7 @@ from ...experiment import Experiment
 from ...library import Library
 from ...project import Project
 from ...sample import Sample
-from ...seqrun import SeqRun
+from ...run import Run
 
 
 def register_hooks(converter: cattrs.Converter) -> cattrs.Converter:
@@ -36,7 +36,7 @@ def register_hooks(converter: cattrs.Converter) -> cattrs.Converter:
             data["ind"],
             samples_mapping[data["sample"]],
             converter.structure(data["library"], Library),
-            converter.structure(data["runs"], tuple[SeqRun, ...]),
+            converter.structure(data["runs"], tuple[Run, ...]),
             converter.structure(data["attributes"], dict[str, str]) if "attributes" in data else {},
             converter.structure(data["description"], str) if "description" in data else None,
         ) for data in data["experiments"])

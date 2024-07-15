@@ -125,8 +125,12 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Local nursery
+# Local nursery / obsolete files
 nursery/
+obsolete
+
+# Resources
+resources
 
 # Rust
 target/

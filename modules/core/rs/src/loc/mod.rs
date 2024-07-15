@@ -1,7 +1,7 @@
 pub use contig::Contig;
-pub use locus::{Locus, LocusLike};
+pub use locus::{AsLocus, Locus};
 pub use orientation::Orientation;
-pub use segment::{Segment, SegmentLike};
+pub use segment::{AsSegment, Segment};
 pub use strand::Strand;
 
 mod contig;

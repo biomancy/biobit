@@ -119,7 +119,7 @@ where
 
         self.offset.seq1 = self.offset.seq1 + step.step.len.into();
         self.offset.seq2 = self.offset.seq2 + step.step.len.into();
-        return Some(step);
+        Some(step)
     }
 }
 

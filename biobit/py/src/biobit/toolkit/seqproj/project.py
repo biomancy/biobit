@@ -5,13 +5,13 @@ from attrs import define, field
 
 from .experiment import Experiment
 from .sample import Sample
-from .seqrun import SeqRun
+from .run import Run
 
 
 @define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
 class Project:
     """
-    A class representing a biological project, which consists of one or more biological experiments.
+    A class representing a sequencing project, which consists of one or more biological experiments.
 
     Attributes
     ----------
@@ -52,7 +52,7 @@ class Project:
 
     def __attrs_post_init__(self):
         # Ensure that experiment IDs are unique within the project
-        cnts = {}
+        cnts: dict[str, int] = {}
         for x in self.experiments:
             cnts[x.ind] = cnts.get(x.ind, 0) + 1
         nonunique = {k for k, v in cnts.items() if v > 1}
@@ -83,7 +83,7 @@ class Project:
             newind: str | None = None,
             experiments: Callable[[Experiment], bool] | None = None,
             samples: Callable[[Experiment, Sample], bool] | None = None,
-            runs: Callable[[Experiment, SeqRun], bool] | None = None
+            runs: Callable[[Experiment, Run], bool] | None = None
     ) -> "Project":
         """
         Subsample the project based on the specified criteria.

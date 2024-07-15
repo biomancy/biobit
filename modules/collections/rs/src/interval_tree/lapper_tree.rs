@@ -4,9 +4,9 @@ use derive_more::{Constructor, From};
 use rust_lapper;
 
 use biobit_core_rs::{
-    loc::{Segment, SegmentLike},
-    num::{PrimInt, Unsigned},
     LendingIterator,
+    loc::{Segment, AsSegment},
+    num::{PrimInt, Unsigned},
 };
 
 use super::traits::{Builder, ITree};
@@ -39,14 +39,14 @@ where
 
 impl<Idx, T> Builder for LapperBuilder<Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
-    T: Eq + Clone + Send + Sync,
+    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'static,
+    T: Eq + Clone + Send + Sync + 'static,
 {
     type Idx = Idx;
     type Value = T;
     type Tree = LapperTree<Idx, T>;
 
-    fn add(mut self, interval: &impl SegmentLike<Idx = Idx>, value: T) -> Self {
+    fn add(mut self, interval: &impl AsSegment<Idx = Idx>, value: T) -> Self {
         let elem = rust_lapper::Interval {
             start: interval.start(),
             stop: interval.end(),
@@ -69,8 +69,8 @@ where
 
 impl<Idx, T> ITree for LapperTree<Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
-    T: Eq + Clone + Send + Sync,
+    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'static,
+    T: Eq + Clone + Send + Sync + 'static,
 {
     type Idx = Idx;
     type Value = T;
@@ -78,11 +78,8 @@ where
 
     fn intersection<'a>(
         &'a self,
-        interval: &impl SegmentLike<Idx = Self::Idx>,
-    ) -> <Self::Iter as ForLt>::Of<'a>
-    where
-        <Self::Iter as ForLt>::Of<'a>: LendingIterator,
-    {
+        interval: &impl AsSegment<Idx = Self::Idx>,
+    ) -> <Self::Iter as ForLt>::Of<'a> {
         let interval = Segment::new(interval.start(), interval.end())
             .expect("Invalid interval (lapper intersection)");
 
@@ -123,8 +120,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::super::traits::tests;
     use super::*;
+    use super::super::traits::tests;
 
     #[test]
     fn test_lapper_interval_tree() {

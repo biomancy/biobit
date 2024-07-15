@@ -10,14 +10,16 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 categories.workspace = true
-exclude = ["test_*.py"]
 
 [lib]
-path = "src/rust/lib.rs"
-crate-type = ["cdylib", "rlib"]
+path = "src/bindings/lib.rs"
+crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { workspace = true }
 itertools = { workspace = true }
 eyre = { workspace = true }
-#biobit = { path = "../rs" }
+biobit-core-py = { path = "../../modules/core/py" }
+biobit-io-py = { path = "../../modules/io/py" }
+biobit-countit-py = { path = "../../modules/toolkit/countit/py" }
+biobit-seqproj-py = { path = "../../modules/toolkit/seqproj/py" }

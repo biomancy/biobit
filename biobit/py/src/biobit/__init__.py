@@ -1,5 +1,3 @@
-import biobit_core_py as core
+from . import resources, io, toolkit, core
 
-from . import resources, io, suite
-
-__all__ = ["io", "resources", "core", "suite"]
+__all__ = ["core", "io", "resources", "core", "toolkit"]

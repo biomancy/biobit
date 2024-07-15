@@ -25,7 +25,7 @@ pub trait Alignable {
     where
         Self: Sized,
     {
-        Reversed::new(&self)
+        Reversed::new(self)
     }
 }
 

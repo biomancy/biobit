@@ -2,7 +2,7 @@ import gzip
 import tempfile
 from pathlib import Path
 
-from biobit.db.repmasker import RepmaskerClassification
+from biobit.resources.repmasker import RepmaskerClassification
 
 
 def test_repmasker_classification():

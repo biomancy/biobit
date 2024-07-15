@@ -26,6 +26,10 @@ impl<Idx: PrimInt> AlignmentSegments<Idx> {
         self.orientation.clear();
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.orientation.is_empty()
+    }
+
     pub fn len(&self) -> usize {
         self.orientation.len()
     }
@@ -48,7 +52,7 @@ impl<Idx: PrimInt> AlignmentSegments<Idx> {
         );
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=(&'_ [Segment<Idx>], Orientation)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&'_ [Segment<Idx>], Orientation)> {
         self.orientation
             .iter()
             .enumerate()
@@ -68,6 +72,7 @@ impl<Idx: PrimInt> AlignmentSegments<Idx> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -98,8 +103,8 @@ mod tests {
             (vec![5..12, 200..300], Orientation::Reverse),
             (vec![0..1], Orientation::Dual),
         ]
-            .iter()
-            .enumerate()
+        .iter()
+        .enumerate()
         {
             let alnblocks = iter.next().unwrap();
             assert_eq!(elements, alnblocks.0);

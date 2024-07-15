@@ -22,3 +22,5 @@ rayon = { workspace = true }
 by_address = { workspace = true }
 thread_local = { workspace = true }
 higher-kinded-types = { workspace = true }
+eyre = { workspace = true }
+dyn-clone = { workspace = true }

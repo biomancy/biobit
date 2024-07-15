@@ -18,3 +18,5 @@ derive-getters = { workspace = true }
 derive_more = { workspace = true }
 higher-kinded-types = { workspace = true }
 biobit-core-rs = { path = "../../core/rs" }
+dyn-clone = { workspace = true }
+eyre = { workspace = true }

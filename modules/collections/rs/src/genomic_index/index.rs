@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
 
-use biobit_core_rs::loc::{Contig, Orientation, Segment};
 use biobit_core_rs::LendingIterator;
+use biobit_core_rs::loc::{Contig, Orientation, Segment};
 
 use crate::genomic_index::OverlapSegments;
 use crate::interval_tree::{ITree, TreeRecord};
@@ -28,10 +27,10 @@ impl<Ctg: Contig, IT: ITree> GenomicIndex<Ctg, IT> {
     }
 
     pub fn set(&mut self, contig: Ctg, orientation: Orientation, index: IT) {
-        let mut map = HashMap::new();
-        map.insert(orientation, index);
-
-        self.itrees.insert(contig, map);
+        self.itrees
+            .entry(contig)
+            .or_default()
+            .insert(orientation, index);
     }
 
     pub fn overlap<'a, 'b, 'c>(
@@ -43,11 +42,9 @@ impl<Ctg: Contig, IT: ITree> GenomicIndex<Ctg, IT> {
     ) -> OverlapSegments<'a, IT::Idx, IT::Value>
     where
         <IT as ITree>::Idx: 'c,
-        <<IT as ITree>::Iter as ForLt>::Of<'a>: LendingIterator,
-        for<'iter> <<<<IT as ITree>::Iter as ForLt>::Of<'a> as LendingIterator>::Item as ForLt>::Of<'iter>:
-            TreeRecord<'a, 'iter, Idx = IT::Idx, Value = IT::Value>,
     {
-        let index = self.itrees.get(ctg).map(|m| m.get(&orientation)).flatten();
+        let index = self.itrees.get(ctg)
+            .and_then(|m| m.get(&orientation));
         let mut buffer = buffer.reset();
 
         if let Some(tree) = index {
@@ -55,11 +52,15 @@ impl<Ctg: Contig, IT: ITree> GenomicIndex<Ctg, IT> {
                 let mut adder = buffer.add();
                 let mut iter = tree.intersection(segment);
                 while let Some(element) = iter.next() {
-                    adder.add(element.interval().clone(), element.value());
+                    adder.add(*element.interval(), element.value());
                 }
                 adder.finish();
             }
-        };
+        } else {
+            for _ in segments {
+                buffer.add().finish();
+            }
+        }
         buffer
     }
 }
@@ -86,7 +87,7 @@ mod tests {
             &"ctg1",
             Orientation::Forward,
             query.iter(),
-            OverlapSegments::new(),
+            OverlapSegments::default(),
         );
         assert_eq!(overlaps.len(), 1);
         assert_eq!(
@@ -100,11 +101,11 @@ mod tests {
             &"ctg1",
             Orientation::Reverse,
             query.iter(),
-            OverlapSegments::new(),
+            OverlapSegments::default(),
         );
-        assert_eq!(overlaps.len(), 0);
-        assert!(overlaps.segments().collect::<Vec<_>>().is_empty());
-        assert!(overlaps.annotations().collect::<Vec<_>>().is_empty());
+        assert_eq!(overlaps.len(), 1);
+        assert!(overlaps.segments().all(|x| x.is_empty()));
+        assert!(overlaps.annotations().all(|x| x.is_empty()));
 
         // Multiple queries with multiple overlaps
         let query = vec![
@@ -116,7 +117,7 @@ mod tests {
             &"ctg1",
             Orientation::Forward,
             query.iter(),
-            OverlapSegments::new(),
+            OverlapSegments::default(),
         );
         assert_eq!(overlaps.len(), 3);
         assert_eq!(
@@ -137,10 +138,10 @@ mod tests {
             &"ctg1",
             Orientation::Dual,
             query.iter(),
-            OverlapSegments::new(),
+            OverlapSegments::default(),
         );
-        assert_eq!(overlaps.len(), 0);
-        assert!(overlaps.segments().collect::<Vec<_>>().is_empty());
-        assert!(overlaps.annotations().collect::<Vec<_>>().is_empty());
+        assert_eq!(overlaps.len(), 3);
+        assert!(overlaps.segments().all(|x| x.is_empty()));
+        assert!(overlaps.annotations().all(|x| x.is_empty()));
     }
 }

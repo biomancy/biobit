@@ -1,9 +1,9 @@
 use ::higher_kinded_types::prelude::*;
 
 use biobit_core_rs::{
-    loc::{Segment, SegmentLike},
-    num::PrimInt,
     LendingIterator,
+    loc::{Segment, AsSegment},
+    num::PrimInt,
 };
 
 pub trait Builder {
@@ -11,7 +11,7 @@ pub trait Builder {
     type Value;
     type Tree: ITree;
 
-    fn add(self, interval: &impl SegmentLike<Idx = Self::Idx>, value: Self::Value) -> Self;
+    fn add(self, interval: &impl AsSegment<Idx = Self::Idx>, value: Self::Value) -> Self;
     fn build(self) -> Self::Tree;
 }
 
@@ -25,21 +25,19 @@ pub trait TreeRecord<'borrow, 'iter> {
 pub trait ITree {
     type Idx: PrimInt;
     type Value;
-    type Iter: ForLt;
+    type Iter: for<'borrow, 'iter> ForLt<
+        Of<'borrow>: LendingIterator<
+            Item: ForLt<
+                Of<'iter>: TreeRecord<'borrow, 'iter, Idx = Self::Idx, Value = Self::Value>,
+            >,
+        >,
+    >;
 
     fn intersection<'borrow>(
         &'borrow self,
-        interval: &impl SegmentLike<Idx = Self::Idx>,
-    ) -> <Self::Iter as ForLt>::Of<'borrow>
-    where
-        ITreeIter<'borrow, Self>: LendingIterator,
-        for<'iter> ITreeItem<'borrow, 'iter, Self>:
-            TreeRecord<'borrow, 'iter, Idx = Self::Idx, Value = Self::Value>;
+        interval: &impl AsSegment<Idx = Self::Idx>,
+    ) -> <Self::Iter as ForLt>::Of<'borrow>;
 }
-
-pub type ITreeIter<'borrow, T> = <<T as ITree>::Iter as ForLt>::Of<'borrow>;
-pub type ITreeItem<'borrow, 'iter, T> =
-    <<ITreeIter<'borrow, T> as LendingIterator>::Item as ForLt>::Of<'iter>;
 
 impl<'borrow, 'iter, Idx: PrimInt, Val> TreeRecord<'borrow, 'iter>
     for (&'iter Segment<Idx>, &'borrow Val)
@@ -62,11 +60,6 @@ pub mod tests {
 
     use super::*;
 
-    type IterFromBuilder<'borrow, T> =
-        <<<T as Builder>::Tree as ITree>::Iter as ForLt>::Of<'borrow>;
-    type ItemFromBuilder<'borrow, 'iter, T> =
-        <<IterFromBuilder<'borrow, T> as LendingIterator>::Item as ForLt>::Of<'iter>;
-
     fn assert_iterator_eq<'borrow, Idx, T, Iter>(mut iter: Iter, expected: Vec<(Segment<Idx>, T)>)
     where
         Idx: PrimInt + Debug,
@@ -87,9 +80,6 @@ pub mod tests {
     where
         T: Builder<Idx = usize, Value = usize>,
         <T as Builder>::Tree: ITree<Idx = usize, Value = usize>,
-        for<'borrow> IterFromBuilder<'borrow, T>: LendingIterator,
-        for<'borrow, 'iter> ItemFromBuilder<'borrow, 'iter, T>:
-            TreeRecord<'borrow, 'iter, Idx = usize, Value = usize>,
     {
         let tree = builder.build();
         assert_iterator_eq::<usize, usize, _>(
@@ -102,9 +92,6 @@ pub mod tests {
     where
         T: Builder<Idx = usize, Value = usize>,
         <T as Builder>::Tree: ITree<Idx = usize, Value = usize>,
-        for<'borrow> IterFromBuilder<'borrow, T>: LendingIterator,
-        for<'borrow, 'iter> ItemFromBuilder<'borrow, 'iter, T>:
-            TreeRecord<'borrow, 'iter, Idx = usize, Value = usize>,
     {
         let tree = builder.add(&Segment::new(10, 20).unwrap(), 1).build();
 
@@ -141,9 +128,6 @@ pub mod tests {
     where
         T: Builder<Idx = usize, Value = usize>,
         <T as Builder>::Tree: ITree<Idx = usize, Value = usize>,
-        for<'borrow> IterFromBuilder<'borrow, T>: LendingIterator,
-        for<'borrow, 'iter> ItemFromBuilder<'borrow, 'iter, T>:
-            TreeRecord<'borrow, 'iter, Idx = usize, Value = usize>,
     {
         let tree = builder
             .add(&Segment::new(1, 10).unwrap(), 1)
