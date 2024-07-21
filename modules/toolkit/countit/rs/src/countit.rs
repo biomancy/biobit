@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::io;
 
+use ahash::AHashMap;
 use eyre::Result;
 use higher_kinded_types::prelude::*;
 use rayon::prelude::*;
@@ -35,7 +35,7 @@ where
     tags: Vec<Tag>,
     sources: Vec<Src>,
 
-    annotations: HashMap<(Ctg, Orientation), Vec<(usize, Vec<Segment<Idx>>)>>,
+    annotations: AHashMap<(Ctg, Orientation), Vec<(usize, Vec<Segment<Idx>>)>>,
 }
 
 impl<Ctg, Idx, Cnts, Data, Tag, Src> CountIt<Ctg, Idx, Cnts, Data, Tag, Src>
@@ -46,7 +46,7 @@ where
     Data: Clone,
     Src: Source<
         Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-        Item = For!(<'iter> = io::Result<&'iter AlignmentSegments<Idx>>),
+        Item = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<Idx>>),
     >,
 {
     pub fn new(pool: ThreadPool) -> Self {
@@ -57,7 +57,7 @@ where
             partitions: Vec::new(),
             tags: Vec::new(),
             sources: Vec::new(),
-            annotations: HashMap::new(),
+            annotations: AHashMap::new(),
         }
     }
 
@@ -94,10 +94,10 @@ where
 
     pub fn run(&mut self) -> Result<Vec<Counts<Ctg, Idx, Cnts, Data, Tag>>> {
         // Index the annotation
-        let annotations = std::mem::take(&mut self.annotations);
-        let itrees = self.pool.install(move || {
-            annotations
-                .into_par_iter()
+        let itrees = self.pool.install(|| {
+            std::mem::take(&mut self.annotations)
+                .into_iter()
+                .par_bridge()
                 .map(|((contig, orientation), data)| {
                     let mut tree = LapperBuilder::new();
                     for (ind, segments) in data {

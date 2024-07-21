@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 use derive_getters::Dissolve;
 
@@ -10,13 +10,13 @@ use crate::interval_tree::{ITree, TreeRecord};
 
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve)]
 pub struct GenomicIndex<Ctg: Contig, IT: ITree> {
-    itrees: HashMap<Ctg, HashMap<Orientation, IT>>,
+    itrees: AHashMap<Ctg, AHashMap<Orientation, IT>>,
 }
 
 impl<Ctg: Contig, IT: ITree> Default for GenomicIndex<Ctg, IT> {
     fn default() -> Self {
         Self {
-            itrees: HashMap::new(),
+            itrees: AHashMap::new(),
         }
     }
 }

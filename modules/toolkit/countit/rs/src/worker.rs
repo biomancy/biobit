@@ -8,7 +8,7 @@ use biobit_core_rs::{
     LendingIterator,
     loc::{AsLocus, AsSegment, Contig},
     num::{Float, PrimInt},
-    source::Source,
+    source::{AnyMap, Source},
 };
 use biobit_io_rs::bam::AlignmentSegments;
 
@@ -41,12 +41,13 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Cache<Ctg, Idx, Cnts> {
     }
 }
 
-#[derive(Clone, Debug, Dissolve)]
+#[derive(Debug, Dissolve)]
 pub struct Worker<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     // There is a clear one-to-one correspondence between Cache entries and Sources being processed.
     // Each entry serve as an accumulator for the counts and stats calculated for each partition in
     // each Source.
     cache: Vec<Cache<Ctg, Idx, Cnts>>,
+    srcache: AnyMap,
 
     // Cache for the overlap calculations
     overlap_segments: OverlapSegments<'static, Idx, usize>,
@@ -57,6 +58,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Default for Worker<Ctg, Idx, Cnts> 
     fn default() -> Self {
         Self {
             cache: Vec::default(),
+            srcache: AnyMap::new(),
             overlap_segments: OverlapSegments::default(),
             overlap_steps: OverlapSteps::default(),
         }
@@ -95,70 +97,78 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
     where
         Src: Source<
             Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter AlignmentSegments<Idx>>),
+            Item = For!(<'iter> = std::io::Result<&'iter mut AlignmentSegments<Idx>>),
         >,
         Lcs: AsLocus<Contig = Ctg, Idx = Idx>,
         IT: ITree<Idx = Idx, Value = usize>,
     {
+        source.populate_caches(&mut self.srcache);
         let launched_at = std::time::Instant::now();
         let (mut inside_annotation, mut outside_annotation) = (Cnts::zero(), Cnts::zero());
 
-        let mut iterator = source.fetch((
-            partition.contig(),
-            partition.segment().start(),
-            partition.segment().end(),
-        ))?;
-
-        let mut overlaps = std::mem::take(&mut self.overlap_segments);
-        let mut steps = std::mem::take(&mut self.overlap_steps);
-
-        // Run the counting
         {
-            // Get the cache and initialize it if needed
-            let cache = self.cache_for(ind, objects);
+            let mut iterator = source.fetch((
+                partition.contig(),
+                partition.segment().start(),
+                partition.segment().end(),
+            ))?;
 
-            while let Some(blocks) = iterator.next() {
-                for (segments, orientation) in blocks?.iter() {
-                    overlaps =
-                        index.overlap(partition.contig(), orientation, segments.iter(), overlaps);
-                    debug_assert!(overlaps.len() == segments.len());
-                    steps.build(segments.iter().zip(overlaps.iter()));
+            let mut overlaps = std::mem::take(&mut self.overlap_segments);
+            let mut steps = std::mem::take(&mut self.overlap_steps);
 
-                    let length: Idx = segments
-                        .iter()
-                        .map(|x| x.len())
-                        .fold(Idx::zero(), |sum, x| sum + x);
-                    let length = Cnts::from(length).unwrap();
+            // Run the counting
+            {
+                // Get the cache and initialize it if needed
+                let cache = self.cache_for(ind, objects);
 
-                    for segment_steps in steps.iter() {
-                        for (start, end, hits) in segment_steps {
-                            let weight = Cnts::from(end - start).unwrap() / length;
+                while let Some(blocks) = iterator.next() {
+                    for (segments, orientation) in blocks?.iter() {
+                        overlaps = index.overlap(
+                            partition.contig(),
+                            orientation,
+                            segments.iter(),
+                            overlaps,
+                        );
+                        debug_assert!(overlaps.len() == segments.len());
+                        steps.build(segments.iter().zip(overlaps.iter()));
 
-                            if hits.is_empty() {
-                                outside_annotation = outside_annotation + weight;
-                            } else {
-                                inside_annotation = inside_annotation + weight;
-                                for x in hits {
-                                    cache.cnts[***x] = cache.cnts[***x] + weight;
+                        let length: Idx = segments
+                            .iter()
+                            .map(|x| x.len())
+                            .fold(Idx::zero(), |sum, x| sum + x);
+                        let length = Cnts::from(length).unwrap();
+
+                        for segment_steps in steps.iter() {
+                            for (start, end, hits) in segment_steps {
+                                let weight = Cnts::from(end - start).unwrap() / length;
+
+                                if hits.is_empty() {
+                                    outside_annotation = outside_annotation + weight;
+                                } else {
+                                    inside_annotation = inside_annotation + weight;
+                                    for x in hits {
+                                        cache.cnts[***x] = cache.cnts[***x] + weight;
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                cache.stats.push(Stats::new(
+                    partition.contig().clone(),
+                    partition.segment().as_segment(),
+                    launched_at.elapsed().as_secs_f64(),
+                    inside_annotation,
+                    outside_annotation,
+                ));
             }
 
-            cache.stats.push(Stats::new(
-                partition.contig().clone(),
-                partition.segment().as_segment(),
-                launched_at.elapsed().as_secs_f64(),
-                inside_annotation,
-                outside_annotation,
-            ));
+            // Save back the overlap cache
+            self.overlap_segments = overlaps.reset();
+            self.overlap_steps = steps.reset();
         }
-
-        // Save back the overlap cache
-        self.overlap_segments = overlaps.reset();
-        self.overlap_steps = steps.reset();
+        source.release_caches(&mut self.srcache);
         Ok(())
     }
 

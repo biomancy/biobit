@@ -21,3 +21,4 @@ higher-kinded-types = { workspace = true }
 impl-tools = { workspace = true }
 dyn-clone = { workspace = true }
 eyre = { workspace = true }
+anymap3 = { workspace = true }

@@ -59,7 +59,7 @@ where
     where
         Src: Source<
             Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter AlignmentSegments<Idx>>),
+            Item = For!(<'iter> = std::io::Result<&'iter mut AlignmentSegments<Idx>>),
         >,
         IT: ITree<Idx = Idx, Value = usize> + Sync,
         Lcs: AsLocus<Contig = Ctg, Idx = Idx> + Sync,

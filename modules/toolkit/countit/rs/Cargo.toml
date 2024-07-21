@@ -24,3 +24,6 @@ thread_local = { workspace = true }
 higher-kinded-types = { workspace = true }
 eyre = { workspace = true }
 dyn-clone = { workspace = true }
+flate2 = { workspace = true }
+ahash = { workspace = true }
+anymap3 = { workspace = true }

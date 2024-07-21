@@ -9,7 +9,7 @@ use noodles::sam::alignment::record::cigar::op::Kind;
 
 use biobit_core_rs::LendingIterator;
 use biobit_core_rs::loc::Segment;
-use biobit_core_rs::source::Transform;
+use biobit_core_rs::source::{AnyMap, Transform};
 
 use crate::bam::{alignment_segments::AlignmentSegments, strdeductor::StrDeductor};
 
@@ -19,45 +19,14 @@ pub struct Cache {
     batch: AlignmentSegments<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
-pub struct ExtractAlignmentSegments<D: StrDeductor> {
-    batch_size: usize,
-    deductor: D,
-}
-
-impl<D: StrDeductor + DynClone> ExtractAlignmentSegments<D> {
-    pub fn new(deductor: D) -> Self {
-        Self {
-            batch_size: 0,
-            deductor,
-        }
-    }
-
-    fn setup(&mut self, batch_size: usize, cache: &mut Cache) {
-        cache.segments.clear();
-        cache.batch.clear();
-
-        self.batch_size = batch_size;
-    }
-
-    fn collapse(segments: &mut Vec<Segment<usize>>) {
-        let mut writeto = 0;
-        for pointer in 1..segments.len() {
-            if let Some(union) = segments[pointer].union(&segments[writeto]) {
-                segments[writeto] = union;
-            } else {
-                writeto += 1;
-                segments[writeto] = segments[pointer];
-            }
-        }
-        segments.truncate(writeto + 1);
-    }
-
-    fn parse_cigar(
+impl Cache {
+    fn append_cigar(
+        &mut self,
         mut start: usize,
         cigar: impl Iterator<Item = io::Result<Op>>,
-        saveto: &mut Vec<Segment<usize>>,
-    ) -> io::Result<()> {
+    ) -> io::Result<&mut Self> {
+        self.segments.clear();
+
         for cigar in cigar {
             let cigar = cigar?;
             let len = cigar.len();
@@ -71,7 +40,7 @@ impl<D: StrDeductor + DynClone> ExtractAlignmentSegments<D> {
                         )
                     })?;
 
-                    saveto.push(segment);
+                    self.segments.push(segment);
                     start += len;
                 }
                 Kind::Deletion | Kind::Skip => {
@@ -81,73 +50,117 @@ impl<D: StrDeductor + DynClone> ExtractAlignmentSegments<D> {
                 Kind::Insertion | Kind::SoftClip | Kind::HardClip | Kind::Pad => {}
             }
         }
-        Ok(())
+        Ok(self)
     }
 }
 
-pub struct AlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
-    iterator: InIter,
-    cache: &'borrow mut Cache,
-    slf: &'borrow mut ExtractAlignmentSegments<D>,
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
+pub struct ExtractAlignmentSegments<D: StrDeductor> {
+    batch_size: usize,
+    cache: Option<Cache>,
+    deductor: D,
+}
+
+impl<D: StrDeductor> ExtractAlignmentSegments<D> {
+    pub fn new(deductor: D) -> Self {
+        Self {
+            batch_size: 1024,
+            cache: None,
+            deductor,
+        }
+    }
+    fn populate_caches(&mut self, cache: &mut AnyMap) {
+        let cache = cache.remove().unwrap_or_default();
+        self.cache = Some(cache);
+    }
+
+    fn release_caches(&mut self, cache: &mut AnyMap) {
+        match self.cache.take() {
+            None => {}
+            Some(x) => {
+                cache.insert(x);
+            }
+        }
+    }
+
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    fn with_batch_size(&mut self, batch_size: usize) {
+        self.batch_size = batch_size;
+    }
 }
 
 impl<InIter, D> Transform<InIter> for ExtractAlignmentSegments<D>
 where
     D: StrDeductor,
     InIter: for<'borrow> ForLt<
-        Of<'borrow>: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [Record]>)>,
+        Of<'borrow>: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<Record>>)>,
     >,
 {
     type Args = ();
-    type Cache = Cache;
     type OutIter = For!(<'borrow> = AlnSegmentsIterator<'borrow, InIter::Of<'borrow>, D>);
-    type InItem = For!(<'iter> = io::Result<&'iter [Record]>);
-    type OutItem = For!(<'iter> = io::Result<&'iter AlignmentSegments<usize>>);
-
-    fn setup(&mut self, batch_size: usize, cache: &mut Self::Cache) {
-        ExtractAlignmentSegments::setup(self, batch_size, cache);
+    type InItem = For!(<'iter> = io::Result<&'iter mut Vec<Record>>);
+    type OutItem = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
+    fn populate_caches(&mut self, cache: &mut AnyMap) {
+        Self::populate_caches(self, cache);
     }
 
-    fn transform<'borrow>(
+    fn release_caches(&mut self, cache: &mut AnyMap) {
+        Self::release_caches(self, cache)
+    }
+
+    fn batch_size(&self) -> usize {
+        Self::batch_size(self)
+    }
+
+    fn with_batch_size(&mut self, batch_size: usize) {
+        Self::with_batch_size(self, batch_size)
+    }
+
+    fn transform<'borrow, 'args>(
         &'borrow mut self,
         iterator: InIter::Of<'borrow>,
-        _: &'borrow Self::Args,
-        cache: &'borrow mut Self::Cache,
-    ) -> <Self::OutIter as ForLifetime>::Of<'borrow> {
+        _: &'args Self::Args,
+    ) -> <Self::OutIter as ForLt>::Of<'borrow> {
+        let cache = self.cache.get_or_insert_with(|| Cache::default());
         AlnSegmentsIterator {
             iterator,
+            deductor: &mut self.deductor,
             cache,
-            slf: self,
         }
     }
+}
+
+pub struct AlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
+    iterator: InIter,
+    deductor: &'borrow mut D,
+    cache: &'borrow mut Cache,
 }
 
 impl<'borrow, InIter, D> LendingIterator for AlnSegmentsIterator<'borrow, InIter, D>
 where
     D: StrDeductor + Clone,
-    InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [Record]>)>,
+    InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<Record>>)>,
 {
-    type Item = For!(<'iter> = io::Result<&'iter AlignmentSegments<usize>>);
+    type Item = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
 
     fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.iterator.next()? {
             Ok(records) => {
                 self.cache.batch.clear();
                 for record in records {
-                    let orientation = self.slf.deductor.deduce(record);
+                    let orientation = self.deductor.deduce(record);
 
                     // Reconstruct the alignment segments from the record
+                    let start = record.alignment_start()?.ok()?.get();
                     self.cache.segments.clear();
-                    ExtractAlignmentSegments::<D>::parse_cigar(
-                        record.alignment_start()?.ok()?.get(),
-                        record.cigar().iter(),
-                        &mut self.cache.segments,
-                    )
-                    .ok()?;
+                    self.cache.append_cigar(start, record.cigar().iter()).ok()?;
 
                     self.cache.batch.push(&self.cache.segments, orientation);
                 }
-                Some(Ok(&self.cache.batch))
+                Some(Ok(&mut self.cache.batch))
             }
             Err(e) => Some(Err(e)),
         }
@@ -167,49 +180,61 @@ impl<D: StrDeductor + DynClone> ExtractPairedAlignmentSegments<D> {
     }
 }
 
-pub struct PairedAlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
-    iterator: InIter,
-    cache: &'borrow mut Cache,
-    slf: &'borrow mut ExtractAlignmentSegments<D>,
-}
-
 impl<InIter, D> Transform<InIter> for ExtractPairedAlignmentSegments<D>
 where
-    D: StrDeductor + Clone,
+    D: StrDeductor,
     InIter: for<'borrow> ForLt<
-        Of<'borrow>: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [(Record, Record)]>)>,
+        Of<'borrow>: LendingIterator<
+            Item = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>),
+        >,
     >,
 {
     type Args = ();
-    type Cache = Cache;
     type OutIter = For!(<'borrow> = PairedAlnSegmentsIterator<'borrow, InIter::Of<'borrow>, D>);
-    type InItem = For!(<'iter> = io::Result<&'iter [(Record, Record)]>);
-    type OutItem = For!(<'iter> = io::Result<&'iter AlignmentSegments<usize>>);
+    type InItem = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>);
+    type OutItem = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
 
-    fn setup(&mut self, batch_size: usize, cache: &mut Self::Cache) {
-        ExtractAlignmentSegments::setup(&mut self.inner, batch_size, cache);
+    fn populate_caches(&mut self, cache: &mut AnyMap) {
+        self.inner.populate_caches(cache)
     }
 
-    fn transform<'borrow>(
+    fn release_caches(&mut self, cache: &mut AnyMap) {
+        self.inner.release_caches(cache)
+    }
+
+    fn batch_size(&self) -> usize {
+        self.inner.batch_size()
+    }
+
+    fn with_batch_size(&mut self, batch_size: usize) {
+        self.inner.with_batch_size(batch_size)
+    }
+
+    fn transform<'borrow, 'args>(
         &'borrow mut self,
         iterator: InIter::Of<'borrow>,
-        _: &'borrow Self::Args,
-        cache: &'borrow mut Self::Cache,
-    ) -> <Self::OutIter as ForLifetime>::Of<'borrow> {
+        _: &'args Self::Args,
+    ) -> <Self::OutIter as ForLt>::Of<'borrow> {
+        let cache = self.inner.cache.get_or_insert_with(|| Cache::default());
         PairedAlnSegmentsIterator {
             iterator,
             cache,
-            slf: &mut self.inner,
+            deductor: &mut self.inner.deductor,
         }
     }
+}
+pub struct PairedAlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
+    iterator: InIter,
+    cache: &'borrow mut Cache,
+    deductor: &'borrow mut D,
 }
 
 impl<'borrow, InIter, D> LendingIterator for PairedAlnSegmentsIterator<'borrow, InIter, D>
 where
     D: StrDeductor + Clone,
-    InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [(Record, Record)]>)>,
+    InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>)>,
 {
-    type Item = For!(<'iter> = io::Result<&'iter AlignmentSegments<usize>>);
+    type Item = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
 
     fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.iterator.next()? {
@@ -218,8 +243,8 @@ where
 
                 for (lmate, rmate) in records {
                     // Predict the orientation
-                    let lorientation = self.slf.deductor.deduce(lmate);
-                    let rorientation = self.slf.deductor.deduce(rmate);
+                    let lorientation = self.deductor.deduce(lmate);
+                    let rorientation = self.deductor.deduce(rmate);
 
                     if lorientation != rorientation {
                         return Some(Err(io::Error::new(
@@ -232,23 +257,16 @@ where
                     }
                     // Reconstruct the alignment segments from the record
                     self.cache.segments.clear();
-                    ExtractAlignmentSegments::<D>::parse_cigar(
-                        lmate.alignment_start()?.ok()?.get(),
-                        lmate.cigar().iter(),
-                        &mut self.cache.segments,
-                    )
-                    .ok()?;
-                    ExtractAlignmentSegments::<D>::parse_cigar(
-                        rmate.alignment_start()?.ok()?.get(),
-                        rmate.cigar().iter(),
-                        &mut self.cache.segments,
-                    )
-                    .ok()?;
-                    ExtractAlignmentSegments::<D>::collapse(&mut self.cache.segments);
+                    self.cache
+                        .append_cigar(lmate.alignment_start()?.ok()?.get(), lmate.cigar().iter())
+                        .ok()?
+                        .append_cigar(rmate.alignment_start()?.ok()?.get(), rmate.cigar().iter())
+                        .ok()?;
 
+                    self.cache.segments = Segment::merge(std::mem::take(&mut self.cache.segments));
                     self.cache.batch.push(&self.cache.segments, lorientation);
                 }
-                Some(Ok(&self.cache.batch))
+                Some(Ok(&mut self.cache.batch))
             }
             Err(e) => Some(Err(e)),
         }

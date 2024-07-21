@@ -58,7 +58,20 @@ impl TryFrom<char> for Orientation {
         match value {
             '+' => Ok(Orientation::Forward),
             '-' => Ok(Orientation::Reverse),
-            '=' | '.' => Ok(Orientation::Dual),
+            '=' => Ok(Orientation::Dual),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&str> for Orientation {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "+" => Ok(Orientation::Forward),
+            "-" => Ok(Orientation::Reverse),
+            "=" => Ok(Orientation::Dual),
             _ => Err(()),
         }
     }

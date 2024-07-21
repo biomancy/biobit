@@ -20,3 +20,9 @@ higher-kinded-types = { workspace = true }
 biobit-core-rs = { path = "../../core/rs" }
 dyn-clone = { workspace = true }
 eyre = { workspace = true }
+ahash = { workspace = true }
+gxhash = { workspace = true }
+anymap3 = { workspace = true }
+
+[profile.release]
+debug = "full"

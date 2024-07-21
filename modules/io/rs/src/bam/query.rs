@@ -1,18 +1,26 @@
 use std::io;
 
 use ::higher_kinded_types::prelude::*;
+use derive_more::{From, Into};
 use noodles::{
     bam, bam::io::Reader, bgzf, core::region::Interval, csi,
-    csi::binning_index::index::reference_sequence::bin::Chunk, sam::alignment::Record,
+    csi::binning_index::index::reference_sequence::bin::Chunk,
 };
 
 use biobit_core_rs::LendingIterator;
+
+#[derive(From, Into, Default)]
+pub struct Cache {
+    buffer: bam::Record,
+    batch: Vec<bam::Record>,
+}
 
 pub struct Query<'a, R> {
     reader: Reader<csi::io::Query<'a, R>>,
     reference_sequence_id: usize,
     interval: Interval,
-    cache: &'a mut Vec<bam::Record>,
+    cache: &'a mut Cache,
+    batch_size: usize,
     inflags: u16,
     exflags: u16,
     minmapq: u8,
@@ -27,7 +35,8 @@ where
         chunks: Vec<Chunk>,
         reference_sequence_id: usize,
         interval: Interval,
-        cache: &'a mut Vec<bam::Record>,
+        cache: &'a mut Cache,
+        batch_size: usize,
         inflags: u16,
         exflags: u16,
         minmapq: u8,
@@ -37,6 +46,7 @@ where
             reference_sequence_id,
             interval,
             cache,
+            batch_size,
             inflags,
             exflags,
             minmapq,
@@ -56,33 +66,30 @@ where
         match (
             record.reference_sequence_id().transpose()?,
             record.alignment_start().transpose()?,
-            record.alignment_end().transpose()?,
         ) {
-            (Some(id), Some(start), Some(end)) => {
-                let alignment_interval = (start..=end).into();
-                Ok(
-                    id == self.reference_sequence_id
-                        && self.interval.intersects(alignment_interval),
-                )
+            (Some(id), Some(start)) => {
+                Ok(id == self.reference_sequence_id && self.interval.contains(start))
             }
             _ => Ok(false),
         }
     }
 
     fn read(&mut self) -> io::Result<usize> {
-        let mut processed = 0;
-        while processed < self.cache.len() {
+        self.cache.batch.clear();
+
+        while self.cache.batch.len() < self.batch_size {
             // Try to read a record into the cache, if it fails, break the loop
-            if self.reader.read_record(&mut self.cache[processed])? == 0 {
+            if self.reader.read_record(&mut self.cache.buffer)? == 0 {
                 break;
             }
 
             // Check if the record intersects with the target region => move to the next record
-            if self.is_record_ok(&self.cache[processed])? {
-                processed += 1;
+            if self.is_record_ok(&self.cache.buffer)? {
+                let record = std::mem::replace(&mut self.cache.buffer, bam::Record::default());
+                self.cache.batch.push(record);
             }
         }
-        Ok(processed)
+        Ok(self.cache.batch.len())
     }
 }
 
@@ -90,12 +97,12 @@ impl<'borrow, R> LendingIterator for Query<'borrow, R>
 where
     R: bgzf::io::BufRead + bgzf::io::Seek,
 {
-    type Item = For!(<'iter> = io::Result<&'iter [bam::Record]>);
+    type Item = For!(<'iter> = io::Result<&'iter mut Vec<bam::Record>>);
 
     fn next(&'_ mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.read() {
             Ok(0) => None,
-            Ok(n) => Some(Ok(&self.cache[..n])),
+            Ok(_) => Some(Ok(&mut self.cache.batch)),
             Err(e) => Some(Err(e)),
         }
     }
