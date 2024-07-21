@@ -3,27 +3,88 @@ use std::io;
 
 use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
-use noodles::bam::Record;
+use noodles::bam;
+use noodles::core::Position;
+use noodles::sam::alignment::Record;
 
 use biobit_core_rs::LendingIterator;
 use biobit_core_rs::source::Transform;
 
+#[derive(Debug, Clone, PartialEq, Dissolve)]
+struct CachedRecord {
+    record: bam::Record,
+    // Self
+    start: Position,
+    end: Position,
+    reference_sequence_id: usize,
+    // Mate
+    mate_start: Position,
+    mate_reference_sequence_id: usize,
+}
+
+impl TryInto<CachedRecord> for bam::Record {
+    type Error = io::Error;
+
+    fn try_into(self) -> Result<CachedRecord, Self::Error> {
+        let start = self.alignment_start().transpose()?.ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Alignment start must be present in the BAM file",
+        ))?;
+        let end = self.alignment_end().transpose()?.ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Alignment end must be present in the BAM file",
+        ))?;
+        let reference_sequence_id =
+            self.reference_sequence_id()
+                .transpose()?
+                .ok_or(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Reference sequence ID must be present in the BAM file",
+                ))?;
+        let mate_start = self
+            .mate_alignment_start()
+            .transpose()?
+            .ok_or(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Mate alignment start must be present in the BAM file",
+            ))?;
+        let mate_reference_sequence_id =
+            self.mate_reference_sequence_id()
+                .transpose()?
+                .ok_or(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Mate reference sequence ID must be present in the BAM file",
+                ))?;
+
+        Ok(CachedRecord {
+            record: self,
+            start,
+            end,
+            reference_sequence_id,
+            mate_start,
+            mate_reference_sequence_id,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Dissolve)]
 struct Bundle {
-    lmate: Vec<Record>,
-    rmate: Vec<Record>,
+    lmate: Vec<CachedRecord>,
+    rmate: Vec<CachedRecord>,
 }
 
 impl Bundle {
-    fn push(&mut self, record: Record) {
+    fn push(&mut self, record: bam::Record) -> io::Result<()> {
         if record.flags().is_first_segment() {
-            self.lmate.push(record);
+            self.lmate.push(record.try_into()?);
         } else {
-            self.rmate.push(record);
+            self.rmate.push(record.try_into()?);
         }
+
+        Ok(())
     }
 
-    fn try_bundle(&mut self, writeto: &mut Vec<(Record, Record)>) -> io::Result<usize> {
+    fn try_bundle(&mut self, writeto: &mut Vec<(bam::Record, bam::Record)>) -> io::Result<usize> {
         let mut lmate = 0;
         let mut bunled = 0;
 
@@ -32,22 +93,21 @@ impl Bundle {
 
             for rmate in 0..self.rmate.len() {
                 let (left, right) = (&self.lmate[lmate], &self.rmate[rmate]);
-                if left.mate_reference_sequence_id().transpose()?
-                    == right.reference_sequence_id().transpose()?
-                    && left.mate_alignment_start().transpose()?
-                        == right.alignment_start().transpose()?
-                    && left.flags().is_mate_reverse_complemented()
-                        == right.flags().is_reverse_complemented()
-                    && left.flags().is_mate_unmapped() == right.flags().is_unmapped()
-                    && right.mate_reference_sequence_id().transpose()?
-                        == left.reference_sequence_id().transpose()?
-                    && right.mate_alignment_start().transpose()?
-                        == left.alignment_start().transpose()?
-                    && right.flags().is_mate_reverse_complemented()
-                        == left.flags().is_reverse_complemented()
-                    && right.flags().is_mate_unmapped() == left.flags().is_unmapped()
+                if left.mate_reference_sequence_id == right.reference_sequence_id
+                    && left.mate_start == right.start
+                    && left.record.flags().is_mate_reverse_complemented()
+                        == right.record.flags().is_reverse_complemented()
+                    && left.record.flags().is_mate_unmapped() == right.record.flags().is_unmapped()
+                    && right.mate_reference_sequence_id == left.reference_sequence_id
+                    && right.mate_start == left.start
+                    && right.record.flags().is_mate_reverse_complemented()
+                        == left.record.flags().is_reverse_complemented()
+                    && right.record.flags().is_mate_unmapped() == left.record.flags().is_unmapped()
                 {
-                    writeto.push((self.lmate.remove(lmate), self.rmate.remove(rmate)));
+                    writeto.push((
+                        self.lmate.remove(lmate).record,
+                        self.rmate.remove(rmate).record,
+                    ));
                     paired = true;
                     break;
                 }
@@ -66,7 +126,7 @@ impl Bundle {
 
 #[derive(Debug, Clone, PartialEq, Default, Dissolve)]
 pub struct Cache {
-    batch: Vec<(Record, Record)>,
+    batch: Vec<(bam::Record, bam::Record)>,
     arena: Vec<Bundle>,
     bundles: HashMap<Vec<u8>, Bundle>,
 }
@@ -113,7 +173,7 @@ impl BundleMates {
 
     fn read(
         &self,
-        iterator: &mut impl LendingIterator<Item = For!(<'iter> = io::Result<&'iter [Record]>)>,
+        iterator: &mut impl LendingIterator<Item = For!(<'iter> = io::Result<&'iter [bam::Record]>)>,
         cache: &mut Cache,
     ) -> io::Result<usize> {
         let mut consumed = 0;
@@ -128,10 +188,10 @@ impl BundleMates {
 
                 if cache.bundles.contains_key(qname.as_bytes()) {
                     let bundle = cache.bundles.get_mut(qname.as_bytes()).unwrap();
-                    bundle.push(record.clone());
+                    bundle.push(record.clone())?;
                 } else {
                     let mut bundle = cache.arena.pop().unwrap_or_default();
-                    bundle.push(record.clone());
+                    bundle.push(record.clone())?;
                     cache.bundles.insert(qname.as_bytes().to_vec(), bundle);
                 }
 
@@ -160,14 +220,14 @@ impl BundleMates {
 impl<InIter> Transform<InIter> for BundleMates
 where
     InIter: for<'borrow> ForLt<
-        Of<'borrow>: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [Record]>)>,
+        Of<'borrow>: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [bam::Record]>)>,
     >,
 {
     type Args = ();
     type Cache = Cache;
     type OutIter = For!(<'borrow> = Iterator<'borrow, InIter::Of<'borrow>>);
-    type InItem = For!(<'iter> = io::Result<&'iter [Record]>);
-    type OutItem = For!(<'iter> = io::Result<&'iter [(Record, Record)]>);
+    type InItem = For!(<'iter> = io::Result<&'iter [bam::Record]>);
+    type OutItem = For!(<'iter> = io::Result<&'iter [(bam::Record, bam::Record)]>);
 
     fn setup(&mut self, batch_size: usize, cache: &mut Self::Cache) {
         self.batch_size = batch_size;
@@ -211,9 +271,9 @@ pub struct Iterator<'borrow, InIter> {
 
 impl<'borrow, InIter> LendingIterator for Iterator<'borrow, InIter>
 where
-    InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [Record]>)>,
+    InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter [bam::Record]>)>,
 {
-    type Item = For!(<'iter> = io::Result<&'iter [(Record, Record)]>);
+    type Item = For!(<'iter> = io::Result<&'iter [(bam::Record, bam::Record)]>);
 
     fn next(&'_ mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.bundler.read(&mut self.iterator, self.cache) {

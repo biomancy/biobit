@@ -160,3 +160,56 @@ impl PyCountIt {
         Ok(self.0.run()?.into_iter().map(|x| x.into_py(py)).collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_countit() -> Result<()> {
+        let threads = parallelism::available(-1)?;
+        let pool = ThreadPoolBuilder::new().num_threads(threads).build()?;
+
+        let mut countit: CountIt<String, usize, f64, (), String, _> = CountIt::new(pool);
+        countit.add_partition(Locus::new(
+            "1".into(),
+            Segment::new(0, 248956422)?,
+            biobit_core_py::loc::Orientation::Dual,
+        ));
+
+        let source = biobit_io_py::bam::ReaderBuilder::new(
+            "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
+        )
+        .with_inflags(2)
+        .with_exflags(2572)
+        .with_minmapq(0)
+        .build()?;
+
+        let source = source
+            .with_transform(transform::BundleMates::default(), ())
+            .with_transform(
+                transform::ExtractPairedAlignmentSegments::new(strdeductor::deduce::pe::reverse),
+                (),
+            );
+
+        countit.add_source("Tag".to_string(), source);
+        let mut result = countit.run()?;
+
+        debug_assert_eq!(result.len(), 1);
+        let result = result.pop().unwrap();
+
+        debug_assert_eq!(result.stats().len(), 1);
+        debug_assert_eq!(result.source(), &"Tag");
+        debug_assert_eq!(result.data().len(), 0);
+        debug_assert_eq!(result.counts().len(), 0);
+
+        let stats = result.dissolve().3.pop().unwrap();
+        debug_assert_eq!(stats.contig(), &"1");
+        debug_assert_eq!(stats.segment().start(), 0);
+        debug_assert_eq!(stats.segment().end(), 248956422);
+
+        println!("{:?}", stats);
+
+        Ok(())
+    }
+}
