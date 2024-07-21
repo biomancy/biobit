@@ -72,7 +72,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
     }
 
     fn cache_for(&mut self, srcind: usize, objects: usize) -> &mut Cache<Ctg, Idx, Cnts> {
-        if srcind > self.cache.len() {
+        if srcind >= self.cache.len() {
             self.cache.resize_with(srcind + 1, || Cache {
                 initialized: false,
                 cnts: Vec::new(),
