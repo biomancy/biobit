@@ -10,7 +10,7 @@ use biobit_core_rs::{
     num::{Float, PrimInt},
     source::{AnyMap, Source},
 };
-use biobit_io_rs::bam::AlignmentSegments;
+use biobit_io_rs::bam::SegmentedAlignment;
 
 use super::result::Stats;
 
@@ -97,7 +97,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
     where
         Src: Source<
             Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut AlignmentSegments<Idx>>),
+            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
         Lcs: AsLocus<Contig = Ctg, Idx = Idx>,
         IT: ITree<Idx = Idx, Value = usize>,
@@ -122,7 +122,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 let cache = self.cache_for(ind, objects);
 
                 while let Some(blocks) = iterator.next() {
-                    for (segments, orientation) in blocks?.iter() {
+                    for (segments, orientation, n) in blocks?.iter() {
                         overlaps = index.overlap(
                             partition.contig(),
                             orientation,
@@ -136,22 +136,31 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                             .iter()
                             .map(|x| x.len())
                             .fold(Idx::zero(), |sum, x| sum + x);
-                        let length = Cnts::from(length).unwrap();
+
+                        let weight =
+                            Cnts::one() / (Cnts::from(length).unwrap() * Cnts::from(n).unwrap());
 
                         for segment_steps in steps.iter() {
                             for (start, end, hits) in segment_steps {
-                                let weight = Cnts::from(end - start).unwrap() / length;
+                                let segweight = Cnts::from(end - start).unwrap() * weight;
+
+                                // consumed = consumed + weight;
 
                                 if hits.is_empty() {
-                                    outside_annotation = outside_annotation + weight;
+                                    outside_annotation = outside_annotation + segweight;
                                 } else {
-                                    inside_annotation = inside_annotation + weight;
+                                    inside_annotation = inside_annotation + segweight;
                                     for x in hits {
-                                        cache.cnts[***x] = cache.cnts[***x] + weight;
+                                        cache.cnts[***x] = cache.cnts[***x] + segweight;
                                     }
                                 }
                             }
                         }
+                        // debug_assert!(
+                        //     (consumed.to_f64().unwrap() - 1.0).abs() < 1e-6,
+                        //     "Consumed: {:?}",
+                        //     consumed.to_f64().unwrap()
+                        // );
                     }
                 }
 

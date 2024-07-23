@@ -14,7 +14,7 @@ use biobit_core_rs::{
 };
 use biobit_core_rs::loc::{Orientation, Segment};
 use biobit_core_rs::source::Source;
-use biobit_io_rs::bam::AlignmentSegments;
+use biobit_io_rs::bam::SegmentedAlignment;
 
 use crate::engine::Engine;
 
@@ -46,7 +46,7 @@ where
     Data: Clone,
     Src: Source<
         Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-        Item = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<Idx>>),
+        Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
     >,
 {
     pub fn new(pool: ThreadPool) -> Self {

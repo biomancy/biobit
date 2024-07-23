@@ -6,6 +6,7 @@ use noodles::{
     bam, bam::io::Reader, bgzf, core::region::Interval, csi,
     csi::binning_index::index::reference_sequence::bin::Chunk,
 };
+use noodles::sam::alignment::Record;
 
 use biobit_core_rs::LendingIterator;
 
@@ -66,9 +67,11 @@ where
         match (
             record.reference_sequence_id().transpose()?,
             record.alignment_start().transpose()?,
+            record.alignment_end().transpose()?,
         ) {
-            (Some(id), Some(start)) => {
-                Ok(id == self.reference_sequence_id && self.interval.contains(start))
+            (Some(id), Some(start), Some(end)) => {
+                let interval = Interval::from(start..=end);
+                Ok(id == self.reference_sequence_id && self.interval.intersects(interval))
             }
             _ => Ok(false),
         }

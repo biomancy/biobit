@@ -16,11 +16,11 @@ use biobit_core_py::{
 };
 use biobit_core_py::loc::{IntoPyLocus, Locus};
 use biobit_countit_rs::CountIt;
-use biobit_io_py::bam::{AlignmentSegments, IntoPyReader, strdeductor, transform};
+use biobit_io_py::bam::{SegmentedAlignment, IntoPyReader, strdeductor, transform};
 
 use super::result::PyCounts;
 
-type PySourceItem = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
+type PySourceItem = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 type PySource = Box<
     dyn Source<
         Args = For!(<'args> = (&'args String, usize, usize)),

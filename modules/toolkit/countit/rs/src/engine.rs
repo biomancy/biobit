@@ -14,7 +14,7 @@ use biobit_core_rs::{
     num::{Float, PrimInt},
 };
 use biobit_core_rs::source::Source;
-use biobit_io_rs::bam::AlignmentSegments;
+use biobit_io_rs::bam::SegmentedAlignment;
 
 use super::result::Stats;
 use super::worker::Worker;
@@ -59,7 +59,7 @@ where
     where
         Src: Source<
             Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut AlignmentSegments<Idx>>),
+            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
         IT: ITree<Idx = Idx, Value = usize> + Sync,
         Lcs: AsLocus<Contig = Ctg, Idx = Idx> + Sync,

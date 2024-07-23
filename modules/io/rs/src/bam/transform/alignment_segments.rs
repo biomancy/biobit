@@ -6,17 +6,52 @@ use dyn_clone::DynClone;
 use noodles::bam::record::Record;
 use noodles::sam::alignment::record::cigar::Op;
 use noodles::sam::alignment::record::cigar::op::Kind;
+use noodles::sam::alignment::record::data::field::{Tag, Value};
 
 use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::Segment;
+use biobit_core_rs::loc::{Orientation, Segment};
+use biobit_core_rs::num::PrimInt;
 use biobit_core_rs::source::{AnyMap, Transform};
 
 use crate::bam::{alignment_segments::AlignmentSegments, strdeductor::StrDeductor};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Dissolve)]
+pub struct SegmentedAlignment<Idx: PrimInt> {
+    pub segments: AlignmentSegments<Idx>,
+    pub orientation: Vec<Orientation>,
+    pub total_hits: Vec<i8>,
+}
+
+impl<Idx: PrimInt> SegmentedAlignment<Idx> {
+    pub fn clear(&mut self) {
+        self.segments.clear();
+        self.orientation.clear();
+        self.total_hits.clear();
+    }
+
+    pub fn push(&mut self, segments: &[Segment<Idx>], orientation: Orientation, total_hits: i8) {
+        if segments.is_empty() {
+            return;
+        }
+
+        self.segments.push(segments);
+        self.orientation.push(orientation);
+        self.total_hits.push(total_hits);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&[Segment<Idx>], Orientation, i8)> {
+        self.segments
+            .iter()
+            .zip(&self.orientation)
+            .zip(&self.total_hits)
+            .map(|((segments, orientation), total_hits)| (segments, *orientation, *total_hits))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Dissolve)]
 pub struct Cache {
     segments: Vec<Segment<usize>>,
-    batch: AlignmentSegments<usize>,
+    batch: SegmentedAlignment<usize>,
 }
 
 impl Cache {
@@ -102,7 +137,7 @@ where
     type Args = ();
     type OutIter = For!(<'borrow> = AlnSegmentsIterator<'borrow, InIter::Of<'borrow>, D>);
     type InItem = For!(<'iter> = io::Result<&'iter mut Vec<Record>>);
-    type OutItem = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
+    type OutItem = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
     fn populate_caches(&mut self, cache: &mut AnyMap) {
         Self::populate_caches(self, cache);
     }
@@ -144,12 +179,13 @@ where
     D: StrDeductor + Clone,
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<Record>>)>,
 {
-    type Item = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
+    type Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 
     fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.iterator.next()? {
             Ok(records) => {
                 self.cache.batch.clear();
+
                 for record in records {
                     let orientation = self.deductor.deduce(record);
 
@@ -158,7 +194,10 @@ where
                     self.cache.segments.clear();
                     self.cache.append_cigar(start, record.cigar().iter()).ok()?;
 
-                    self.cache.batch.push(&self.cache.segments, orientation);
+                    let total_hits = extract_aln_hit_count(record).unwrap();
+                    self.cache
+                        .batch
+                        .push(&self.cache.segments, orientation, total_hits);
                 }
                 Some(Ok(&mut self.cache.batch))
             }
@@ -192,7 +231,7 @@ where
     type Args = ();
     type OutIter = For!(<'borrow> = PairedAlnSegmentsIterator<'borrow, InIter::Of<'borrow>, D>);
     type InItem = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>);
-    type OutItem = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
+    type OutItem = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 
     fn populate_caches(&mut self, cache: &mut AnyMap) {
         self.inner.populate_caches(cache)
@@ -234,7 +273,7 @@ where
     D: StrDeductor + Clone,
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>)>,
 {
-    type Item = For!(<'iter> = io::Result<&'iter mut AlignmentSegments<usize>>);
+    type Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 
     fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
         match self.iterator.next()? {
@@ -255,20 +294,56 @@ where
                             ),
                         )));
                     }
+
                     // Reconstruct the alignment segments from the record
                     self.cache.segments.clear();
                     self.cache
-                        .append_cigar(lmate.alignment_start()?.ok()?.get(), lmate.cigar().iter())
+                        .append_cigar(
+                            lmate.alignment_start()?.ok()?.get() - 1,
+                            lmate.cigar().iter(),
+                        )
                         .ok()?
-                        .append_cigar(rmate.alignment_start()?.ok()?.get(), rmate.cigar().iter())
+                        .append_cigar(
+                            rmate.alignment_start()?.ok()?.get() - 1,
+                            rmate.cigar().iter(),
+                        )
                         .ok()?;
-
                     self.cache.segments = Segment::merge(std::mem::take(&mut self.cache.segments));
-                    self.cache.batch.push(&self.cache.segments, lorientation);
+
+                    let lhits = extract_aln_hit_count(lmate).unwrap();
+                    debug_assert!(lhits > 0);
+                    debug_assert!(lhits == extract_aln_hit_count(rmate).unwrap());
+
+                    self.cache
+                        .batch
+                        .push(&self.cache.segments, lorientation, lhits);
                 }
                 Some(Ok(&mut self.cache.batch))
             }
             Err(e) => Some(Err(e)),
+        }
+    }
+}
+
+pub fn extract_aln_hit_count(record: &Record) -> io::Result<i8> {
+    let data = record.data();
+    let total_hits = match data.get(&Tag::ALIGNMENT_HIT_COUNT) {
+        Some(Ok(tag)) => tag,
+        Some(Err(e)) => return Err(e),
+        None => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "No TOTAL_HIT_COUNT tag",
+            ))
+        }
+    };
+    match total_hits {
+        Value::Int8(tag) => Ok(tag),
+        _ => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "TOTAL_HIT_COUNT tag must be an Int32",
+            ))
         }
     }
 }

@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::Path;
+use std::string::ToString;
 
-use flate2::bufread::MultiGzDecoder;
 use rayon::ThreadPoolBuilder;
 
 use biobit_core_rs::{loc::Orientation, parallelism};
@@ -11,15 +12,83 @@ use biobit_core_rs::source::Source;
 use biobit_countit_rs::CountIt;
 use biobit_io_rs::bam::{ReaderBuilder, strdeductor, transform};
 
+const THREADS: isize = -1;
+const BED: &str = "/home/alnfedorov/projects/biobit/resources/bed/manual.bed";
+
+const PARTITIONS: &[(&str, usize, usize)] = &[
+    // GRCh38
+    ("1", 0, 248956422),
+    ("2", 0, 242193529),
+    ("3", 0, 198295559),
+    ("4", 0, 190214555),
+    ("5", 0, 181538259),
+    ("6", 0, 170805979),
+    ("7", 0, 159345973),
+    ("8", 0, 145138636),
+    ("9", 0, 138394717),
+    ("10", 0, 133797422),
+    ("11", 0, 135086622),
+    ("12", 0, 133275309),
+    ("13", 0, 114364328),
+    ("14", 0, 107043718),
+    ("15", 0, 101991189),
+    ("16", 0, 90338345),
+    ("17", 0, 83257441),
+    ("18", 0, 80373285),
+    ("19", 0, 58617616),
+    ("20", 0, 64444167),
+    ("21", 0, 46709983),
+    ("22", 0, 50818468),
+    ("MT", 0, 16569),
+    ("X", 0, 156040895),
+    ("Y", 0, 57227415),
+    // GRCm39
+    // ("1", 0, 195154279),
+    // ("2", 0, 181755017),
+    // ("3", 0, 159745316),
+    // ("4", 0, 156860686),
+    // ("5", 0, 151758149),
+    // ("6", 0, 149588044),
+    // ("7", 0, 144995196),
+    // ("8", 0, 130127694),
+    // ("9", 0, 124359700),
+    // ("10", 0, 130530862),
+    // ("11", 0, 121973369),
+    // ("12", 0, 120092757),
+    // ("13", 0, 120883175),
+    // ("14", 0, 125139656),
+    // ("15", 0, 104073951),
+    // ("16", 0, 98008968),
+    // ("17", 0, 95294699),
+    // ("18", 0, 90720763),
+    // ("19", 0, 61420004),
+    // ("MT", 0, 16299),
+    // ("X", 0, 169476592),
+    // ("Y", 0, 91455967),
+];
+
+const BAM: &[&str] = &[
+    "/home/alnfedorov/projects/biobit/resources/bam/A1+THP-1_mock_no-RNase_2.bam",
+    // "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.bam",
+    // "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518960+MEF_Vector_1.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518961+MEF_Vector_2.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518962+MEF_ICP27_1.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518963+MEF_ICP27_2.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518964+MEF_ICP27-m15_1.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518965+MEF_ICP27-m15_2.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518966+MEF_ICP27-n504_1.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518967+MEF_ICP27-n504_2.markdup.sorted.bam",
+];
+
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-fn read_bed() -> Vec<(String, Vec<(String, Orientation, Vec<Segment<usize>>)>)> {
-    let reader =
-        File::open("/home/alnfedorov/projects/biobit/resources/bed/GRCh38.bed.gz").unwrap();
-    let reader = BufReader::new(reader);
-    let mut reader = BufReader::new(MultiGzDecoder::new(reader));
+fn read_bed(path: &Path) -> Vec<(String, Vec<(String, Orientation, Vec<Segment<usize>>)>)> {
+    let reader = File::open(path).unwrap();
+    let mut reader = BufReader::new(reader);
+    // let mut reader = BufReader::new(MultiGzDecoder::new(reader));
 
     let mut records = HashMap::new();
     let mut buf = String::new();
@@ -64,7 +133,7 @@ fn read_bed() -> Vec<(String, Vec<(String, Orientation, Vec<Segment<usize>>)>)> 
 }
 
 fn main() {
-    let threads = parallelism::available(-1).unwrap();
+    let threads = parallelism::available(THREADS).unwrap();
     let pool = ThreadPoolBuilder::new()
         .num_threads(threads)
         .use_current_thread()
@@ -72,68 +141,16 @@ fn main() {
         .unwrap();
 
     let mut countit: CountIt<String, usize, f64, String, String, _> = CountIt::new(pool);
-    let workload = [
-        // GRCh38
-        ("1", 248956422),
-        ("2", 242193529),
-        ("3", 198295559),
-        ("4", 190214555),
-        ("5", 181538259),
-        ("6", 170805979),
-        ("7", 159345973),
-        ("8", 145138636),
-        ("9", 138394717),
-        ("10", 133797422),
-        ("11", 135086622),
-        ("12", 133275309),
-        ("13", 114364328),
-        ("14", 107043718),
-        ("15", 101991189),
-        ("16", 90338345),
-        ("17", 83257441),
-        ("18", 80373285),
-        ("19", 58617616),
-        ("20", 64444167),
-        ("21", 46709983),
-        ("22", 50818468),
-        ("MT", 16569),
-        ("X", 156040895),
-        ("Y", 57227415),
-        // GRCm39
-        // ("1", 195154279),
-        // ("2", 181755017),
-        // ("3", 159745316),
-        // ("4", 156860686),
-        // ("5", 151758149),
-        // ("6", 149588044),
-        // ("7", 144995196),
-        // ("8", 130127694),
-        // ("9", 124359700),
-        // ("10", 130530862),
-        // ("11", 121973369),
-        // ("12", 120092757),
-        // ("13", 120883175),
-        // ("14", 125139656),
-        // ("15", 104073951),
-        // ("16", 98008968),
-        // ("17", 95294699),
-        // ("18", 90720763),
-        // ("19", 61420004),
-        // ("MT", 16299),
-        // ("X", 169476592),
-        // ("Y", 91455967),
-    ];
-
-    for (contig, size) in workload {
+    for (contig, start, end) in PARTITIONS {
         countit.add_partition(Locus::new(
             contig.to_string(),
-            Segment::new(0, size).unwrap(),
+            Segment::new(*start, *end).unwrap(),
             Orientation::Dual,
         ))
     }
 
-    // Annotation from the BAM file
-    for (item, items) in read_bed() {
+    // Annotation from the BED file
+    for (item, items) in read_bed(Path::new(BED)) {
         countit.add_annotation(
             item,
             items
@@ -142,19 +159,7 @@ fn main() {
         );
     }
 
-    for path in [
-        "/home/alnfedorov/projects/biobit/resources/bam/A1+THP-1_mock_no-RNase_2.bam",
-        "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.bam",
-        "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518960+MEF_Vector_1.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518961+MEF_Vector_2.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518962+MEF_ICP27_1.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518963+MEF_ICP27_2.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518964+MEF_ICP27-m15_1.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518965+MEF_ICP27-m15_2.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518966+MEF_ICP27-n504_1.markdup.sorted.bam",
-        // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518967+MEF_ICP27-n504_2.markdup.sorted.bam",
-    ] {
+    for path in BAM {
         let source = ReaderBuilder::new(path)
             .with_inflags(2)
             .with_exflags(2572)
@@ -172,7 +177,29 @@ fn main() {
         countit.add_source(path.to_string(), source);
     }
 
-    #[cfg(feature = "dhat-heap")]
-    let _profiler = dhat::Profiler::new_heap();
-    countit.run().unwrap();
+    // Run the countit
+    let result = {
+        #[cfg(feature = "dhat-heap")]
+        let _profiler = dhat::Profiler::new_heap();
+        countit.run().unwrap()
+    };
+
+    // Print the result
+    for r in result {
+        println!("Source: {}", r.source());
+        for (obj, cnt) in r.data().iter().zip(r.counts()) {
+            println!("\t{}: {}", obj, cnt);
+        }
+        println!("stats:");
+        for p in r.stats() {
+            println!(
+                "\t{:<3}:{:<25}\t{}\t{}",
+                p.contig(),
+                p.segment(),
+                p.inside_annotation(),
+                p.outside_annotation()
+            )
+        }
+        println!()
+    }
 }
