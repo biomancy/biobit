@@ -145,11 +145,11 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                                 let segweight = Cnts::from(end - start).unwrap() * weight;
 
                                 // consumed = consumed + weight;
-
                                 if hits.is_empty() {
                                     outside_annotation = outside_annotation + segweight;
                                 } else {
                                     inside_annotation = inside_annotation + segweight;
+                                    let segweight = segweight / Cnts::from(hits.len()).unwrap();
                                     for x in hits {
                                         cache.cnts[***x] = cache.cnts[***x] + segweight;
                                     }
