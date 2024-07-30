@@ -6,7 +6,7 @@ use rust_lapper;
 use biobit_core_rs::{
     LendingIterator,
     loc::{Segment, AsSegment},
-    num::{PrimInt, Unsigned},
+    num::{PrimInt, PrimUInt},
 };
 
 use super::traits::{Builder, ITree};
@@ -14,12 +14,12 @@ use super::traits::{Builder, ITree};
 #[derive(Debug, Clone, From, Dissolve)]
 pub struct LapperBuilder<Idx, T>(rust_lapper::Lapper<Idx, T>)
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
+    Idx: PrimUInt + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync;
 
 impl<Idx, T> Default for LapperBuilder<Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
+    Idx: PrimUInt + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
     fn default() -> Self {
@@ -29,7 +29,7 @@ where
 
 impl<Idx, T> LapperBuilder<Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
+    Idx: PrimUInt + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
     pub fn new() -> Self {
@@ -39,7 +39,7 @@ where
 
 impl<Idx, T> Builder for LapperBuilder<Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'static,
+    Idx: PrimUInt + Ord + Clone + Send + Sync + 'static,
     T: Eq + Clone + Send + Sync + 'static,
 {
     type Idx = Idx;
@@ -64,12 +64,12 @@ where
 #[derive(Debug, Clone, From, Dissolve)]
 pub struct LapperTree<Idx, T>(rust_lapper::Lapper<Idx, T>)
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
+    Idx: PrimUInt + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync;
 
 impl<Idx, T> ITree for LapperTree<Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'static,
+    Idx: PrimUInt + Ord + Clone + Send + Sync + 'static,
     T: Eq + Clone + Send + Sync + 'static,
 {
     type Idx = Idx;
@@ -93,7 +93,7 @@ where
 #[derive(Constructor)]
 pub struct LapperIntersectionIter<'a, Idx: PrimInt, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync,
+    Idx: PrimUInt + Ord + Clone + Send + Sync,
     T: Eq + Clone + Send + Sync,
 {
     interval: Segment<Idx>,
@@ -102,7 +102,7 @@ where
 
 impl<'borrow, Idx: PrimInt, T> LendingIterator for LapperIntersectionIter<'borrow, Idx, T>
 where
-    Idx: PrimInt + Unsigned + Ord + Clone + Send + Sync + 'borrow,
+    Idx: PrimUInt + Ord + Clone + Send + Sync + 'borrow,
     T: Eq + Clone + Send + Sync + 'borrow,
 {
     type Item = For!(<'iter> = (&'iter Segment<Idx>, &'borrow T));
