@@ -1,12 +1,12 @@
-mod ripper;
-mod result;
-mod config;
-
 use pyo3::prelude::*;
 
-// pub use countit::PyCountIt;
-// pub use result::{PyCounts, PyStats};
+pub use config::PyConfig;
+pub use result::{PyPeak, PyRegion, PyRipped};
+pub use ripper::PyRipper;
 
+mod config;
+mod result;
+mod ripper;
 
 pub fn register<'b>(
     name: &'_ str,
@@ -16,9 +16,11 @@ pub fn register<'b>(
     let name = format!("{}.{}", parent.name()?, name);
     let ripper = PyModule::new_bound(parent.py(), &name)?;
 
-    // ripper.add_class::<PyCountIt>()?;
-    // ripper.add_class::<PyCounts>()?;
-    // ripper.add_class::<PyStats>()?;
+    ripper.add_class::<PyRipper>()?;
+    ripper.add_class::<PyConfig>()?;
+    ripper.add_class::<PyPeak>()?;
+    ripper.add_class::<PyRegion>()?;
+    ripper.add_class::<PyRipped>()?;
 
     parent.add_submodule(&ripper)?;
     sysmod.set_item(ripper.name()?, &ripper)?;
