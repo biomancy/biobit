@@ -49,6 +49,15 @@ impl<T> PerOrientation<T> {
         f(&mut self.dual);
         self
     }
+
+    /// Maps each orientation to a new value.
+    pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> PerOrientation<U> {
+        PerOrientation {
+            forward: f(self.forward),
+            reverse: f(self.reverse),
+            dual: f(self.dual),
+        }
+    }
 }
 
 impl<T> IntoIterator for PerOrientation<T> {

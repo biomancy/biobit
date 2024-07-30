@@ -6,7 +6,7 @@ use biobit_core_py::{
     loc::Contig,
     num::{Float, PrimInt},
 };
-use biobit_core_py::loc::PySegment;
+use biobit_core_py::loc::{PyPerOrientation, PySegment};
 use biobit_ripper_rs::result::{Peak, Region, Ripped};
 
 #[pyclass(get_all, name = "Peak")]
@@ -30,20 +30,32 @@ impl<Idx: Into<i64>, Cnts: Into<f64>> IntoPy<PyPeak> for Peak<Idx, Cnts> {
 pub struct PyRegion {
     contig: String,
     segment: PySegment,
-    peaks: Vec<Py<PyPeak>>,
+    peaks: PyPerOrientation,
 }
 
 impl<Ctg, Idx, Cnts> IntoPy<PyRegion> for Region<Ctg, Idx, Cnts>
 where
     Ctg: Into<String> + Contig,
-    Idx: Into<i64> + PrimInt,
+    Idx: PrimInt + Into<i64>,
     Cnts: Into<f64> + Float,
 {
     fn into_py(self, py: Python<'_>) -> PyRegion {
         let (contig, segment, peaks) = self.dissolve();
-        todo!()
-        // let peaks = peaks.into_iter().map(|x| PyPeak::new(x)).collect();
-        // PyRipperPeaks::new(contig, query.start.into(), query.end.into(), peaks)
+
+        let contig = contig.into();
+        let segment = segment.cast::<i64>().into_py(py);
+
+        let peaks = peaks
+            .map(|x| {
+                x.into_iter()
+                    .map(|x| Py::new(py, x.into_py(py)))
+                    .collect::<PyResult<Vec<_>>>()
+                    .expect("Failed to allocate Python memory for the ripper:Peak")
+                    .into_py(py)
+            })
+            .into();
+
+        PyRegion::new(contig, segment, peaks)
     }
 }
 

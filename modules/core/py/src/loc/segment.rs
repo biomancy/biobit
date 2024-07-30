@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::PySequence;
 
 use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::num::PrimInt;
 
 #[pyclass]
 #[repr(transparent)]
@@ -173,5 +174,14 @@ impl AsSegment for PySegment {
 
     fn end(&self) -> Self::Idx {
         self.end()
+    }
+}
+
+impl<Idx: PrimInt> IntoPy<PySegment> for Segment<Idx>
+where
+    i64: From<Idx>,
+{
+    fn into_py(self, _: Python<'_>) -> PySegment {
+        PySegment { rs: self.cast() }
     }
 }

@@ -165,6 +165,16 @@ impl<Idx: PrimInt> Segment<Idx> {
 
         merged
     }
+
+    pub fn cast<T: PrimInt>(&self) -> Segment<T>
+    where
+        Idx: Into<T>
+    {
+        Segment {
+            start: self.start.into(),
+            end: self.end.into(),
+        }
+    }
 }
 
 impl<Idx: PrimInt> Default for Segment<Idx> {

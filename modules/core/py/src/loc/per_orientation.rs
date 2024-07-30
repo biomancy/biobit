@@ -1,7 +1,7 @@
 use derive_more::{From, Into};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
-use pyo3::types::{PyNone, PyTuple};
+use pyo3::types::PyTuple;
 
 use biobit_core_rs::loc::PerOrientation;
 
@@ -17,19 +17,12 @@ pub struct PyPerOrientation {
 impl PyPerOrientation {
     #[new]
     #[pyo3(signature = (/, forward, reverse, dual))]
-    pub fn new(
-        py: Python,
-        forward: Option<PyObject>,
-        reverse: Option<PyObject>,
-        dual: Option<PyObject>,
-    ) -> Self {
-        let none = PyNone::get_bound(py).into_py(py);
-
+    pub fn new(forward: PyObject, reverse: PyObject, dual: PyObject) -> Self {
         PyPerOrientation {
             internal: PerOrientation {
-                forward: forward.unwrap_or(none.clone_ref(py)),
-                reverse: reverse.unwrap_or(none.clone_ref(py)),
-                dual: dual.unwrap_or(none),
+                forward,
+                reverse,
+                dual,
             },
         }
     }
