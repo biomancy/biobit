@@ -8,10 +8,17 @@ pub enum MatesOrientation {
     Inward = 1,
 }
 
+impl MatesOrientation {
+    /// Returns the symbol representation of the mates orientation.
+    pub fn symbol(&self) -> &'static str {
+        match self {
+            MatesOrientation::Inward => "I",
+        }
+    }
+}
+
 impl Display for MatesOrientation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            MatesOrientation::Inward => write!(f, "I"),
-        }
+        write!(f, "{}", self.symbol())
     }
 }

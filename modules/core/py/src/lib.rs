@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-pub use biobit_core_rs::{LendingIterator, parallelism, source};
+pub use biobit_core_rs::{LendingIterator, parallelism, source, num};
 
 pub mod loc;
 pub mod ngs;

@@ -51,6 +51,10 @@ impl PyMatesOrientation {
         Ok(mates_orientation.0)
     }
 
+    pub fn symbol(&self) -> &'static str {
+        self.0.symbol()
+    }
+
     fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
@@ -78,5 +82,9 @@ impl PyMatesOrientation {
             CompareOp::Gt => *self > other.0,
             CompareOp::Ge => *self >= other.0,
         }
+    }
+
+    fn __getnewargs__(&self) -> (&str,) {
+        (self.symbol(),)
     }
 }

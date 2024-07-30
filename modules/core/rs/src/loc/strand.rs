@@ -56,6 +56,18 @@ impl TryFrom<char> for Strand {
     }
 }
 
+impl TryFrom<&str> for Strand {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "+" => Ok(Self::Forward),
+            "-" => Ok(Self::Reverse),
+            _ => Err(()),
+        }
+    }
+}
+
 impl TryFrom<i8> for Strand {
     type Error = ();
 

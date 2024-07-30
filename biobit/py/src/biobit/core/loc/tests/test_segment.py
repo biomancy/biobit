@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from biobit.core.loc import Segment
@@ -121,3 +123,9 @@ def test_merge():
 
     segments = [Segment(1, 10), (5, 15), Segment(20, 30)]
     assert Segment.merge(segments) == [Segment(1, 15), Segment(20, 30)]
+
+
+def test_pickle_segment():
+    segment = Segment(1, 10)
+    assert pickle.loads(pickle.dumps(segment)) == segment
+    assert pickle.loads(pickle.dumps(segment)) == Segment(1, 10)

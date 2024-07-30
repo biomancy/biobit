@@ -236,6 +236,14 @@ impl PyLocus {
             CompareOp::Ge => this >= that,
         }
     }
+
+    pub fn __getnewargs__(&self, py: Python) -> (String, (i64, i64), &str) {
+        (
+            self.contig.clone(),
+            self.segment.borrow(py).__getnewargs__(),
+            self.orientation.symbol(),
+        )
+    }
 }
 
 impl Display for PyLocus {

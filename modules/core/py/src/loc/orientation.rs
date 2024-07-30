@@ -78,7 +78,7 @@ impl PyOrientation {
 
     #[new]
     fn __new__(obj: IntoPyOrientation) -> PyResult<Self> {
-        Ok(obj.into())
+        Ok(obj.0)
     }
 
     pub fn flipped(&self) -> Self {
@@ -128,5 +128,9 @@ impl PyOrientation {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
+    }
+
+    pub fn __getnewargs__(&self) -> (&str,) {
+        (self.symbol(),)
     }
 }

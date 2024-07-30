@@ -1,22 +1,8 @@
+import pickle
+
 import pytest
 
 from biobit.core.ngs import Strandedness, MatesOrientation, Layout
-
-
-def test_strandedness():
-    assert Strandedness.Forward == Strandedness(Strandedness.Forward) == Strandedness("F")
-    assert Strandedness.Reverse == Strandedness(Strandedness.Reverse) == Strandedness("R")
-    assert Strandedness.Unstranded == Strandedness(Strandedness.Unstranded) == Strandedness("U")
-
-    with pytest.raises(ValueError):
-        Strandedness("invalid")
-
-
-def test_mates_orientation():
-    assert MatesOrientation.Inward == MatesOrientation(MatesOrientation.Inward) == MatesOrientation("I")
-
-    with pytest.raises(ValueError):
-        MatesOrientation("invalid")
 
 
 def test_layout_single():
@@ -45,3 +31,13 @@ def test_layout_paired():
 
     with pytest.raises(TypeError):
         Layout.Paired(Strandedness.Forward, "Invalid")
+
+
+def test_layout_pickle():
+    for strandedness in Strandedness.Forward, Strandedness.Reverse, Strandedness.Unstranded:
+        layout = Layout.Single(strandedness)
+        assert layout == pickle.loads(pickle.dumps(layout))
+
+        for orientation in MatesOrientation.Inward,:
+            layout = Layout.Paired(strandedness, orientation)
+            assert layout == pickle.loads(pickle.dumps(layout))

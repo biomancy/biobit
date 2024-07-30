@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from biobit.core.loc import Locus, Segment, Orientation
@@ -138,3 +140,9 @@ def test_locus_ord():
         Locus("2", (1, 2), "+"),
         Locus("2", (5, 6), "+"),
     ]
+
+
+def test_pickle_locus():
+    locus = Locus("1", (1, 123), "+")
+    assert pickle.loads(pickle.dumps(locus)) == locus
+    assert pickle.loads(pickle.dumps(locus)) == Locus("1", (1, 123), "+")

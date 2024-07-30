@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from biobit.core.loc import Strand
@@ -47,3 +49,8 @@ def test_strand_order():
 def test_strand_repr():
     assert repr(Strand.Forward) == "Strand[+]"
     assert repr(Strand.Reverse) == "Strand[-]"
+
+
+def test_strand_pickle():
+    for strand in Strand.Forward, Strand.Reverse:
+        assert pickle.loads(pickle.dumps(strand)) == strand

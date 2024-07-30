@@ -158,6 +158,10 @@ impl PySegment {
             CompareOp::Ge => self.rs >= other.0.borrow(py).rs,
         }
     }
+
+    pub fn __getnewargs__(&self) -> (i64, i64) {
+        (self.start(), self.end())
+    }
 }
 
 impl AsSegment for PySegment {

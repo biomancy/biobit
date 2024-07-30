@@ -1,5 +1,6 @@
 use derive_more::From;
 use pyo3::prelude::*;
+use pyo3::PyTypeInfo;
 
 use biobit_core_rs::ngs::Layout;
 
@@ -16,6 +17,38 @@ pub enum PyLayout {
         strandedness: PyStrandedness,
         orientation: PyMatesOrientation,
     },
+}
+
+#[pymethods]
+impl PyLayout {
+    #[staticmethod]
+    pub fn __biobit_initialize_complex_enum__(
+        py: Python,
+        module: &Bound<PyModule>,
+    ) -> PyResult<()> {
+        module.add_class::<PyLayout>()?;
+        module.add_class::<PyLayout_Single>()?;
+        module.add_class::<PyLayout_Paired>()?;
+
+        let name = module.name()?;
+        for typbj in [
+            PyLayout_Single::type_object_bound(py),
+            PyLayout_Paired::type_object_bound(py),
+        ] {
+            typbj.setattr("__module__", &name)?
+        }
+        Ok(())
+    }
+
+    fn __getnewargs__(&self, py: Python) -> PyObject {
+        match self {
+            PyLayout::Single { strandedness } => (*strandedness,).into_py(py),
+            PyLayout::Paired {
+                strandedness,
+                orientation,
+            } => (*strandedness, *orientation).into_py(py),
+        }
+    }
 }
 
 impl From<PyLayout> for Layout {

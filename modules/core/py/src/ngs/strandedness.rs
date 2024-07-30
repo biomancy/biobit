@@ -55,13 +55,11 @@ impl PyStrandedness {
 
     #[new]
     pub fn __new__(strandedness: IntoPyStrandness) -> PyResult<Self> {
-        Ok(strandedness.into())
+        Ok(strandedness.0)
     }
 
-    fn __hash__(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
+    pub fn symbol(&self) -> &'static str {
+        self.0.symbol()
     }
 
     fn __repr__(&self) -> &'static str {
@@ -73,11 +71,13 @@ impl PyStrandedness {
     }
 
     fn __str__(&self) -> &'static str {
-        match self.0 {
-            Strandedness::Forward => "F",
-            Strandedness::Reverse => "R",
-            Strandedness::Unstranded => "U",
-        }
+        self.symbol()
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 
     fn __richcmp__(&self, other: IntoPyStrandness, op: CompareOp) -> bool {
@@ -89,5 +89,9 @@ impl PyStrandedness {
             CompareOp::Gt => *self > other.0,
             CompareOp::Ge => *self >= other.0,
         }
+    }
+
+    fn __getnewargs__(&self) -> (&str,) {
+        (self.symbol(),)
     }
 }

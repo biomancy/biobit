@@ -98,4 +98,8 @@ impl PyStrand {
             CompareOp::Ge => *self >= other.0,
         }
     }
+
+    pub fn __getnewargs__(&self) -> (&str,) {
+        (self.symbol(),)
+    }
 }

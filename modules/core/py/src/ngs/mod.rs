@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use pyo3::PyTypeInfo;
 
 pub use biobit_core_rs::ngs::{Layout, MatesOrientation, Strandedness};
 pub use layout::PyLayout;
@@ -19,7 +20,16 @@ pub fn register<'b>(
 
     seqlib.add_class::<PyStrandedness>()?;
     seqlib.add_class::<PyMatesOrientation>()?;
-    seqlib.add_class::<PyLayout>()?;
+
+    for typbj in [
+        PyStrandedness::type_object_bound(parent.py()),
+        PyMatesOrientation::type_object_bound(parent.py()),
+    ] {
+        typbj.setattr("__module__", &name)?
+    }
+
+    // Complex enums require special handling
+    PyLayout::__biobit_initialize_complex_enum__(parent.py(), &seqlib)?;
 
     parent.add_submodule(&seqlib)?;
     sysmod.set_item(seqlib.name()?, &seqlib)?;

@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from biobit.core.loc import Orientation
@@ -66,3 +68,8 @@ def test_orientation_repr():
     assert repr(Orientation.Forward) == "Orientation[+]"
     assert repr(Orientation.Reverse) == "Orientation[-]"
     assert repr(Orientation.Dual) == "Orientation[=]"
+
+
+def test_orientation_pickle():
+    for obj in Orientation.Forward, Orientation.Reverse, Orientation.Dual:
+        assert pickle.loads(pickle.dumps(obj)) == obj
