@@ -156,11 +156,6 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                                 }
                             }
                         }
-                        // debug_assert!(
-                        //     (consumed.to_f64().unwrap() - 1.0).abs() < 1e-6,
-                        //     "Consumed: {:?}",
-                        //     consumed.to_f64().unwrap()
-                        // );
                     }
                 }
 

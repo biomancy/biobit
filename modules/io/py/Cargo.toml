@@ -17,3 +17,5 @@ biobit-io-rs = { path = "../rs" }
 biobit-core-py = { path = "../../core/py" }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
+higher-kinded-types = { workspace = true }
+eyre = { workspace = true }

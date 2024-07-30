@@ -1,38 +1,26 @@
-use std::io;
-
-use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
-use eyre::{eyre, Result};
+use eyre::Result;
 use pyo3::prelude::*;
 use rayon::ThreadPoolBuilder;
 
 use biobit_core_py::{
-    LendingIterator,
     loc::{AsSegment, IntoPyOrientation, IntoPySegment, Segment},
-    ngs::{MatesOrientation, PyLayout, Strandedness},
+    ngs::PyLayout,
     parallelism,
-    source::{DynSource, Source},
 };
 use biobit_core_py::loc::{IntoPyLocus, Locus};
 use biobit_countit_rs::CountIt;
-use biobit_io_py::bam::{SegmentedAlignment, IntoPyReader, strdeductor, transform};
+use biobit_io_py::bam::{IntoPyReader, utils::SegmentedAlignmentSource};
 
 use super::result::PyCounts;
-
-type PySourceItem = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
-type PySource = Box<
-    dyn Source<
-        Args = For!(<'args> = (&'args String, usize, usize)),
-        Item = PySourceItem,
-        Iter = For!(<'borrow> = Box<dyn 'borrow + LendingIterator<Item = PySourceItem>>),
-    >,
->;
 
 #[pyclass(name = "CountIt")]
 #[repr(transparent)]
 #[derive(Dissolve, From, Into)]
-pub struct PyCountIt(CountIt<String, usize, f64, PyObject, PyObject, PySource>);
+pub struct PyCountIt(
+    CountIt<String, usize, f64, PyObject, PyObject, Box<SegmentedAlignmentSource>>,
+);
 
 #[pymethods]
 impl PyCountIt {
@@ -88,69 +76,7 @@ impl PyCountIt {
         layout: PyLayout,
     ) -> PyResult<PyRefMut<Self>> {
         let py = slf.py();
-        let source = source.0.borrow(py).clone().dissolve();
-
-        let source = match layout {
-            PyLayout::Single { strandedness } => match strandedness.0 {
-                Strandedness::Forward => source
-                    .with_transform(
-                        transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::forward),
-                        (),
-                    )
-                    .to_dynsrc()
-                    .to_src()
-                    .boxed(),
-                Strandedness::Reverse => source
-                    .with_transform(
-                        transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::reverse),
-                        (),
-                    )
-                    .to_dynsrc()
-                    .to_src()
-                    .boxed(),
-                Strandedness::Unstranded => {
-                    return Err(eyre!("Unstranded libraries are not supported by countit"))?;
-                }
-            },
-            PyLayout::Paired {
-                strandedness,
-                orientation,
-            } => {
-                if orientation.0 != MatesOrientation::Inward {
-                    return Err(eyre!(
-                        "Only inward mates orientation is supported by countit"
-                    ))?;
-                }
-
-                let source = source.with_transform(transform::BundleMates::default(), ());
-
-                match strandedness.0 {
-                    Strandedness::Forward => source
-                        .with_transform(
-                            transform::ExtractPairedAlignmentSegments::new(
-                                strdeductor::deduce::pe::forward,
-                            ),
-                            (),
-                        )
-                        .to_dynsrc()
-                        .to_src()
-                        .boxed(),
-                    Strandedness::Reverse => source
-                        .with_transform(
-                            transform::ExtractPairedAlignmentSegments::new(
-                                strdeductor::deduce::pe::reverse,
-                            ),
-                            (),
-                        )
-                        .to_dynsrc()
-                        .to_src()
-                        .boxed(),
-                    Strandedness::Unstranded => {
-                        return Err(eyre!("Unstranded libraries are not supported by countit"))?;
-                    }
-                }
-            }
-        };
+        let source = biobit_io_py::bam::utils::to_alignment_segments(py, source, layout)?;
 
         slf.0.add_source(tag, source);
         Ok(slf)

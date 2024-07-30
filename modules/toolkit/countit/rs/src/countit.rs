@@ -10,7 +10,7 @@ use biobit_collections_rs::genomic_index::GenomicIndex;
 use biobit_collections_rs::interval_tree::{Builder, LapperBuilder};
 use biobit_core_rs::{
     loc::{Contig, Locus},
-    num::{Float, PrimInt, Unsigned},
+    num::{Float, PrimInt, PrimUInt},
 };
 use biobit_core_rs::loc::{Orientation, Segment};
 use biobit_core_rs::source::Source;
@@ -40,7 +40,7 @@ where
 
 impl<Ctg, Idx, Cnts, Data, Tag, Src> CountIt<Ctg, Idx, Cnts, Data, Tag, Src>
 where
-    Idx: PrimInt + Unsigned + Send + Sync + 'static,
+    Idx: PrimUInt + Send + Sync + 'static,
     Cnts: Float + Send,
     Ctg: Contig + Send + Sync,
     Data: Clone,

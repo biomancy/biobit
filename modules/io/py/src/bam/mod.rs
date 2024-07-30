@@ -6,6 +6,7 @@ pub use biobit_io_rs::bam::{
 pub use reader::{IntoPyReader, PyReader};
 
 mod reader;
+pub mod utils;
 
 pub fn register<'b>(
     name: &'_ str,
