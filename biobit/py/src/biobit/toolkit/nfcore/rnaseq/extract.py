@@ -17,11 +17,12 @@ def default(path: str, layout: Layout) -> io.bam.Reader:
 BamReader = Callable[[str, Layout], io.bam.Reader]
 
 
-def bam(experiment: seqproj.Experiment, /, factory: BamReader = default) -> io.bam.Reader:
+def bam(experiment: seqproj.Experiment, /, factory: BamReader = default) -> tuple[io.bam.Reader, Layout]:
     if "__nfcore_rnaseq_bam__" not in experiment.attributes:
         raise ValueError(f"Attribute '__nfcore_rnaseq_bam__' not found for the experimetn: {experiment}")
-    return factory(experiment.attributes["__nfcore_rnaseq_bam__"], experiment.ngs())
+    layout = experiment.ngs()
+    return factory(experiment.attributes["__nfcore_rnaseq_bam__"], layout), layout
 
 
-def bams(project: seqproj.Project, /, factory: BamReader = default) -> dict[str, io.bam.Reader]:
+def bams(project: seqproj.Project, /, factory: BamReader = default) -> dict[str, tuple[io.bam.Reader, Layout]]:
     return {exp.ind: bam(exp, factory=factory) for exp in project.experiments}
