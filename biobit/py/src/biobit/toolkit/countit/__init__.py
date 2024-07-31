@@ -1,4 +1,4 @@
-from . import adapters, utils
+from . import utils
 from .countit import CountIt, Stats, Counts
 
-__all__ = ["CountIt", "Stats", "Counts", "adapters", "utils"]
+__all__ = ["CountIt", "Stats", "Counts", "utils"]
