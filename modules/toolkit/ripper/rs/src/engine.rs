@@ -59,6 +59,7 @@ where
     Cnts: Float + Send + Sync,
 {
     pub fn reset(&mut self) {
+        // Soft-reset all workers
         for w in self.workers.iter_mut() {
             w.borrow_mut().reset()
         }
@@ -76,10 +77,7 @@ where
             Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
     {
-        // Soft-reset all workers
-        for w in self.workers.iter_mut() {
-            w.borrow_mut().reset()
-        }
+        self.reset();
 
         // Dissolve the comparisons
         let (tags, signals, controls, configs) = comparisons.into_iter().fold(

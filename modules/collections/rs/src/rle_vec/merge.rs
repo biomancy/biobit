@@ -264,7 +264,7 @@ mod tests {
 
     fn construct_from_dense(values: Vec<u8>) -> RleVector {
         RleVector::builder(PartialEq::eq)
-            .with_dense_values(values)
+            .with_dense_values_inplace(values)
             .unwrap()
             .build()
     }

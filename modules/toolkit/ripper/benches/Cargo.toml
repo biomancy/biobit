@@ -1,5 +1,5 @@
 [package]
-name = "biobit-countit-bench"
+name = "biobit-ripper-bench"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,13 +13,13 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
-dhat = { workspace = true }
 biobit-io-rs = { path = "../../../io/rs" }
-biobit-countit-rs = { path = "../rs" }
+biobit-ripper-rs = { path = "../rs" }
 biobit-core-rs = { path = "../../../core/rs" }
 flate2 = { workspace = true }
 rayon = { workspace = true }
 eyre = { workspace = true }
+dhat = { workspace = true }
 
 [features]
-dhat-heap = []    # if you are doing heap profiling
+dhat-heap = []

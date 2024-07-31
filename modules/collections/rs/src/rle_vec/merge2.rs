@@ -91,7 +91,11 @@ impl<'a, V, L: PrimUInt, M: Merge2<V>, IOriginal: Identical<V>, INew: Identical<
     Merge2Setup<'a, V, L, M, IOriginal, INew>
 {
     pub fn save_to(mut self, buffer: impl Into<(Vec<V>, Vec<L>)>) -> Self {
-        self.write_to = Some(buffer.into());
+        let mut buffer = buffer.into();
+        buffer.0.clear();
+        buffer.1.clear();
+
+        self.write_to = Some(buffer);
         self
     }
 
@@ -266,7 +270,7 @@ mod tests {
 
     fn construct_from_dense(values: Vec<u8>) -> RleVector {
         RleVector::builder(PartialEq::eq)
-            .with_dense_values(values)
+            .with_dense_values_inplace(values)
             .unwrap()
             .build()
     }

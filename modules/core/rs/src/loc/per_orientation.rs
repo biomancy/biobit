@@ -32,43 +32,95 @@ impl<T> PerOrientation<T> {
         }
     }
 
-    /// Gets an iterator over the data for each orientation. Order is forward, reverse, dual.
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        [&self.forward, &self.reverse, &self.dual].into_iter()
+    /// Gets an iterator over the data for each orientation.
+    pub fn iter(&self) -> impl Iterator<Item = (Orientation, &T)> {
+        self.into_iter()
     }
 
     /// Gets a mutable iterator over the data for each orientation. Order is forward, reverse, dual.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        [&mut self.forward, &mut self.reverse, &mut self.dual].into_iter()
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (Orientation, &mut T)> {
+        self.into_iter()
     }
 
     /// Applies a function to each orientation.
-    pub fn apply(&mut self, mut f: impl FnMut(&mut T)) -> &mut Self {
-        f(&mut self.forward);
-        f(&mut self.reverse);
-        f(&mut self.dual);
+    pub fn apply(&mut self, mut f: impl FnMut(Orientation, &mut T)) -> &mut Self {
+        f(Orientation::Forward, &mut self.forward);
+        f(Orientation::Reverse, &mut self.reverse);
+        f(Orientation::Dual, &mut self.dual);
         self
     }
 
+    /// Fallible version of `apply`.
+    pub fn try_apply<E>(
+        &mut self,
+        mut f: impl FnMut(Orientation, &mut T) -> Result<(), E>,
+    ) -> Result<&mut Self, E> {
+        f(Orientation::Forward, &mut self.forward)?;
+        f(Orientation::Reverse, &mut self.reverse)?;
+        f(Orientation::Dual, &mut self.dual)?;
+        Ok(self)
+    }
+
     /// Maps each orientation to a new value.
-    pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> PerOrientation<U> {
+    pub fn map<U>(self, mut f: impl FnMut(Orientation, T) -> U) -> PerOrientation<U> {
         PerOrientation {
-            forward: f(self.forward),
-            reverse: f(self.reverse),
-            dual: f(self.dual),
+            forward: f(Orientation::Forward, self.forward),
+            reverse: f(Orientation::Reverse, self.reverse),
+            dual: f(Orientation::Dual, self.dual),
         }
+    }
+
+    /// Fallible version of `map`.
+    /// Maps each orientation to a new value, returning an error if the function fails.
+    pub fn try_map<U, E>(
+        self,
+        mut f: impl FnMut(Orientation, T) -> Result<U, E>,
+    ) -> Result<PerOrientation<U>, E> {
+        Ok(PerOrientation {
+            forward: f(Orientation::Forward, self.forward)?,
+            reverse: f(Orientation::Reverse, self.reverse)?,
+            dual: f(Orientation::Dual, self.dual)?,
+        })
     }
 }
 
 impl<T> IntoIterator for PerOrientation<T> {
-    type Item = (T, Orientation);
-    type IntoIter = std::array::IntoIter<(T, Orientation), 3>;
+    type Item = (Orientation, T);
+    type IntoIter = std::array::IntoIter<(Orientation, T), 3>;
 
     fn into_iter(self) -> Self::IntoIter {
         [
-            (self.forward, Orientation::Forward),
-            (self.reverse, Orientation::Reverse),
-            (self.dual, Orientation::Dual),
+            (Orientation::Forward, self.forward),
+            (Orientation::Reverse, self.reverse),
+            (Orientation::Dual, self.dual),
+        ]
+        .into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a PerOrientation<T> {
+    type Item = (Orientation, &'a T);
+    type IntoIter = std::array::IntoIter<(Orientation, &'a T), 3>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            (Orientation::Forward, &self.forward),
+            (Orientation::Reverse, &self.reverse),
+            (Orientation::Dual, &self.dual),
+        ]
+        .into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut PerOrientation<T> {
+    type Item = (Orientation, &'a mut T);
+    type IntoIter = std::array::IntoIter<(Orientation, &'a mut T), 3>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            (Orientation::Forward, &mut self.forward),
+            (Orientation::Reverse, &mut self.reverse),
+            (Orientation::Dual, &mut self.dual),
         ]
         .into_iter()
     }

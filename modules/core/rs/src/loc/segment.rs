@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -168,12 +168,22 @@ impl<Idx: PrimInt> Segment<Idx> {
 
     pub fn cast<T: PrimInt>(&self) -> Segment<T>
     where
-        Idx: Into<T>
+        Idx: Into<T>,
     {
         Segment {
             start: self.start.into(),
             end: self.end.into(),
         }
+    }
+
+    pub fn try_cast<T: PrimInt, E>(&self) -> std::result::Result<Segment<T>, E>
+    where
+        Idx: TryInto<T, Error = E>,
+    {
+        Ok(Segment {
+            start: self.start.try_into()?,
+            end: self.end.try_into()?,
+        })
     }
 }
 

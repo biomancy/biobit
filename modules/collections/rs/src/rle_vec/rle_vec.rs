@@ -23,10 +23,7 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVecBuilder<V, L, I> {
         }
     }
 
-    pub fn with_identical<NewI: Identical<V>>(
-        self,
-        identical: NewI,
-    ) -> RleVecBuilder<V, L, NewI> {
+    pub fn with_identical<NewI: Identical<V>>(self, identical: NewI) -> RleVecBuilder<V, L, NewI> {
         RleVecBuilder {
             values: self.values,
             lengths: self.lengths,
@@ -63,7 +60,48 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVecBuilder<V, L, I> {
         Ok(self)
     }
 
-    pub fn with_dense_values(mut self, mut values: Vec<V>) -> Result<Self> {
+    pub fn with_dense_values(mut self, dense: &[V]) -> Result<Self>
+    where
+        V: Clone,
+    {
+        if dense.is_empty() {
+            return Ok(self);
+        } else if dense.len() == 1 {
+            self.values = Some(vec![dense[0].clone()]);
+            self.lengths = Some(vec![L::one()]);
+            return Ok(self);
+        }
+
+        let mut lengths = self.lengths.take().unwrap_or_default();
+        lengths.clear();
+
+        let mut values = self.values.take().unwrap_or_default();
+        values.clear();
+
+        let mut current_value = &dense[0];
+        let mut current_length = L::zero();
+
+        for value in dense {
+            if !self.identical.identical(current_value, value) {
+                values.push(current_value.clone());
+                lengths.push(current_length);
+
+                current_value = value;
+                current_length = L::one();
+            } else {
+                current_length = current_length + L::one();
+            }
+        }
+
+        values.push(current_value.clone());
+        lengths.push(current_length);
+
+        self.values = Some(values);
+        self.lengths = Some(lengths);
+        Ok(self)
+    }
+
+    pub fn with_dense_values_inplace(mut self, mut values: Vec<V>) -> Result<Self> {
         if values.len() == 0 {
             return Ok(self);
         } else if values.len() == 1 {
@@ -135,7 +173,9 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVec<V, L, I> {
         RleVecBuilder::new(identity)
     }
 
-    pub fn rebuild(self) -> RleVecBuilder<V, L, I> {
+    pub fn rebuild(mut self) -> RleVecBuilder<V, L, I> {
+        self.clear();
+
         RleVecBuilder {
             values: Some(self.values),
             lengths: Some(self.lengths),
@@ -204,14 +244,21 @@ mod tests {
 
     type RleVector = RleVec<u8, u8, fn(&u8, &u8) -> bool>;
 
-    fn construct_from_dense(values: Vec<u8>) -> RleVector {
+    fn construct_from_dense_inplace(values: Vec<u8>) -> RleVector {
         RleVector::builder(PartialEq::eq)
-            .with_dense_values(values)
+            .with_dense_values_inplace(values)
             .unwrap()
             .build()
     }
 
-    fn assert_rle_eq(vec: RleVector, items: Vec<(u8, u8)>) {
+    fn construct_from_dense(values: &[u8]) -> RleVector {
+        RleVector::builder(PartialEq::eq)
+            .with_dense_values(&values)
+            .unwrap()
+            .build()
+    }
+
+    fn assert_rle_eq(vec: &RleVector, items: &[(u8, u8)]) {
         assert_eq!(vec.runs().map(|(x, y)| (*x, *y)).collect::<Vec<_>>(), items);
     }
 
@@ -240,7 +287,13 @@ mod tests {
                 vec![(1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 1)],
             ),
         ] {
-            assert_rle_eq(construct_from_dense(values), expected);
+            let byref = construct_from_dense(&values);
+            assert_rle_eq(&byref, &expected);
+
+            let inplace = construct_from_dense_inplace(values);
+            assert_rle_eq(&inplace, &expected);
+
+            assert_rle_eq(&byref, &expected);
         }
         Ok(())
     }

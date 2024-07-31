@@ -90,47 +90,9 @@ where
 
         self.samples.clear();
         self.engine.reset();
+
         result
     }
-
-    // pub fn run(&mut self) -> Result<Vec<Counts<Ctg, Idx, Cnts, Data, Tag>>> {
-    //     // Index the annotation
-    //     let itrees = self.pool.install(|| {
-    //         std::mem::take(&mut self.annotations)
-    //             .into_iter()
-    //             .par_bridge()
-    //             .map(|((contig, orientation), data)| {
-    //                 let mut tree = LapperBuilder::new();
-    //                 for (ind, segments) in data {
-    //                     for segment in segments {
-    //                         tree = tree.add(&segment, ind);
-    //                     }
-    //                 }
-    //                 (contig, orientation, tree)
-    //             })
-    //             .collect::<Vec<_>>()
-    //     });
-    //
-    //     let mut gindex = GenomicIndex::new();
-    //     for (contig, orientation, tree) in itrees {
-    //         gindex.set(contig, orientation, tree.build());
-    //     }
-    //
-    //     // Run the counting
-    //     let result = self.engine.run(
-    //         &mut self.pool,
-    //         self.data.len(),
-    //         &self.sources,
-    //         &gindex,
-    //         &self.partitions,
-    //     )?;
-    //
-    //     Ok(result
-    //         .into_iter()
-    //         .zip(self.tags.drain(..))
-    //         .map(|((cnts, stats), tag)| Counts::new(tag, self.data.clone(), cnts, stats))
-    //         .collect())
-    // }
 
     fn get_sources(&self, tag: &SmplTag) -> Result<Vec<Src>> {
         let sources = self

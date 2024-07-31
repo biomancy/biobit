@@ -9,9 +9,11 @@ use biobit_core_py::parallelism;
 use biobit_io_py::bam::{IntoPyReader, utils::SegmentedAlignmentSource};
 use biobit_ripper_rs::Ripper;
 
+use crate::PyRipped;
+
 use super::config::PyConfig;
 
-#[pyclass]
+#[pyclass(name = "Ripper")]
 pub struct PyRipper {
     // PyObjects are not oredered/hashable, which is required for all Ripper sample tags
     // Workaround: store the tags in a Vec and search for them when needed
@@ -118,5 +120,17 @@ impl PyRipper {
         slf.ripper
             .add_comparison(tag, &signal, &control, config.into())?;
         Ok(slf)
+    }
+
+    pub fn run(mut slf: PyRefMut<Self>) -> PyResult<Vec<PyRipped>> {
+        let py = slf.py();
+        let ripped = slf
+            .ripper
+            .run()?
+            .into_iter()
+            .map(|x| x.into_py(py))
+            .collect();
+
+        Ok(ripped)
     }
 }

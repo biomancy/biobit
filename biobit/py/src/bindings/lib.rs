@@ -12,6 +12,7 @@ pub fn _biobit(py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Toolkit
     biobit_countit_py::register("toolkit.countit", module, &sysmod)?;
+    biobit_ripper_py::register("toolkit.ripper", module, &sysmod)?;
     biobit_seqproj_py::register("toolkit.seqproj", module, &sysmod)?;
 
     // Constants

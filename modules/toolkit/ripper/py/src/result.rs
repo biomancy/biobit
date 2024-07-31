@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use derive_getters::Dissolve;
 use derive_more::Constructor;
 use pyo3::prelude::*;
@@ -6,7 +8,7 @@ use biobit_core_py::{
     loc::Contig,
     num::{Float, PrimInt},
 };
-use biobit_core_py::loc::{PyPerOrientation, PySegment};
+use biobit_core_py::loc::{AsSegment, PyPerOrientation, PySegment};
 use biobit_ripper_rs::result::{Peak, Region, Ripped};
 
 #[pyclass(get_all, name = "Peak")]
@@ -18,10 +20,15 @@ pub struct PyPeak {
     summit: i64,
 }
 
-impl<Idx: Into<i64>, Cnts: Into<f64>> IntoPy<PyPeak> for Peak<Idx, Cnts> {
+impl<Idx: PrimInt, Cnts: Float> IntoPy<PyPeak> for Peak<Idx, Cnts> {
     fn into_py(self, _: Python<'_>) -> PyPeak {
         let (start, end, value, summit) = self.dissolve();
-        PyPeak::new(start.into(), end.into(), value.into(), summit.into())
+        PyPeak::new(
+            start.to_i64().unwrap(),
+            end.to_i64().unwrap(),
+            value.to_f64().unwrap(),
+            summit.to_i64().unwrap(),
+        )
     }
 }
 
@@ -36,17 +43,21 @@ pub struct PyRegion {
 impl<Ctg, Idx, Cnts> IntoPy<PyRegion> for Region<Ctg, Idx, Cnts>
 where
     Ctg: Into<String> + Contig,
-    Idx: PrimInt + Into<i64>,
-    Cnts: Into<f64> + Float,
+    Idx: PrimInt,
+    Cnts: Float,
 {
     fn into_py(self, py: Python<'_>) -> PyRegion {
         let (contig, segment, peaks) = self.dissolve();
 
         let contig = contig.into();
-        let segment = segment.cast::<i64>().into_py(py);
+        let segment = PySegment::new(
+            segment.start().to_i64().unwrap(),
+            segment.end().to_i64().unwrap(),
+        )
+        .unwrap();
 
         let peaks = peaks
-            .map(|x| {
+            .map(|_, x| {
                 x.into_iter()
                     .map(|x| Py::new(py, x.into_py(py)))
                     .collect::<PyResult<Vec<_>>>()
@@ -69,9 +80,9 @@ pub struct PyRipped {
 impl<Ctg, Idx, Cnts, Tag> IntoPy<PyRipped> for Ripped<Ctg, Idx, Cnts, Tag>
 where
     Ctg: Into<String> + Contig,
-    Idx: Into<i64> + PrimInt,
-    Cnts: Into<f64> + Float,
-    Tag: Into<PyObject>,
+    Idx: TryInto<i64> + PrimInt,
+    Cnts: TryInto<f64> + Float,
+    Tag: IntoPy<PyObject>,
 {
     fn into_py(self, py: Python<'_>) -> PyRipped {
         let (tag, regions) = self.dissolve();
@@ -83,6 +94,6 @@ where
             })
             .collect();
 
-        PyRipped::new(tag.into(), regions)
+        PyRipped::new(tag.into_py(py), regions)
     }
 }
