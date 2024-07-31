@@ -29,7 +29,7 @@ pub struct RleIdentical<Cnts: Float> {
 impl<Cnts: Float> rle_vec::Identical<Cnts> for RleIdentical<Cnts> {
     #[inline(always)]
     fn identical(&self, first: &Cnts, second: &Cnts) -> bool {
-        first.abs_sub(*second) <= self.sensitivity
+        (*first - *second).abs() <= self.sensitivity
     }
 }
 
@@ -97,7 +97,6 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             src.release_caches(&mut self.sources_cache);
         }
 
-        // Ugly hack to re-cache the counts vector
         let rle = self
             .rle_cache
             .pop()
@@ -186,7 +185,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                     .with_merge2(rle_vec::Merge2Fn::new(
                         |_| unreachable!("This should never be called"),
                         move |&signal, &control| {
-                            if signal < config.min_raw_signal {
+                            if signal <= config.min_raw_signal {
                                 return Cnts::zero();
                             }
                             let control = control.max(config.control_baseline);

@@ -122,7 +122,7 @@ fn main() {
     // Comparisons
     for (name, signal, control) in COMPARISONS {
         let pcalling = config::PCalling::new(25, 25, 4.0f32);
-        let config = Config::new(1e-3, 1.0, 1.0, 10.0, 0.0, pcalling);
+        let config = Config::new(1e-3, 1.0, 1.0, 10.0, 2.0, pcalling);
 
         ripper
             .add_comparison(
