@@ -189,6 +189,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                             if signal < config.min_raw_signal {
                                 return Cnts::zero();
                             }
+                            let control = control.max(config.control_baseline);
+
                             (signal * config.signal_scaling) / (control * config.control_scaling)
                         },
                     ))
