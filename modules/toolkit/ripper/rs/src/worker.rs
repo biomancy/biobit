@@ -126,6 +126,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
         self.cnts_cache.clear();
         self.cnts_cache.shrink_to_fit();
+
+        self.sources_cache.clear();
+        self.sources_cache.shrink_to_fit();
     }
 
     pub fn calculater<Src>(

@@ -130,7 +130,13 @@ impl PyRipper {
             .into_iter()
             .map(|x| x.into_py(py))
             .collect();
+        slf.ripper.reset();
 
         Ok(ripped)
+    }
+
+    pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
+        slf.ripper.reset();
+        slf
     }
 }

@@ -81,15 +81,20 @@ where
         Ok(self)
     }
 
+    pub fn reset(&mut self) {
+        self.samples.clear();
+        self.comparison.clear();
+        self.partitions.clear();
+        self.engine.reset();
+    }
+
     pub fn run(&mut self) -> Result<Vec<Ripped<Ctg, Idx, Cnts, CmpTag>>> {
         let result = self.engine.run(
             &mut self.pool,
             std::mem::take(&mut self.partitions),
             std::mem::take(&mut self.comparison),
         );
-
-        self.samples.clear();
-        self.engine.reset();
+        self.reset();
 
         result
     }
