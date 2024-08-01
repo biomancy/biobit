@@ -1,5 +1,9 @@
 use std::fmt::Debug;
 
+/// T value is a number
+pub trait Num: ::num::Num + Debug + Default + Clone {}
+impl<T: ::num::PrimInt + Debug + Default> Num for T {}
+
 /// T values are primitive integers
 pub trait PrimInt: ::num::PrimInt + Debug + Default {}
 impl<T: ::num::PrimInt + Debug + Default> PrimInt for T {}

@@ -10,7 +10,8 @@ members = [
     # Toolkit
     "modules/toolkit/countit/*",
     "modules/toolkit/seqproj/*",
-    "modules/toolkit/ripper/*"
+    "modules/toolkit/ripper/*",
+    #    "modules/toolkit/repeto/*",
 ]
 resolver = "2"
 
@@ -31,7 +32,6 @@ categories = ["science", "algorithms"]
 derive-getters = "0.4.0"
 derive_more = "0.99.18"
 itertools = "0.13.0"
-geo = "0.28.0"
 num = "0.4.1"
 eyre = "0.6.12"
 by_address = "1.2.1"

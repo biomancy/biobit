@@ -1,5 +1,5 @@
 [package]
-name = "biobit-alignment-rs"
+name = "biobit-repeto-rs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,7 +13,6 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
-biobit-core-rs = { path = "../../core/rs" }
-eyre = { workspace = true }
-derive_more = { workspace = true }
+biobit-core-rs = { path = "../../../core/rs" }
 derive-getters = { workspace = true }
+itertools = { workspace = true }
