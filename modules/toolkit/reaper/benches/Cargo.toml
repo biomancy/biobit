@@ -1,0 +1,25 @@
+[package]
+name = "biobit-reaper-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description.workspace = true
+readme.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]
+biobit-io-rs = { path = "../../../io/rs" }
+biobit-reaper-rs = { path = "../rs" }
+biobit-core-rs = { path = "../../../core/rs" }
+flate2 = { workspace = true }
+rayon = { workspace = true }
+eyre = { workspace = true }
+dhat = { workspace = true }
+
+[features]
+dhat-heap = []

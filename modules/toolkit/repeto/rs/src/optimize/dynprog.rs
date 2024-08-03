@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 
 use itertools::Itertools;
-use num::traits::PrimInt;
+
+use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::num::PrimInt;
 
 use super::{index, trace};
 use super::inv;
@@ -20,10 +22,10 @@ use super::trace::TraceCell;
 // * max of the following:
 //   * f(s, start(RNA)) + weight(RNA) + sum[f(start(gap_i), end(gap_i)) for all gaps in RNA where end(RNA) == e]
 struct Workload<'a, Idx, IR, Score>
-    where
-        Idx: inv::Coordinate,
-        IR: Borrow<inv::Repeat<Idx>>,
-        Score: PrimInt
+where
+    Idx: PrimInt,
+    IR: Borrow<inv::Repeat<Idx>>,
+    Score: PrimInt,
 {
     pub index: index::Index<Idx>,
     pub invrep: &'a [IR],
@@ -43,17 +45,15 @@ impl<Score: PrimInt> DynProgSolution<Score> {
         }
     }
 
-    pub fn solve<Idx, T>(
-        &mut self, invrep: &[T], scores: &[Score],
-    ) -> (Vec<usize>, Score)
-        where
-            Idx: inv::Coordinate,
-            T: Borrow<inv::Repeat<Idx>>
+    pub fn solve<Idx, T>(&mut self, invrep: &[T], scores: &[Score]) -> (Vec<usize>, Score)
+    where
+        Idx: PrimInt,
+        T: Borrow<inv::Repeat<Idx>>,
     {
         debug_assert!(invrep.len() == scores.len());
         let w = Workload {
             index: index::Index::new(invrep),
-            invrep: invrep,
+            invrep,
             scores,
         };
 
@@ -68,16 +68,14 @@ impl<Score: PrimInt> DynProgSolution<Score> {
             self.subsolve(&w, 0, i);
         }
         let score = self.subsolve(&w, 0, w.index.ends().len() - 1);
-        let optimum = self
-            .tracer
-            .trace(0, w.index.ends().len() - 1);
+        let optimum = self.tracer.trace(0, w.index.ends().len() - 1);
         (optimum, score)
     }
 
     fn subsolve<Idx, IR>(&mut self, w: &Workload<Idx, IR, Score>, sind: usize, eind: usize) -> Score
-        where
-            Idx: inv::Coordinate,
-            IR: Borrow<inv::Repeat<Idx>>
+    where
+        Idx: PrimInt,
+        IR: Borrow<inv::Repeat<Idx>>,
     {
         // Sanity check
         debug_assert!(sind <= w.index.starts().len() && eind <= w.index.ends().len());
@@ -124,8 +122,8 @@ impl<Score: PrimInt> DynProgSolution<Score> {
             debug_assert!(
                 rnasind >= sind
                     && rnaeind == eind
-                    && w.index.starts()[sind].pos <= rna.borrow().brange().start
-                    && w.index.ends()[eind].pos >= rna.borrow().brange().end
+                    && w.index.starts()[sind].pos <= rna.borrow().brange().start()
+                    && w.index.ends()[eind].pos >= rna.borrow().brange().end()
             );
 
             // Include the best combination of 'embeddable' RNAs
@@ -133,10 +131,11 @@ impl<Score: PrimInt> DynProgSolution<Score> {
             score = score + gscore;
 
             // Find the closest end that doesn't contain the current rnafold
-            let mut preeind = index::bisect::right(w.index.ends(), rna.borrow().brange().start, 0, eind);
+            let mut preeind =
+                index::bisect::right(w.index.ends(), rna.borrow().brange().start(), 0, eind);
             if preeind != 0 {
                 preeind -= 1;
-                debug_assert!(rna.borrow().brange().start >= w.index.ends()[preeind].pos);
+                debug_assert!(rna.borrow().brange().start() >= w.index.ends()[preeind].pos);
 
                 // Can we include it?
                 if w.index.ends()[preeind].pos > w.index.starts()[sind].pos {
@@ -176,13 +175,13 @@ impl<Score: PrimInt> DynProgSolution<Score> {
     fn gapsolve<Idx, IR>(
         &mut self,
         w: &Workload<Idx, IR, Score>,
-        blocks: &[Range<Idx>],
+        blocks: &[Segment<Idx>],
         mut minsind: usize,
         maxeind: usize,
     ) -> (Score, Vec<(usize, usize)>)
-        where
-            Idx: inv::Coordinate,
-            IR: Borrow<inv::Repeat<Idx>>
+    where
+        Idx: PrimInt,
+        IR: Borrow<inv::Repeat<Idx>>,
     {
         // Blocks are sorted and for each start-end gap between adjacent blocks we need to find
         // the best possible sind/eind so that: minsind < start(sind) <= start < end <= end(eind) < maxend
@@ -191,15 +190,15 @@ impl<Score: PrimInt> DynProgSolution<Score> {
         let (mut score, mut minend) = (Score::zero(), 0);
 
         for (prv, nxt) in blocks.iter().tuple_windows() {
-            debug_assert!(prv.end <= nxt.start);
+            debug_assert!(prv.end() <= nxt.start());
 
             // No gap
-            if prv.end == nxt.start {
+            if prv.end() == nxt.start() {
                 continue;
             }
             let gap = Range {
-                start: prv.end,
-                end: nxt.start,
+                start: prv.end(),
+                end: nxt.start(),
             };
 
             // Find the closest known interval inside the gap

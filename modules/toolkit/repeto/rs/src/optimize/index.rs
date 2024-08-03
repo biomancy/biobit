@@ -1,16 +1,18 @@
 use std::borrow::Borrow;
-use std::ops::Range;
 
 use itertools::Itertools;
 
+use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::num::PrimInt;
+
 use super::inv;
 
-pub struct IndexAnchor<Idx: inv::Coordinate> {
+pub struct IndexAnchor<Idx: PrimInt> {
     pub pos: Idx,
     pub repeats: Vec<usize>,
 }
 
-pub struct Index<Idx: inv::Coordinate> {
+pub struct Index<Idx: PrimInt> {
     // Sorted rnas based on their start or end positions
     starts: Vec<IndexAnchor<Idx>>,
     ends: Vec<IndexAnchor<Idx>>,
@@ -20,24 +22,25 @@ pub struct Index<Idx: inv::Coordinate> {
     revend: Vec<usize>,
 
     // InvertedRepeat blocks in each InvertedRepeat
-    blocks: Vec<Vec<Range<Idx>>>,
+    blocks: Vec<Vec<Segment<Idx>>>,
 }
 
-impl<Idx: inv::Coordinate> Index<Idx> {
+impl<Idx: PrimInt> Index<Idx> {
     pub fn new<T>(invrep: &[T]) -> Self
-        where
-            T: Borrow<inv::Repeat<Idx>>
+    where
+        T: Borrow<inv::Repeat<Idx>>,
     {
-        let (starts, revstart) = Index::index(invrep, |x| x.borrow().brange().start);
-        let (ends, revend) = Index::index(invrep, |x| x.borrow().brange().end);
+        let (starts, revstart) = Index::index(invrep, |x| x.borrow().brange().start());
+        let (ends, revend) = Index::index(invrep, |x| x.borrow().brange().end());
 
         let blocks = invrep
             .iter()
             .map(|x| {
                 let blocks: Vec<_> = x.borrow().seqranges().cloned().collect();
-                debug_assert!(
-                    blocks.iter().tuple_windows().all(|(prv, nxt)| prv.end <= nxt.start)
-                );
+                debug_assert!(blocks
+                    .iter()
+                    .tuple_windows()
+                    .all(|(prv, nxt)| prv.end() <= nxt.start()));
 
                 blocks
             })
@@ -64,7 +67,7 @@ impl<Idx: inv::Coordinate> Index<Idx> {
         (self.revstart[rnaid], self.revend[rnaid])
     }
 
-    pub fn blocks(&self, rnaid: usize) -> &[Range<Idx>] {
+    pub fn blocks(&self, rnaid: usize) -> &[Segment<Idx>] {
         &self.blocks[rnaid]
     }
 
@@ -109,9 +112,16 @@ impl<Idx: inv::Coordinate> Index<Idx> {
 }
 
 pub mod bisect {
-    use super::{IndexAnchor, inv};
+    use biobit_core_rs::num::PrimInt;
 
-    pub fn right<Idx: inv::Coordinate>(data: &[IndexAnchor<Idx>], pos: Idx, mut lo: usize, mut hi: usize) -> usize {
+    use super::IndexAnchor;
+
+    pub fn right<Idx: PrimInt>(
+        data: &[IndexAnchor<Idx>],
+        pos: Idx,
+        mut lo: usize,
+        mut hi: usize,
+    ) -> usize {
         debug_assert!(lo <= hi && hi <= data.len());
         while lo < hi {
             let mid = (lo + hi) / 2;
@@ -124,7 +134,12 @@ pub mod bisect {
         lo
     }
 
-    pub fn left<Idx: inv::Coordinate>(data: &[IndexAnchor<Idx>], pos: Idx, mut lo: usize, mut hi: usize) -> usize {
+    pub fn left<Idx: PrimInt>(
+        data: &[IndexAnchor<Idx>],
+        pos: Idx,
+        mut lo: usize,
+        mut hi: usize,
+    ) -> usize {
         debug_assert!(lo <= hi && hi <= data.len());
         while lo < hi {
             let mid = (lo + hi) / 2;

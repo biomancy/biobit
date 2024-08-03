@@ -50,8 +50,8 @@ impl Classifier for Equality {
 impl From<Type> for pairwise::Op {
     fn from(value: Type) -> Self {
         match value {
-            Type::Match => pairwise::Op::Equivalent,
-            Type::Mismatch => pairwise::Op::Equivalent,
+            Type::Match => pairwise::Op::Match,
+            Type::Mismatch => pairwise::Op::Mismatch,
             Type::Equivalent => pairwise::Op::Equivalent,
         }
     }

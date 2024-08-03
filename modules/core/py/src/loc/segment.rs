@@ -177,11 +177,13 @@ impl AsSegment for PySegment {
     }
 }
 
-impl<Idx: PrimInt> IntoPy<PySegment> for Segment<Idx>
-where
-    i64: From<Idx>,
-{
+impl<Idx: PrimInt + TryInto<i64>> IntoPy<PySegment> for Segment<Idx> {
     fn into_py(self, _: Python<'_>) -> PySegment {
-        PySegment { rs: self.cast() }
+        let converted = self.try_cast();
+        if let Ok(segment) = converted {
+            return segment.into();
+        } else {
+            panic!("Failed to convert segment: {:?}", self);
+        }
     }
 }

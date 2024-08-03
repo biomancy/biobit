@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use num::traits::PrimInt;
+use biobit_core_rs::num::PrimInt;
 
 use super::repeats::inv;
 
@@ -9,10 +9,10 @@ mod index;
 mod trace;
 
 pub fn run<Idx, IR, Score>(ir: &[IR], scores: &[Score]) -> (Vec<usize>, Score)
-    where
-        Idx: inv::Coordinate,
-        IR: Borrow<inv::Repeat<Idx>>,
-        Score: PrimInt
+where
+    Idx: PrimInt,
+    IR: Borrow<inv::Repeat<Idx>>,
+    Score: PrimInt,
 {
     assert_eq!(ir.len(), scores.len());
 
@@ -32,6 +32,8 @@ mod tests {
 
     use itertools::Itertools;
 
+    use biobit_core_rs::loc::AsSegment;
+
     use super::*;
 
     pub type Score = i32;
@@ -49,8 +51,13 @@ mod tests {
 
         for (score, segments) in tcase.dsrna {
             scores.push(score);
-            let segments = segments.into_iter().map(|x| x.into()).collect();
-            transformed.push(inv::Repeat::new(segments));
+            let segments = segments
+                .into_iter()
+                .map(|x| {
+                    inv::InvSegments::new(x.0.try_into().unwrap(), x.1.try_into().unwrap()).unwrap()
+                })
+                .collect();
+            transformed.push(inv::Repeat::new(segments).unwrap());
         }
 
         let expscore = tcase.expdsrna.iter().map(|x| scores[*x]).sum();
@@ -63,7 +70,7 @@ mod tests {
             .iter()
             .map(|x| &transformed[*x])
             .collect_vec();
-        let key = |x: &&inv::Repeat<isize>| (x.brange().start, x.brange().end);
+        let key = |x: &&inv::Repeat<isize>| (x.brange().start(), x.brange().end());
         result.sort_by_key(key);
         expected.sort_by_key(key);
         debug_assert!(
@@ -142,8 +149,8 @@ mod tests {
             TestCase {
                 dsrna: vec![
                     (0, vec![(0..4, 5..9)]),
-                    (0, vec![(9..12, 15..19)]),
-                    (0, vec![(1..5, 7..10)]),
+                    (0, vec![(9..12, 15..18)]),
+                    (0, vec![(1..5, 7..11)]),
                 ],
                 expdsrna: vec![],
             },
@@ -159,9 +166,9 @@ mod tests {
             TestCase {
                 dsrna: vec![
                     (1, vec![(0..4, 5..9)]),
-                    (2, vec![(9..12, 15..19)]),
-                    (3, vec![(1..5, 7..10)]),
-                    (4, vec![(10..12, 17..20)]),
+                    (2, vec![(9..12, 15..18)]),
+                    (3, vec![(1..5, 6..10)]),
+                    (4, vec![(10..12, 18..20)]),
                     (5, vec![(5..9, 15..19)]),
                     (10, vec![(20..25, 30..35)]),
                 ],
@@ -170,9 +177,9 @@ mod tests {
             TestCase {
                 dsrna: vec![
                     (1, vec![(0..4, 5..9)]),
-                    (2, vec![(9..12, 15..19)]),
-                    (3, vec![(1..5, 7..10)]),
-                    (4, vec![(10..12, 17..20)]),
+                    (2, vec![(9..12, 15..18)]),
+                    (3, vec![(1..5, 6..10)]),
+                    (4, vec![(10..12, 18..20)]),
                     (15, vec![(5..9, 15..19)]),
                     (10, vec![(20..25, 30..35)]),
                 ],

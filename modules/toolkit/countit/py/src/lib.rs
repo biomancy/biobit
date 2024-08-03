@@ -7,11 +7,10 @@ mod countit;
 mod result;
 
 pub fn register<'b>(
-    name: &'_ str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.{}", parent.name()?, name);
+    let name = format!("{}.countit", parent.name()?);
     let countit = PyModule::new_bound(parent.py(), &name)?;
 
     countit.add_class::<PyCountIt>()?;

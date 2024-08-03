@@ -22,5 +22,5 @@ eyre = { workspace = true }
 biobit-core-py = { path = "../../modules/core/py" }
 biobit-io-py = { path = "../../modules/io/py" }
 biobit-countit-py = { path = "../../modules/toolkit/countit/py" }
-biobit-ripper-py = { path = "../../modules/toolkit/ripper/py" }
+biobit-reaper-py = { path = "../../modules/toolkit/reaper/py" }
 biobit-seqproj-py = { path = "../../modules/toolkit/seqproj/py" }

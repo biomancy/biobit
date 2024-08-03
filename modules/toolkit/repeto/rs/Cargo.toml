@@ -14,5 +14,8 @@ categories.workspace = true
 
 [dependencies]
 biobit-core-rs = { path = "../../../core/rs" }
+biobit-alignment-rs = { path = "../../../alignment/rs" }
 derive-getters = { workspace = true }
+derive_more = { workspace = true }
 itertools = { workspace = true }
+eyre = { workspace = true }

@@ -1,0 +1,72 @@
+use derive_getters::Dissolve;
+use derive_more::{Constructor, From, Into};
+use pyo3::prelude::*;
+
+use biobit_reaper_rs::postfilter::NMS;
+
+#[pyclass(eq, name = "NMS")]
+#[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
+pub struct PyNMS {
+    rs: NMS<usize, f32>,
+}
+
+#[pymethods]
+impl PyNMS {
+    #[new]
+    pub fn __new__() -> Self {
+        PyNMS::new(NMS::new())
+    }
+
+    pub fn set_fecutoff(mut slf: PyRefMut<Self>, fecutoff: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_fecutoff(fecutoff)?;
+        Ok(slf)
+    }
+
+    pub fn set_group_within(
+        mut slf: PyRefMut<Self>,
+        group_within: usize,
+    ) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_group_within(group_within)?;
+        Ok(slf)
+    }
+
+    pub fn set_slopfrac(mut slf: PyRefMut<Self>, slopfrac: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_slopfrac(slopfrac)?;
+        Ok(slf)
+    }
+
+    pub fn set_sloplim(
+        mut slf: PyRefMut<Self>,
+        minslop: usize,
+        maxslop: usize,
+    ) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_sloplim(minslop, maxslop)?;
+        Ok(slf)
+    }
+
+    pub fn set_boundaries(
+        mut slf: PyRefMut<Self>,
+        boundaries: Vec<usize>,
+    ) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_boundaries(boundaries.into_iter().collect());
+        Ok(slf)
+    }
+
+    pub fn __getstate__(&self) -> (f32, usize, f32, (usize, usize), Vec<usize>) {
+        (
+            *self.rs.fecutoff(),
+            *self.rs.group_within(),
+            *self.rs.slopfrac(),
+            *self.rs.sloplim(),
+            self.rs.boundaries().clone(),
+        )
+    }
+
+    pub fn __setstate__(&mut self, state: (f32, usize, f32, (usize, usize), Vec<usize>)) {
+        self.rs.set_fecutoff(state.0).unwrap();
+        self.rs.set_group_within(state.1).unwrap();
+        self.rs.set_slopfrac(state.2).unwrap();
+        self.rs.set_sloplim(state.3 .0, state.3 .1).unwrap();
+        self.rs.set_boundaries_trusted(state.4);
+    }
+}

@@ -10,8 +10,8 @@ members = [
     # Toolkit
     "modules/toolkit/countit/*",
     "modules/toolkit/seqproj/*",
-    "modules/toolkit/ripper/*",
-    #    "modules/toolkit/repeto/*",
+    "modules/toolkit/reaper/*",
+    "modules/toolkit/repeto/*",
 ]
 resolver = "2"
 

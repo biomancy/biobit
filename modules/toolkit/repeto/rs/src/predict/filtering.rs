@@ -1,83 +1,56 @@
-use Option;
+use biobit_alignment_rs::pairwise::scoring;
+use biobit_core_rs::loc::Segment;
 
-use biobit_alignment::pairwise::scoring;
-use crate::
+use super::storage::filtering::{EquivRunStats, Length, SoftFilter};
 
-pub trait Filter {
-    fn is_valid(&self, path: ) -> bool;
+#[derive(Debug, Eq, Clone, PartialEq, Hash, Default)]
+pub struct Filter<S: scoring::Score> {
+    min_score: S,
+    stats: EquivRunStats,
+    rois: Vec<Segment<usize>>,
 }
 
-
-pub struct SpansThresholds {
-    pub min_max_length: usize,
-    pub min_max_roi_overlap: usize,
-    pub min_max_roi_overlap_frac: f32,
-    pub min_total_length: usize,
-}
-
-pub struct Filters<S: scoring::Score> {
-    pub rois: Vec<(usize, usize)>,
-    pub min_score: S,
-    pub spans: SpansThresholds,
-}
-
-
-#[derive(Default)]
-pub struct ThresholdsBuilder<S: scoring::Score> {
-    rois: Vec<(usize, usize)>,
-
-    min_score: Option<S>,
-    spans_min_max_length: Option<usize>,
-    spans_min_max_roi_overlap: Option<usize>,
-    spans_min_max_roi_overlap_frac: Option<f32>,
-    spans_min_total_length: Option<usize>,
-}
-
-impl<S: scoring::Score> ThresholdsBuilder<S> {
-    pub fn new() -> Self { ThresholdsBuilder::default() }
-
-    pub fn with_symbols_scoring(&mut self, complementary: Option<S>, mismatch: Option<S>) -> &mut Self {
-        self.complementary = complementary;
-        self.mismatch = mismatch;
-        &mut self
+impl<S: scoring::Score> Filter<S> {
+    pub fn with_min_score(mut self, min_score: S) -> Self {
+        self.min_score = min_score;
+        self
     }
 
-    pub fn with_gaps_scoring(&mut self, open: Option<S>, extend: Option<S>) -> &mut Self {
-        self.gap_open = open;
-        self.gap_extend = extend;
-        &mut self
-    }
-
-    pub fn with_score(&mut self, min: Option<S>) -> &mut Self {
-        self.min_score = min;
-        &mut self
-    }
-
-    pub fn with_rois(&mut self, rois: Vec<(usize, usize)>) -> &mut Self {
+    pub fn with_rois(mut self, rois: Vec<Segment<usize>>) -> Self {
         self.rois = rois;
-        &mut self
+        self
     }
 
-    pub fn with_spans(&mut self, min_max_length: Option<usize>, min_max_roi_overlap: Option<usize>, min_max_roi_overlap_frac: Option<f32>, min_total_length: Option<usize>) -> &mut Self {
-        self.spans_min_max_length = min_max_length;
-        self.spans_min_max_roi_overlap = min_max_roi_overlap;
-        self.spans_min_max_roi_overlap_frac = min_max_roi_overlap_frac;
-        self.spans_min_total_length = min_total_length;
-        &mut self
+    pub fn with_min_roi_overlap(mut self, total: usize, ungapped: usize) -> Self {
+        self.stats.in_roi = Length {
+            total_len: total,
+            max_len: ungapped,
+        };
+        self
     }
 
-    pub fn build(self) -> Filters<S> {
-        Filters {
-            rois: self.rois,
-            min_score: self.min_score.unwrap_or_default(),
-            spans: SpansThresholds {
-                min_max_length: self.spans_min_max_length.unwrap_or_default(),
-                min_max_roi_overlap: self.spans_min_max_roi_overlap.unwrap_or_default(),
-                min_max_roi_overlap_frac: self.spans_min_max_roi_overlap_frac.unwrap_or_default(),
-                min_total_length: self.spans_min_total_length.unwrap_or_default(),
-            },
-        }
+    pub fn with_min_matches(mut self, total: usize, ungapped: usize) -> Self {
+        self.stats.all = Length {
+            total_len: total,
+            max_len: ungapped,
+        };
+        self
+    }
+
+    pub fn rois(&self) -> &[Segment<usize>] {
+        &self.rois
     }
 }
 
+impl<S: scoring::Score> SoftFilter for Filter<S> {
+    type Score = S;
 
+    #[inline(always)]
+    fn is_valid(&self, score: &Self::Score, stats: &EquivRunStats) -> bool {
+        *score >= self.min_score
+            && stats.in_roi.max_len >= self.stats.in_roi.max_len
+            && stats.in_roi.total_len >= self.stats.in_roi.total_len
+            && stats.all.max_len >= self.stats.all.max_len
+            && stats.all.total_len >= self.stats.all.total_len
+    }
+}

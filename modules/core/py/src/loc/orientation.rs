@@ -134,3 +134,9 @@ impl PyOrientation {
         (self.symbol(),)
     }
 }
+
+impl IntoPy<PyOrientation> for Orientation {
+    fn into_py(self, _: Python<'_>) -> PyOrientation {
+        PyOrientation(self)
+    }
+}

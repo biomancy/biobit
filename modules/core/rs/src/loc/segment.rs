@@ -166,6 +166,12 @@ impl<Idx: PrimInt> Segment<Idx> {
         merged
     }
 
+    pub fn shift(&mut self, shift: Idx) -> &mut Self {
+        self.start = self.start + shift;
+        self.end = self.end + shift;
+        self
+    }
+
     pub fn cast<T: PrimInt>(&self) -> Segment<T>
     where
         Idx: Into<T>,

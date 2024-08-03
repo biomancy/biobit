@@ -9,11 +9,10 @@ mod reader;
 pub mod utils;
 
 pub fn register<'b>(
-    name: &'_ str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.{}", parent.name()?, name);
+    let name = format!("{}.bam", parent.name()?);
     let bam = PyModule::new_bound(parent.py(), &name)?;
 
     bam.add_class::<PyReader>()?;

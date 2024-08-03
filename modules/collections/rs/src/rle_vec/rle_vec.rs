@@ -221,6 +221,14 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVec<V, L, I> {
     pub fn runs(&self) -> impl Iterator<Item = (&V, &L)> {
         self.values.iter().zip(self.lengths.iter())
     }
+
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        self.values.iter()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
+        self.values.iter_mut()
+    }
 }
 
 impl<V, L: PrimUInt, I: Identical<V>> IntoIterator for RleVec<V, L, I> {

@@ -15,11 +15,10 @@ mod segment;
 mod strand;
 
 pub fn register<'b>(
-    name: &'_ str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.{}", parent.name()?, name);
+    let name = format!("{}.loc", parent.name()?);
     let loc = PyModule::new_bound(parent.py(), &name)?;
 
     loc.add_class::<PyStrand>()?;

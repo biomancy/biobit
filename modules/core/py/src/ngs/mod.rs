@@ -11,11 +11,10 @@ mod mates_orientation;
 mod strandedness;
 
 pub fn register<'b>(
-    name: &'_ str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.{}", parent.name()?, name);
+    let name = format!("{}.ngs", parent.name()?);
     let seqlib = PyModule::new_bound(parent.py(), &name)?;
 
     seqlib.add_class::<PyStrandedness>()?;
