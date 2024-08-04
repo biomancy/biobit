@@ -71,6 +71,13 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
     {
+        assert_eq!(
+            query.1,
+            Idx::zero(),
+            "Query start must be 0, but is {:?}",
+            query.1
+        );
+
         // 1. Calculate pileup for the signal & control sources
         let counts = self.cnts_cache.pop().unwrap_or_default();
         let (ccnts, control) = config.model.model_control(
@@ -98,25 +105,22 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 let signal = signal.get(orientation);
                 let control = control.get(orientation);
 
-                config
-                    .cmp
-                    .calculate::<Idx, u32, RleIdentical<Cnts>>(signal, control, config.model.identical(), rle)
+                config.cmp.calculate::<Idx, u32, RleIdentical<Cnts>>(
+                    signal,
+                    control,
+                    config.model.identical(),
+                    rle,
+                )
             })?;
 
         // 3. Call peaks
-        let roi_start = query.1;
         let mut peaks = PerOrientation::default();
 
         for (orientation, enrichment) in enrichment.iter() {
-            *peaks.get_mut(orientation) = config
-                .pcalling
-                .run(enrichment)
-                .into_iter()
-                .map(|mut x| {
-                    x.shift(roi_start);
-                    x
-                })
-                .collect::<Vec<_>>();
+            let pcalling = config.pcalling.run(enrichment);
+            let cnts = sigcnts.get(orientation);
+
+            *peaks.get_mut(orientation) = config.postfilter.run(pcalling, cnts)?;
         }
 
         // Return signal/control memory to the cache

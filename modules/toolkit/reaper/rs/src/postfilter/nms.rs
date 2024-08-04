@@ -132,9 +132,13 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                 .min(end)
                 .to_usize()
                 .unwrap();
-            if slop_start >= slop_end {
-                continue;
-            }
+
+            assert!(
+                slop_start < slop_end,
+                "Slop start must be less than slop end: {} vs {}",
+                slop_start,
+                slop_end
+            );
 
             // Calculate the mean signal in the slopped region
             let total: f64 = signal[slop_start..slop_end]
