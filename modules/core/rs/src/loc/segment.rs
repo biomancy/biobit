@@ -143,10 +143,10 @@ impl<Idx: PrimInt> Segment<Idx> {
         }
     }
 
-    pub fn merge(mut segments: Vec<Self>) -> Vec<Self> {
+    pub fn merge(segments: &mut Vec<Self>) -> Vec<Self> {
         // TODO: make it much more efficient and API-friendly. Why do I have union and merge? Can I merge in-place? Can I merge in a single pass? Do I need a separate namespace for this?
         if segments.is_empty() {
-            return segments;
+            return Vec::new();
         }
         segments.sort_by_key(|x| x.start());
 
@@ -393,19 +393,19 @@ mod tests {
 
     #[test]
     fn test_merge() {
-        let segments = vec![
+        let mut segments = vec![
             Segment::new(1, 10).unwrap(),
             Segment::new(5, 15).unwrap(),
             Segment::new(20, 30).unwrap(),
             Segment::new(25, 35).unwrap(),
         ];
-        let merged = Segment::merge(segments);
+        let merged = Segment::merge(&mut segments);
         assert_eq!(
             merged,
             vec![Segment::new(1, 15).unwrap(), Segment::new(20, 35).unwrap(),]
         );
 
-        let merged = Segment::<isize>::merge(vec![]);
+        let merged = Segment::<isize>::merge(&mut vec![]);
         assert!(merged.is_empty());
     }
 }

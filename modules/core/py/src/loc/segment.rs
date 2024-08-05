@@ -128,8 +128,8 @@ impl PySegment {
 
     #[staticmethod]
     pub fn merge(py: Python, segments: Vec<IntoPySegment>) -> Vec<Self> {
-        let segments = segments.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Segment::merge(segments)
+        let mut segments = segments.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        Segment::merge(&mut segments)
             .into_iter()
             .map(Self::from)
             .collect()

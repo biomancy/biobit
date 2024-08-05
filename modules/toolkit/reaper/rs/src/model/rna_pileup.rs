@@ -4,7 +4,7 @@ use eyre::{Report, Result};
 
 use biobit_collections_rs::rle_vec::RleVec;
 use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::{Contig, PerOrientation};
+use biobit_core_rs::loc::{Contig, PerOrientation, Segment};
 use biobit_core_rs::loc::AsSegment;
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_core_rs::source::{AnyMap, Source};
@@ -128,6 +128,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
     ) -> Result<(
         PerOrientation<Vec<Cnts>>,
         PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
+        PerOrientation<Vec<Segment<Idx>>>,
     )>
     where
         Ctg: Contig,
@@ -138,17 +139,45 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         >,
     {
         let (counts, mut rle) = self.pileup(query, sources, caches, counts, rle)?;
+        let mut model: PerOrientation<Vec<_>> = PerOrientation::default();
 
         // Turn signal below the minimum signal into zeros
-        rle.apply(|_, rle| {
-            rle.values_mut().for_each(|x| {
-                if *x < self.min_signal {
-                    *x = Cnts::zero();
-                }
-            });
-        });
+        rle.try_apply(|o, rle| {
+            let mut start = query.1;
+            let mut end;
 
-        Ok((counts, rle))
+            // Cache for segments passing the threshold
+            let (mut cache_start, mut cache_end) = (query.1, query.1);
+            let mut cache = Vec::new();
+
+            for (val, length) in rle.runs_mut() {
+                end = start + Idx::from(*length).unwrap();
+
+                if *val < self.min_signal {
+                    *val = Cnts::zero();
+                } else {
+                    if start == cache_end {
+                        cache_end = end;
+                    } else {
+                        if cache_end != query.1 {
+                            cache.push(Segment::new(cache_start, cache_end)?);
+                        }
+                        cache_start = start;
+                        cache_end = end;
+                    }
+                }
+
+                start = end;
+            }
+            if cache_end != query.1 {
+                cache.push(Segment::new(cache_start, cache_end)?);
+            }
+            *model.get_mut(o) = cache;
+
+            Ok::<(), Report>(())
+        })?;
+
+        Ok((counts, rle, model))
     }
 
     pub fn model_control<Ctg, Idx, Src>(

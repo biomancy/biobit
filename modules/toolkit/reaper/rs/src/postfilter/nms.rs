@@ -81,7 +81,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
 
     pub fn run(
         &self,
-        mut peaks: Vec<Peak<Idx, Cnts>>,
+        peaks: &mut [Peak<Idx, Cnts>],
         signal: &[Cnts],
     ) -> Result<Vec<Peak<Idx, Cnts>>> {
         if peaks.is_empty() {
@@ -92,11 +92,11 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         // Group peaks within X bases
         let mut groups = vec![];
 
-        let mut drain = peaks.drain(..);
-        let mut last = drain.next().unwrap();
+        let mut peaks_iter = peaks.iter();
+        let mut last = peaks_iter.next().unwrap();
         let mut cache = vec![];
 
-        for p in drain {
+        for p in peaks_iter {
             debug_assert!(p.segment().start() > last.segment().end());
 
             if p.segment().start() - last.segment().end() > self.group_within {
@@ -113,7 +113,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         cache.push(last);
         groups.push(cache);
 
-        debug_assert!(peaks.is_empty());
+        let mut nms_peaks = Vec::new();
         for group in groups.into_iter() {
             // Group limits
             let (start, end) = (
@@ -166,11 +166,11 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                     )
                 });
 
-                bycutoff.run_from_iter(iterator, &mut peaks);
+                bycutoff.run_from_iter(iterator, &mut nms_peaks);
             }
         }
 
-        Ok(peaks)
+        Ok(nms_peaks)
     }
 }
 

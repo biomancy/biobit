@@ -37,7 +37,9 @@ pub struct PyHarvestRegion {
     contig: String,
     orientation: PyOrientation,
     segment: PySegment,
-    peaks: Vec<Py<PyPeak>>,
+    modeled: Vec<Py<PySegment>>,
+    raw_peaks: Vec<Py<PyPeak>>,
+    filtered_peaks: Vec<Py<PyPeak>>,
 }
 
 impl<Ctg, Idx, Cnts> IntoPy<PyHarvestRegion> for HarvestRegion<Ctg, Idx, Cnts>
@@ -47,7 +49,7 @@ where
     Cnts: Float,
 {
     fn into_py(self, py: Python<'_>) -> PyHarvestRegion {
-        let (contig, orientation, segment, peaks) = self.dissolve();
+        let (contig, orientation, segment, model, peaks, nms) = self.dissolve();
 
         let contig = contig.into();
         let orientation = orientation.into_py(py);
@@ -58,7 +60,20 @@ where
             .map(|x| Py::new(py, x.into_py(py)))
             .collect::<PyResult<Vec<_>>>()
             .expect("Failed to allocate Python memory for the reaper:Peak");
-        PyHarvestRegion::new(contig, orientation, segment, peaks)
+
+        let model = model
+            .into_iter()
+            .map(|x| Py::new(py, x.into_py(py)))
+            .collect::<PyResult<Vec<_>>>()
+            .expect("Failed to allocate Python memory for the reaper:Segment");
+
+        let nms = nms
+            .into_iter()
+            .map(|x| Py::new(py, x.into_py(py)))
+            .collect::<PyResult<Vec<_>>>()
+            .expect("Failed to allocate Python memory for the reaper:Peak");
+
+        PyHarvestRegion::new(contig, orientation, segment, model, peaks, nms)
     }
 }
 

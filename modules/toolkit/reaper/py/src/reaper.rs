@@ -114,7 +114,7 @@ impl PyReaper {
 
     pub fn run(mut slf: PyRefMut<Self>) -> PyResult<Vec<PyHarvest>> {
         let py = slf.py();
-        let ripped = slf
+        let reaped = slf
             .reaper
             .run()?
             .into_iter()
@@ -122,7 +122,7 @@ impl PyReaper {
             .collect();
         slf.reaper.reset();
 
-        Ok(ripped)
+        Ok(reaped)
     }
 
     pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {

@@ -308,7 +308,7 @@ where
                             rmate.cigar().iter(),
                         )
                         .ok()?;
-                    self.cache.segments = Segment::merge(std::mem::take(&mut self.cache.segments));
+                    self.cache.segments = Segment::merge(&mut self.cache.segments);
 
                     let lhits = extract_aln_hit_count(lmate).unwrap();
                     debug_assert!(lhits > 0);

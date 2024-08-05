@@ -12,8 +12,13 @@ pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     contig: Ctg,
     orientation: Orientation,
     segment: Segment<Idx>,
-    // Ripped peaks in global coordinates
-    peaks: Vec<Peak<Idx, Cnts>>,
+    // In global coordinates:
+    // * Regions that passed modelling thresholds
+    // * Raw peaks in global coordinates
+    // * NMS peaks in global coordinates
+    modeled: Vec<Segment<Idx>>,
+    raw_peaks: Vec<Peak<Idx, Cnts>>,
+    filtered_peaks: Vec<Peak<Idx, Cnts>>,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]

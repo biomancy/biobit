@@ -50,4 +50,6 @@ def test_ripper():
             assert region.contig in ["1", "2"]
             assert region.segment.start == 0
             assert region.segment.end in [100, 10]
-            assert len(region.peaks) == 0
+            assert region.modeled == [region.segment]
+            assert len(region.raw_peaks) == 0
+            assert len(region.filtered_peaks) == 0

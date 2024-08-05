@@ -88,7 +88,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             self.rle_cache.pop().unwrap_or_default(),
         )?;
 
-        let (sigcnts, signal) = config.model.model_signal(
+        let (sigcnts, signal, model) = config.model.model_signal(
             query,
             signal,
             &mut self.sources_cache,
@@ -115,12 +115,15 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
         // 3. Call peaks
         let mut peaks = PerOrientation::default();
+        let mut nms = PerOrientation::default();
 
         for (orientation, enrichment) in enrichment.iter() {
-            let pcalling = config.pcalling.run(enrichment);
+            let mut _peaks = config.pcalling.run(enrichment);
             let cnts = sigcnts.get(orientation);
+            let _nms = config.postfilter.run(&mut _peaks, cnts)?;
 
-            *peaks.get_mut(orientation) = config.postfilter.run(pcalling, cnts)?;
+            *peaks.get_mut(orientation) = _peaks;
+            *nms.get_mut(orientation) = _nms;
         }
 
         // Return signal/control memory to the cache
@@ -132,13 +135,19 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         // 4. Save results
         let segment = Segment::new(query.1, query.2)?;
         let mut harvest = Vec::with_capacity(3);
+        for (orientation, model) in model.into_iter() {
+            // Completely ignore regions without any signal model
+            if model.is_empty() {
+                continue;
+            }
 
-        for (orientation, peaks) in peaks.into_iter() {
             harvest.push(HarvestRegion::new(
                 query.0.clone(),
                 orientation,
                 segment.clone(),
-                peaks,
+                model,
+                std::mem::take(peaks.get_mut(orientation)),
+                std::mem::take(nms.get_mut(orientation)),
             ));
         }
 

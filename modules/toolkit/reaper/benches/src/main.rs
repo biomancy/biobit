@@ -175,7 +175,7 @@ fn main() {
                 region.orientation()
             );
 
-            for peak in region.peaks() {
+            for peak in region.filtered_peaks() {
                 println!("\t\t{} {} {}", peak.segment(), peak.signal(), peak.summit())
             }
         }

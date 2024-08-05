@@ -18,7 +18,7 @@ def test_median_of_ratios():
     }
     data = pd.DataFrame(raw).set_index("Region").astype(np.float32)
 
-    _, scaling = MedianOfRatiosNormalization(data).scaling_factors({x: [x] for x in data.columns})
+    _, _, scaling = MedianOfRatiosNormalization(data).scaling_factors({x: [x] for x in data.columns})
 
     normalized = data.div(scaling, axis=1)
 
