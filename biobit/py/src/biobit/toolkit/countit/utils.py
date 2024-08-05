@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from biobit.core.loc import Segment, Orientation
+from biobit.core.loc import Segment, Orientation, IntoOrientation
 from .countit import Counts
 
 
@@ -34,7 +34,7 @@ def result_to_pandas(cnts: list[Counts]) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def resolve_annotation(
-        annotation: dict[Any, dict[tuple[str, str], list[Segment]]],
+        annotation: dict[Any, dict[tuple[str, IntoOrientation], list[Segment]]],
         resolution: Callable[[str, Orientation, int, int, set[Any]], Iterable[Any]]
 ) -> dict[Any, dict[tuple[str, Orientation], list[Segment]]]:
     """
@@ -51,33 +51,33 @@ def resolve_annotation(
         The inner dictionary maps a tuple of (contig, orientation) to a list of resolved Segment objects.
     """
     # Group all annotation items per contig and strand
-    groups = defaultdict(list)
+    groups: dict[tuple[str, Orientation], list[tuple[Segment, Any]]] = defaultdict(list)
     for key, anno in annotation.items():
         for (contig, orientation), regions in anno.items():
             orientation = Orientation(orientation)
             for region in regions:
-                groups[contig, orientation].append((region, key))
+                groups[(contig, orientation)].append((region, key))
 
     # Resolve each group
-    resolved = defaultdict(lambda: defaultdict(list))
-    for (contig, orientation), regions in groups.items():
-        regions = sorted(regions, key=lambda x: x[0].start)
+    resolved: dict[Any, dict[tuple[str, Orientation], list[Segment]]] = defaultdict(lambda: defaultdict(list))
+    for (contig, orientation), reggroup in groups.items():
+        reggroup = sorted(reggroup, key=lambda x: x[0].start)
 
-        start, end = regions[0][0].start, regions[0][0].end
+        start, end = reggroup[0][0].start, reggroup[0][0].end
         cache = []
 
         ind = 0
-        cursor = regions[ind][0]
+        cursor = reggroup[ind][0]
         while True:
             if cursor.start == start:
                 # Add and shrink the window to the left
                 end = min(end, cursor.end)
-                cache.append(regions[ind])
+                cache.append(reggroup[ind])
 
                 ind += 1
-                if ind >= len(regions):
+                if ind >= len(reggroup):
                     break
-                cursor = regions[ind][0]
+                cursor = reggroup[ind][0]
             elif cursor.start < end:
                 # Shrink the current window to the left and don't consume the next region
                 end = min(end, cursor.start)

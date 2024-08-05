@@ -60,7 +60,7 @@ class Project:
             raise ValueError(f"Experiment IDs must be unique within the project, found duplicates: {nonunique}")
 
         # Ensure that run IDs are unique within the project
-        cnts = {}
+        cnts: dict[str, int] = {}
         for x in self.experiments:
             for y in x.runs:
                 cnts[y.ind] = cnts.get(y.ind, 0) + 1

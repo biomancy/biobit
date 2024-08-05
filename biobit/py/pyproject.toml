@@ -45,4 +45,5 @@ dev = [
 
 [tool.mypy]
 check_untyped_defs = true
+allow_redefinition = true
 exclude = ["test.*"]
