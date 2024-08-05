@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 
 from biobit.toolkit.seqproj.layout import Layout, MatesOrientation
@@ -14,6 +16,9 @@ def test_layout_single():
     assert layout.file == fname
 
     assert Layout.Single(fname) == layout
+    assert Layout.Single("DEF.fastq") != layout
+
+    assert pickle.loads(pickle.dumps(layout)) == layout
 
     with pytest.raises(TypeError):
         Layout.Single(None)
@@ -27,6 +32,8 @@ def test_layout_paired():
 
     assert Layout.Paired(MatesOrientation.Inward, ("A", "B")) == layout
     assert Layout.Paired(MatesOrientation.Inward, ("A", "C")) != layout
+
+    assert pickle.loads(pickle.dumps(layout)) == layout
 
     for args in [
         (MatesOrientation.Inward, None),
@@ -44,6 +51,8 @@ def test_run():
     assert run.reads == 1000
     assert run.bases is None
     assert run.description == "Description"
+
+    assert pickle.loads(pickle.dumps(run)) == run
 
 
 def test_run_validators():
@@ -70,6 +79,8 @@ def test_sample_creation():
     assert sample.organism == {"Homo sapiens"}
     assert sample.attributes == {"Confluence": "75%", "Source": "HeLa"}
     assert sample.description == "Description"
+
+    assert pickle.loads(pickle.dumps(sample)) == sample
 
 
 def test_sample_without_description():
@@ -101,6 +112,8 @@ def test_library_creation():
     assert library.selection == {"PCR"}
     assert library.strandedness == Strandedness.Unstranded
     assert library.attributes == {}
+
+    assert pickle.loads(pickle.dumps(library)) == library
 
     for kwargs in [
         dict(source=set(), selection={"PCR"}, strandedness=Strandedness.Forward),

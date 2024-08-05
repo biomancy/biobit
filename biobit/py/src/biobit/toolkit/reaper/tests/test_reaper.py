@@ -12,16 +12,17 @@ def test_workload():
     assert pickle.loads(pickle.dumps(config)) == config
 
     workload = rp.Workload() \
-        .add_region("1", 1, 1000, config) \
-        .add_regions([("1", 1, 1000), ("2", 1, 1000)], config)
+        .add_region("1", 0, 1000, config) \
+        .add_regions([("3", 0, 1000), ("2", 0, 1000)], config)
 
     assert pickle.loads(pickle.dumps(workload)) == workload
 
 
 def test_ripper():
-    config = rp.Config(rp.model.RNAPileup(), rp.cmp.Enrichment(), rp.pcalling.ByCutoff().set_cutoff(1.0), rp.postfilter.NMS())
+    config = rp.Config(rp.model.RNAPileup(), rp.cmp.Enrichment(), rp.pcalling.ByCutoff().set_cutoff(1.0),
+                       rp.postfilter.NMS())
     workload = rp.Workload() \
-        .add_region("1", 10, 100, config) \
+        .add_region("1", 0, 100, config) \
         .add_regions([("2", 0, 10)], config)
 
     bam_1 = FILE.parent / "../../../../../../../resources/bam/A1+THP-1_mock_no-RNase_2.bam"
@@ -47,6 +48,6 @@ def test_ripper():
 
         for region in ripped[ind].regions:
             assert region.contig in ["1", "2"]
-            assert region.segment.start in [10, 0]
+            assert region.segment.start == 0
             assert region.segment.end in [100, 10]
             assert len(region.peaks) == 0

@@ -12,7 +12,7 @@ pub fn register<'b>(
     let name = format!("{}.seqproj", parent.name()?);
     let seqlib = PyModule::new_bound(parent.py(), &name)?;
 
-    seqlib.add_class::<PyLayout>()?;
+    PyLayout::__biobit_initialize_complex_enum__(parent.py(), &seqlib)?;
 
     parent.add_submodule(&seqlib)?;
     sysmod.set_item(seqlib.name()?, &seqlib)?;
