@@ -129,6 +129,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         PerOrientation<Vec<Cnts>>,
         PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
         PerOrientation<Vec<Segment<Idx>>>,
+        PerOrientation<Vec<Segment<Idx>>>,
     )>
     where
         Ctg: Contig,
@@ -139,45 +140,70 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         >,
     {
         let (counts, mut rle) = self.pileup(query, sources, caches, counts, rle)?;
-        let mut model: PerOrientation<Vec<_>> = PerOrientation::default();
+        let mut covered: PerOrientation<Vec<_>> = PerOrientation::default();
+        let mut modeled: PerOrientation<Vec<_>> = PerOrientation::default();
 
         // Turn signal below the minimum signal into zeros
         rle.try_apply(|o, rle| {
             let mut start = query.1;
             let mut end;
 
-            // Cache for segments passing the threshold
-            let (mut cache_start, mut cache_end) = (query.1, query.1);
-            let mut cache = Vec::new();
+            // Cache for covered / modeled segments
+            let (mut covered_start, mut covered_end) = (query.1, query.1);
+            let mut covered_cache = Vec::new();
+
+            let (mut model_start, mut model_end) = (query.1, query.1);
+            let mut model_cache = Vec::new();
 
             for (val, length) in rle.runs_mut() {
                 end = start + Idx::from(*length).unwrap();
 
-                if *val < self.min_signal {
+                // Save covered segments
+                if !val.is_zero() {
+                    if covered_end == start {
+                        covered_end = end;
+                    } else {
+                        if covered_end != query.1 {
+                            covered_cache.push(Segment::new(covered_start, covered_end)?);
+                        }
+                        covered_start = start;
+                        covered_end = end;
+                    }
+                }
+
+                // Save modeled segments
+                if *val <= self.min_signal {
                     *val = Cnts::zero();
                 } else {
-                    if start == cache_end {
-                        cache_end = end;
+                    if start == model_end {
+                        model_end = end;
                     } else {
-                        if cache_end != query.1 {
-                            cache.push(Segment::new(cache_start, cache_end)?);
+                        if model_end != query.1 {
+                            model_cache.push(Segment::new(model_start, model_end)?);
                         }
-                        cache_start = start;
-                        cache_end = end;
+                        model_start = start;
+                        model_end = end;
                     }
                 }
 
                 start = end;
             }
-            if cache_end != query.1 {
-                cache.push(Segment::new(cache_start, cache_end)?);
+
+            // Save the model & covered segments
+            if covered_end != query.1 {
+                covered_cache.push(Segment::new(covered_start, covered_end)?);
             }
-            *model.get_mut(o) = cache;
+            *covered.get_mut(o) = covered_cache;
+
+            if model_end != query.1 {
+                model_cache.push(Segment::new(model_start, model_end)?);
+            }
+            *modeled.get_mut(o) = model_cache;
 
             Ok::<(), Report>(())
         })?;
 
-        Ok((counts, rle, model))
+        Ok((counts, rle, covered, modeled))
     }
 
     pub fn model_control<Ctg, Idx, Src>(
@@ -190,6 +216,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
     ) -> Result<(
         PerOrientation<Vec<Cnts>>,
         PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
+        PerOrientation<Vec<Segment<Idx>>>,
     )>
     where
         Ctg: Contig,
@@ -200,14 +227,45 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         >,
     {
         let (counts, mut rle) = self.pileup(query, sources, caches, counts, rle)?;
+        let mut covered: PerOrientation<Vec<_>> = PerOrientation::default();
 
         // Turn signal below the minimum signal into zeros
-        rle.apply(|_, rle| {
-            rle.values_mut().for_each(|x| {
-                *x = x.max(self.control_baseline);
-            });
-        });
+        rle.try_apply(|o, rle| {
+            let mut start = query.1;
+            let mut end;
 
-        Ok((counts, rle))
+            // Cache for covered segments
+            let (mut covered_start, mut covered_end) = (query.1, query.1);
+            let mut covered_cache = Vec::new();
+
+            for (val, length) in rle.runs_mut() {
+                end = start + Idx::from(*length).unwrap();
+
+                // Save covered segments
+                if !val.is_zero() {
+                    if covered_end == start {
+                        covered_end = end;
+                    } else {
+                        if covered_end != query.1 {
+                            covered_cache.push(Segment::new(covered_start, covered_end)?);
+                        }
+                        covered_start = start;
+                        covered_end = end;
+                    }
+                }
+
+                start = end;
+                *val = val.max(self.control_baseline);
+            }
+
+            if covered_end != query.1 {
+                covered_cache.push(Segment::new(covered_start, covered_end)?);
+            }
+            *covered.get_mut(o) = covered_cache;
+
+            Ok::<(), Report>(())
+        })?;
+
+        Ok((counts, rle, covered))
     }
 }

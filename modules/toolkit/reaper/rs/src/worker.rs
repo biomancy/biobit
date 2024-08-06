@@ -80,7 +80,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
         // 1. Calculate pileup for the signal & control sources
         let counts = self.cnts_cache.pop().unwrap_or_default();
-        let (ccnts, control) = config.model.model_control(
+        let (ccnts, control, mut cntcov) = config.model.model_control(
             query.clone(),
             control,
             &mut self.sources_cache,
@@ -88,7 +88,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             self.rle_cache.pop().unwrap_or_default(),
         )?;
 
-        let (sigcnts, signal, model) = config.model.model_signal(
+        let (sigcnts, signal, mut sigcov, modeled) = config.model.model_signal(
             query,
             signal,
             &mut self.sources_cache,
@@ -135,7 +135,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         // 4. Save results
         let segment = Segment::new(query.1, query.2)?;
         let mut harvest = Vec::with_capacity(3);
-        for (orientation, model) in model.into_iter() {
+        for (orientation, model) in modeled.into_iter() {
             // Completely ignore regions without any signal model
             if model.is_empty() {
                 continue;
@@ -145,6 +145,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 query.0.clone(),
                 orientation,
                 segment.clone(),
+                std::mem::take(sigcov.get_mut(orientation)),
+                std::mem::take(cntcov.get_mut(orientation)),
                 model,
                 std::mem::take(peaks.get_mut(orientation)),
                 std::mem::take(nms.get_mut(orientation)),

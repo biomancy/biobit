@@ -13,9 +13,12 @@ pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     orientation: Orientation,
     segment: Segment<Idx>,
     // In global coordinates:
+    // * Regions that were covered by at least 1 read in signal/control experiments
     // * Regions that passed modelling thresholds
-    // * Raw peaks in global coordinates
-    // * NMS peaks in global coordinates
+    // * Raw peaks
+    // * NMS peaks
+    signal: Vec<Segment<Idx>>,
+    control: Vec<Segment<Idx>>,
     modeled: Vec<Segment<Idx>>,
     raw_peaks: Vec<Peak<Idx, Cnts>>,
     filtered_peaks: Vec<Peak<Idx, Cnts>>,

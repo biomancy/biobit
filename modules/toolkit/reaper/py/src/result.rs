@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use derive_getters::Dissolve;
 use derive_more::Constructor;
+use itertools::Itertools;
 use pyo3::prelude::*;
 
 use biobit_core_py::{
@@ -37,6 +38,8 @@ pub struct PyHarvestRegion {
     contig: String,
     orientation: PyOrientation,
     segment: PySegment,
+    signal: Vec<Py<PySegment>>,
+    control: Vec<Py<PySegment>>,
     modeled: Vec<Py<PySegment>>,
     raw_peaks: Vec<Py<PyPeak>>,
     filtered_peaks: Vec<Py<PyPeak>>,
@@ -49,31 +52,44 @@ where
     Cnts: Float,
 {
     fn into_py(self, py: Python<'_>) -> PyHarvestRegion {
-        let (contig, orientation, segment, model, peaks, nms) = self.dissolve();
+        let (contig, orientation, segment, signal, control, model, peaks, nms) = self.dissolve();
 
         let contig = contig.into();
         let orientation = orientation.into_py(py);
         let segment = segment.into_py(py);
 
-        let peaks = peaks
+        let (signal, control, model) = [signal, control, model]
             .into_iter()
-            .map(|x| Py::new(py, x.into_py(py)))
-            .collect::<PyResult<Vec<_>>>()
-            .expect("Failed to allocate Python memory for the reaper:Peak");
+            .map(|x| {
+                x.into_iter()
+                    .map(|x| Py::new(py, x.into_py(py)))
+                    .collect::<PyResult<Vec<_>>>()
+                    .expect("Failed to allocate Python memory for the reaper:Segment")
+            })
+            .collect_tuple::<(_, _, _)>()
+            .unwrap();
 
-        let model = model
+        let (peaks, nms) = [peaks, nms]
             .into_iter()
-            .map(|x| Py::new(py, x.into_py(py)))
-            .collect::<PyResult<Vec<_>>>()
-            .expect("Failed to allocate Python memory for the reaper:Segment");
+            .map(|x| {
+                x.into_iter()
+                    .map(|x| Py::new(py, x.into_py(py)))
+                    .collect::<PyResult<Vec<_>>>()
+                    .expect("Failed to allocate Python memory for the reaper:Peak")
+            })
+            .collect_tuple::<(_, _)>()
+            .unwrap();
 
-        let nms = nms
-            .into_iter()
-            .map(|x| Py::new(py, x.into_py(py)))
-            .collect::<PyResult<Vec<_>>>()
-            .expect("Failed to allocate Python memory for the reaper:Peak");
-
-        PyHarvestRegion::new(contig, orientation, segment, model, peaks, nms)
+        PyHarvestRegion::new(
+            contig,
+            orientation,
+            segment,
+            signal,
+            control,
+            model,
+            peaks,
+            nms,
+        )
     }
 }
 
