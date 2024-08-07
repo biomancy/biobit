@@ -15,9 +15,10 @@ pub fn _biobit(py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
         let toolkit = format!("{}.toolkit", module.name()?);
         let toolkit = PyModule::new_bound(py, &toolkit)?;
 
-        biobit_countit_py::register(&toolkit, &sysmod)?;
-        biobit_reaper_py::register(&toolkit, &sysmod)?;
-        biobit_seqproj_py::register(&toolkit, &sysmod)?;
+        ::biobit_countit_py::register(&toolkit, &sysmod)?;
+        ::biobit_reaper_py::register(&toolkit, &sysmod)?;
+        ::biobit_seqproj_py::register(&toolkit, &sysmod)?;
+        ::biobit_repeto_py::register(&toolkit, &sysmod)?;
 
         module.add_submodule(&toolkit)?;
         sysmod.set_item(toolkit.name()?, toolkit)?;

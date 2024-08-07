@@ -1,8 +1,11 @@
 use std::marker::PhantomData;
 
+use derive_getters::Dissolve;
+
 use crate::pairwise::scoring;
 use crate::pairwise::sw::{algo, storage, traceback};
 
+#[derive(Dissolve)]
 pub struct Tracers<S, Storage, TraceMat>
 where
     S: scoring::Score,

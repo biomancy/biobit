@@ -1,19 +1,20 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 use derive_getters::{Dissolve, Getters};
+use derive_more::{From, Into};
 use eyre::Result;
 use itertools::{chain, Itertools};
 
 use biobit_core_rs::loc::{AsSegment, Segment};
 use biobit_core_rs::num::PrimInt;
 
-#[derive(Eq, PartialEq, Hash, Clone, Getters, Dissolve)]
-pub struct InvSegments<Idx: PrimInt> {
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Getters, Dissolve)]
+pub struct InvSegment<Idx: PrimInt> {
     left: Segment<Idx>,
     right: Segment<Idx>,
 }
 
-impl<Idx: PrimInt> InvSegments<Idx> {
+impl<Idx: PrimInt> InvSegment<Idx> {
     pub fn new(left: Segment<Idx>, right: Segment<Idx>) -> Result<Self> {
         if left.len() != right.len() {
             return Err(eyre::eyre!(
@@ -29,37 +30,47 @@ impl<Idx: PrimInt> InvSegments<Idx> {
         Ok(Self { left, right })
     }
 
-    fn inner_gap(&self) -> Idx {
+    pub fn inner_gap(&self) -> Idx {
         self.right().start() - self.left().end()
     }
 
-    fn seqlen(&self) -> Idx {
+    pub fn seqlen(&self) -> Idx {
         self.left().len().shl(1) // = len * 2
     }
 
-    fn brange(&self) -> Segment<Idx> {
+    pub fn brange(&self) -> Segment<Idx> {
         Segment::new(self.left().start(), self.right().end()).unwrap()
     }
 
-    fn shift(&mut self, shift: Idx) {
+    pub fn len(&self) -> Idx {
+        self.left.len()
+    }
+
+    pub fn shift(&mut self, shift: Idx) {
         self.left.shift(shift);
         self.right.shift(shift);
     }
 }
 
-impl<Idx: PrimInt + Debug> Debug for InvSegments<Idx> {
+impl<Idx: PrimInt> Debug for InvSegment<Idx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "inv::Arm {:?} <=> {:?}", self.left, self.right)
+        write!(f, "InvSegment {:?} <=> {:?}", self.left, self.right)
+    }
+}
+
+impl<Idx: PrimInt + Display> Display for InvSegment<Idx> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InvSegment {} <=> {}", self.left, self.right)
     }
 }
 
 #[derive(Eq, PartialEq, Hash, Clone, Getters, Dissolve)]
-pub struct Repeat<Idx: PrimInt> {
-    segments: Vec<InvSegments<Idx>>,
+pub struct InvRepeat<Idx: PrimInt> {
+    segments: Vec<InvSegment<Idx>>,
 }
 
-impl<Idx: PrimInt> Repeat<Idx> {
-    pub fn new(segments: Vec<InvSegments<Idx>>) -> Result<Self> {
+impl<Idx: PrimInt> InvRepeat<Idx> {
+    pub fn new(segments: Vec<InvSegment<Idx>>) -> Result<Self> {
         if segments.is_empty() {
             return Err(eyre::eyre!(
                 "Inverted repeat must have at least one segment"
@@ -120,7 +131,7 @@ impl<Idx: PrimInt> Repeat<Idx> {
     }
 }
 
-impl<Idx: PrimInt + Debug> Debug for Repeat<Idx> {
+impl<Idx: PrimInt + Debug> Debug for InvRepeat<Idx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

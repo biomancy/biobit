@@ -166,6 +166,29 @@ impl<Idx: PrimInt> Segment<Idx> {
         merged
     }
 
+    pub fn merge_within(segments: &mut Vec<Self>, distance: Idx) -> Vec<Self> {
+        if segments.is_empty() {
+            return Vec::new();
+        }
+        segments.sort_by_key(|x| x.start());
+
+        let mut iter = segments.iter();
+        let mut merged = Vec::new();
+        let (mut start, mut end) = iter.next().unwrap().dissolve();
+        for current in iter {
+            if current.start() > end + distance {
+                merged.push(Segment::new(start, end).unwrap());
+                end = current.end();
+                start = current.start();
+            } else if current.end() > end {
+                end = current.end();
+            }
+        }
+        merged.push(Segment::new(start, end).unwrap());
+
+        merged
+    }
+
     pub fn shift(&mut self, shift: Idx) -> &mut Self {
         self.start = self.start + shift;
         self.end = self.end + shift;
@@ -182,9 +205,11 @@ impl<Idx: PrimInt> Segment<Idx> {
         }
     }
 
-    pub fn try_cast<T: PrimInt, E>(&self) -> std::result::Result<Segment<T>, E>
+    pub fn try_cast<T: PrimInt>(
+        &self,
+    ) -> std::result::Result<Segment<T>, <Idx as TryInto<T>>::Error>
     where
-        Idx: TryInto<T, Error = E>,
+        Idx: TryInto<T>,
     {
         Ok(Segment {
             start: self.start.try_into()?,
@@ -406,6 +431,36 @@ mod tests {
         );
 
         let merged = Segment::<isize>::merge(&mut vec![]);
+        assert!(merged.is_empty());
+    }
+
+    #[test]
+    fn test_merge_within() {
+        let mut segments = vec![
+            Segment::new(1, 10).unwrap(),
+            Segment::new(5, 15).unwrap(),
+            Segment::new(20, 30).unwrap(),
+            Segment::new(25, 35).unwrap(),
+            Segment::new(100, 200).unwrap(),
+        ];
+        assert_eq!(
+            Segment::merge_within(&mut segments, 0),
+            Segment::merge(&mut segments)
+        );
+
+        let merged = Segment::merge_within(&mut segments, 5);
+        assert_eq!(
+            merged,
+            vec![
+                Segment::new(1, 35).unwrap(),
+                Segment::new(100, 200).unwrap()
+            ]
+        );
+
+        let merged = Segment::merge_within(&mut segments, 100);
+        assert_eq!(merged, vec![Segment::new(1, 200).unwrap()]);
+
+        let merged = Segment::<isize>::merge_within(&mut vec![], 5);
         assert!(merged.is_empty());
     }
 }

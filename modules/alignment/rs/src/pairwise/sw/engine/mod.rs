@@ -1,3 +1,5 @@
+use derive_getters::Dissolve;
+
 use tracers::Tracers;
 
 use crate::Alignable;
@@ -6,6 +8,7 @@ use crate::pairwise::sw::{algo, storage, traceback};
 
 mod tracers;
 
+#[derive(Dissolve)]
 pub struct Engine<S, Smb, Storage, TraceMat, Scheme>
 where
     S: scoring::Score,

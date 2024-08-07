@@ -4,7 +4,7 @@ pub trait SoftFilter {
     fn is_valid(&self, score: &Self::Score, stats: &EquivRunStats) -> bool;
 }
 
-#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, Default)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, PartialOrd, Hash, Default)]
 pub struct Length {
     /// Maximum length of an ungapped run
     pub max_len: usize,
@@ -12,7 +12,7 @@ pub struct Length {
     pub total_len: usize,
 }
 
-#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, Default)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, PartialOrd, Hash, Default)]
 pub struct EquivRunStats {
     /// All ungapped diagonal (Equivalence) runs
     pub all: Length,

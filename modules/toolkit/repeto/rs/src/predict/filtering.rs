@@ -1,9 +1,11 @@
+use derive_getters::{Dissolve, Getters};
+
 use biobit_alignment_rs::pairwise::scoring;
 use biobit_core_rs::loc::Segment;
 
 use super::storage::filtering::{EquivRunStats, Length, SoftFilter};
 
-#[derive(Debug, Eq, Clone, PartialEq, Hash, Default)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Hash, Default, Dissolve, Getters)]
 pub struct Filter<S: scoring::Score> {
     min_score: S,
     stats: EquivRunStats,
@@ -11,17 +13,17 @@ pub struct Filter<S: scoring::Score> {
 }
 
 impl<S: scoring::Score> Filter<S> {
-    pub fn with_min_score(mut self, min_score: S) -> Self {
+    pub fn set_min_score(&mut self, min_score: S) -> &mut Self {
         self.min_score = min_score;
         self
     }
 
-    pub fn with_rois(mut self, rois: Vec<Segment<usize>>) -> Self {
-        self.rois = rois;
+    pub fn set_rois(&mut self, mut rois: Vec<Segment<usize>>) -> &mut Self {
+        self.rois = Segment::merge(&mut rois);
         self
     }
 
-    pub fn with_min_roi_overlap(mut self, total: usize, ungapped: usize) -> Self {
+    pub fn set_min_roi_overlap(&mut self, total: usize, ungapped: usize) -> &mut Self {
         self.stats.in_roi = Length {
             total_len: total,
             max_len: ungapped,
@@ -29,16 +31,12 @@ impl<S: scoring::Score> Filter<S> {
         self
     }
 
-    pub fn with_min_matches(mut self, total: usize, ungapped: usize) -> Self {
+    pub fn set_min_matches(&mut self, total: usize, ungapped: usize) -> &mut Self {
         self.stats.all = Length {
             total_len: total,
             max_len: ungapped,
         };
         self
-    }
-
-    pub fn rois(&self) -> &[Segment<usize>] {
-        &self.rois
     }
 }
 

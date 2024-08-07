@@ -1,3 +1,4 @@
+use derive_getters::Dissolve;
 use biobit_alignment_rs::pairwise::{
     scoring,
     sw::algo::{BestOrientationTracer, GapTracer, Tracer},
@@ -52,6 +53,7 @@ impl ROITracker {
     }
 }
 
+#[derive(Dissolve)]
 pub struct AllOptimal<S: scoring::Score, F: SoftFilter<Score = S>> {
     // Filtering for the alignment candidates
     filter: F,

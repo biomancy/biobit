@@ -1,1 +1,3 @@
-pub mod inv;
+pub use inv::{InvRepeat, InvSegment};
+
+mod inv;

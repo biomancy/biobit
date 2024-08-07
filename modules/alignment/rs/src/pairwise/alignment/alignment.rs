@@ -64,7 +64,7 @@ where
     /// Returns true if the alignment intersects with another alignment.
     pub fn intersects(&self, other: &Self) -> bool
     where
-        u64: From<Seq1Idx> + From<Seq2Idx> + From<StepLen>,
+        usize: From<Seq1Idx> + From<Seq2Idx> + From<StepLen>,
     {
         // Fast check if the ranges do not overlap
         if max(self.seq1.start, other.seq1.start) >= min(self.seq1.end, other.seq1.end) {
@@ -73,7 +73,7 @@ where
         if max(self.seq2.start, other.seq2.start) >= min(self.seq2.end, other.seq2.end) {
             return false;
         }
-        return utils::intersects::<_, _, _, u64>(self.tracked_steps(), other.tracked_steps());
+        return utils::intersects::<_, _, _, usize>(self.tracked_steps(), other.tracked_steps());
     }
 
     /// Returns alignment steps with tracked sequence coordinates.

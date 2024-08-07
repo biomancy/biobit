@@ -8,7 +8,7 @@ use biobit_core_rs::loc::{AsSegment, Segment};
 use biobit_core_rs::num::PrimInt;
 
 use super::{index, trace};
-use super::inv;
+use super::InvRepeat;
 use super::trace::TraceCell;
 
 // General rules:
@@ -24,7 +24,7 @@ use super::trace::TraceCell;
 struct Workload<'a, Idx, IR, Score>
 where
     Idx: PrimInt,
-    IR: Borrow<inv::Repeat<Idx>>,
+    IR: Borrow<InvRepeat<Idx>>,
     Score: PrimInt,
 {
     pub index: index::Index<Idx>,
@@ -48,7 +48,7 @@ impl<Score: PrimInt> DynProgSolution<Score> {
     pub fn solve<Idx, T>(&mut self, invrep: &[T], scores: &[Score]) -> (Vec<usize>, Score)
     where
         Idx: PrimInt,
-        T: Borrow<inv::Repeat<Idx>>,
+        T: Borrow<InvRepeat<Idx>>,
     {
         debug_assert!(invrep.len() == scores.len());
         let w = Workload {
@@ -75,7 +75,7 @@ impl<Score: PrimInt> DynProgSolution<Score> {
     fn subsolve<Idx, IR>(&mut self, w: &Workload<Idx, IR, Score>, sind: usize, eind: usize) -> Score
     where
         Idx: PrimInt,
-        IR: Borrow<inv::Repeat<Idx>>,
+        IR: Borrow<InvRepeat<Idx>>,
     {
         // Sanity check
         debug_assert!(sind <= w.index.starts().len() && eind <= w.index.ends().len());
@@ -181,7 +181,7 @@ impl<Score: PrimInt> DynProgSolution<Score> {
     ) -> (Score, Vec<(usize, usize)>)
     where
         Idx: PrimInt,
-        IR: Borrow<inv::Repeat<Idx>>,
+        IR: Borrow<InvRepeat<Idx>>,
     {
         // Blocks are sorted and for each start-end gap between adjacent blocks we need to find
         // the best possible sind/eind so that: minsind < start(sind) <= start < end <= end(eind) < maxend

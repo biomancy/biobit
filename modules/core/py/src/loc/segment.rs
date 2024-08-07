@@ -135,6 +135,15 @@ impl PySegment {
             .collect()
     }
 
+    #[staticmethod]
+    pub fn merge_within(py: Python, segments: Vec<IntoPySegment>, distance: u64) -> Vec<Self> {
+        let mut segments = segments.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        Segment::merge_within(&mut segments, distance as i64)
+            .into_iter()
+            .map(Self::from)
+            .collect()
+    }
+
     fn __repr__(&self) -> String {
         format!("Segment[{}]", self.rs)
     }

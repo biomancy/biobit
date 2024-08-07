@@ -61,3 +61,35 @@ impl<S: Score, Symbol: PartialEq> Equality<S, Symbol> {
         }
     }
 }
+
+pub struct RNAComplementarity<S: Score> {
+    pub complementary: S,
+    pub different: S,
+}
+
+impl<S: Score> PosInvariantScorer for RNAComplementarity<S> {
+    type SymScore = S;
+    type Symbol = u8;
+
+    #[inline(always)]
+    fn score(&self, a: &Self::Symbol, b: &Self::Symbol) -> Self::SymScore {
+        match (*a, *b) {
+            (b'A', b'U')
+            | (b'U', b'A')
+            | (b'G', b'C')
+            | (b'C', b'G')
+            | (b'G', b'U')
+            | (b'U', b'G') => self.complementary,
+            _ => self.different,
+        }
+    }
+}
+
+impl<S: Score> RNAComplementarity<S> {
+    pub fn new(complementary: S, different: S) -> Self {
+        Self {
+            complementary,
+            different,
+        }
+    }
+}

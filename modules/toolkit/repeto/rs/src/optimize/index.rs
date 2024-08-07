@@ -5,7 +5,7 @@ use itertools::Itertools;
 use biobit_core_rs::loc::{AsSegment, Segment};
 use biobit_core_rs::num::PrimInt;
 
-use super::inv;
+use super::InvRepeat;
 
 pub struct IndexAnchor<Idx: PrimInt> {
     pub pos: Idx,
@@ -28,7 +28,7 @@ pub struct Index<Idx: PrimInt> {
 impl<Idx: PrimInt> Index<Idx> {
     pub fn new<T>(invrep: &[T]) -> Self
     where
-        T: Borrow<inv::Repeat<Idx>>,
+        T: Borrow<InvRepeat<Idx>>,
     {
         let (starts, revstart) = Index::index(invrep, |x| x.borrow().brange().start());
         let (ends, revend) = Index::index(invrep, |x| x.borrow().brange().end());
@@ -71,7 +71,7 @@ impl<Idx: PrimInt> Index<Idx> {
         &self.blocks[rnaid]
     }
 
-    fn index<T: Borrow<inv::Repeat<Idx>>>(
+    fn index<T: Borrow<InvRepeat<Idx>>>(
         rnas: &[T],
         key: impl for<'b> Fn(&'b T) -> Idx,
     ) -> (Vec<IndexAnchor<Idx>>, Vec<usize>) {

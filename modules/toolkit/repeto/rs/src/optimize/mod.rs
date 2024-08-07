@@ -1,29 +1,33 @@
 use std::borrow::Borrow;
 
+use eyre::{eyre, Result};
+
 use biobit_core_rs::num::PrimInt;
 
-use super::repeats::inv;
+use super::repeats::{InvRepeat};
 
 mod dynprog;
 mod index;
 mod trace;
 
-pub fn run<Idx, IR, Score>(ir: &[IR], scores: &[Score]) -> (Vec<usize>, Score)
+pub fn run<Idx, IR, Score>(ir: &[IR], scores: &[Score]) -> Result<(Vec<usize>, Score)>
 where
     Idx: PrimInt,
-    IR: Borrow<inv::Repeat<Idx>>,
+    IR: Borrow<InvRepeat<Idx>>,
     Score: PrimInt,
 {
-    assert_eq!(ir.len(), scores.len());
+    if ir.len() != scores.len() {
+        return Err(eyre!("The number of repeats and scores must be the same"));
+    }
 
     // Trivial solutions
     if ir.is_empty() || (ir.len() == 1 && scores[0].is_zero()) {
-        return (vec![], Score::zero());
+        return Ok((vec![], Score::zero()));
     } else if ir.len() == 1 && scores[0] > Score::zero() {
-        return (vec![0], scores[0]);
+        return Ok((vec![0], scores[0]));
     }
 
-    dynprog::DynProgSolution::new().solve(ir, scores)
+    Ok(dynprog::DynProgSolution::new().solve(ir, scores))
 }
 
 #[cfg(test)]
@@ -33,7 +37,7 @@ mod tests {
     use itertools::Itertools;
 
     use biobit_core_rs::loc::AsSegment;
-
+    use crate::repeats::InvSegment;
     use super::*;
 
     pub type Score = i32;
@@ -54,14 +58,14 @@ mod tests {
             let segments = segments
                 .into_iter()
                 .map(|x| {
-                    inv::InvSegments::new(x.0.try_into().unwrap(), x.1.try_into().unwrap()).unwrap()
+                    InvSegment::new(x.0.try_into().unwrap(), x.1.try_into().unwrap()).unwrap()
                 })
                 .collect();
-            transformed.push(inv::Repeat::new(segments).unwrap());
+            transformed.push(InvRepeat::new(segments).unwrap());
         }
 
         let expscore = tcase.expdsrna.iter().map(|x| scores[*x]).sum();
-        let (result, score) = run(&transformed, &scores);
+        let (result, score) = run(&transformed, &scores).unwrap();
         let mut result = result.into_iter().map(|x| &transformed[x]).collect_vec();
         debug_assert!(score == expscore, "{msg}\nScore: {expscore} vs {score}");
 
@@ -70,7 +74,7 @@ mod tests {
             .iter()
             .map(|x| &transformed[*x])
             .collect_vec();
-        let key = |x: &&inv::Repeat<isize>| (x.brange().start(), x.brange().end());
+        let key = |x: &&InvRepeat<isize>| (x.brange().start(), x.brange().end());
         result.sort_by_key(key);
         expected.sort_by_key(key);
         debug_assert!(
