@@ -133,6 +133,16 @@ impl<Idx: PrimInt> Segment<Idx> {
         }
     }
 
+    pub fn intersection_length(&self, other: &Self) -> Idx {
+        let start = self.start.max(other.start);
+        let end = self.end.min(other.end);
+        if start < end {
+            end - start
+        } else {
+            Idx::zero()
+        }
+    }
+
     pub fn union(&self, other: &Self) -> Option<Self> {
         match self.intersects(other) || self.touches(other) {
             true => Some(Self {

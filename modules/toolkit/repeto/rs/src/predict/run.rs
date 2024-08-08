@@ -1,10 +1,12 @@
 use eyre::Result;
+use rstar::{AABB, Envelope, RTree, RTreeObject, SelectionFunction};
 
 use biobit_alignment_rs::alignable::Reversed;
 use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
+use biobit_alignment_rs::pairwise::alignment::Alignment;
 use biobit_collections_rs::interval_tree::{Builder, ITree, LapperBuilder};
 use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::Segment;
 
 use crate::predict::filtering::Filter;
 use crate::predict::scoring::Scoring;
@@ -12,6 +14,38 @@ use crate::predict::storage::AllOptimal;
 use crate::repeats::{InvRepeat, InvSegment};
 
 use super::storage::filtering::{EquivRunStats, SoftFilter};
+
+struct Wrapper<S: scoring::Score>(
+    usize,
+    Alignment<S, u8, usize, usize>,
+    Vec<InvSegment<usize>>,
+);
+
+impl<S: scoring::Score> RTreeObject for Wrapper<S> {
+    type Envelope = AABB<(isize, isize)>;
+
+    fn envelope(&self) -> Self::Envelope {
+        let seq1 = self.1.seq1();
+        let seq2 = self.1.seq2();
+
+        AABB::from_corners(
+            (seq1.start as isize, seq2.start as isize),
+            (seq1.end as isize, seq2.end as isize),
+        )
+    }
+}
+
+struct SelectByID(AABB<(isize, isize)>, usize);
+
+impl<S: scoring::Score> SelectionFunction<Wrapper<S>> for SelectByID {
+    fn should_unpack_parent(&self, envelope: &AABB<(isize, isize)>) -> bool {
+        envelope.contains_envelope(&self.0)
+    }
+
+    fn should_unpack_leaf(&self, leaf: &Wrapper<S>) -> bool {
+        leaf.0 == self.1
+    }
+}
 
 pub fn run<S: scoring::Score>(
     seq: &[u8],
@@ -41,6 +75,7 @@ pub fn run<S: scoring::Score>(
     // |  /
     // | /
     // |/
+    // let seq = seq[..seq.len() - 1];
     let alignments = aligner.scan_up_triangle(&Reversed::new(&seq), &seq, 1);
 
     // During the alignment all overlaps between ROIs and alignments are judged based on diagonal
@@ -61,13 +96,14 @@ pub fn run<S: scoring::Score>(
 
     // Alignments are not guaranteed to be non-overlapping so we need to employ additional filtering
     // to suppress suboptimal overlapping alignments.
-    let mut passed: Vec<(alignment::Alignment<_, _, _, _>, _)> = Vec::new();
 
-    for alignment in alignments {
-        let mut segments = Vec::with_capacity(alignment.steps().len());
+    let mut passed: RTree<Wrapper<_>> = RTree::new();
+    let mut length = 0;
+    for aln in alignments.into_iter() {
+        let mut segments = Vec::with_capacity(aln.steps().len());
         let mut stats = EquivRunStats::default();
 
-        for step in alignment.tracked_steps() {
+        for step in aln.tracked_steps() {
             match step.step.op() {
                 alignment::Op::Equivalent => {
                     stats.all.max_len = stats.all.max_len.max(*step.step.len() as usize);
@@ -77,7 +113,7 @@ pub fn run<S: scoring::Score>(
                         Segment::new(step.start.seq2, step.start.seq2 + *step.step.len() as usize)
                             .unwrap();
                     let right = Segment::new(
-                        seq.len() - step.start.seq1 - *step.step().len() as usize,
+                        seq.len() - step.start.seq1 - (*step.step().len() as usize),
                         seq.len() - step.start.seq1,
                     )
                     .unwrap();
@@ -85,8 +121,9 @@ pub fn run<S: scoring::Score>(
                     for seg in [&left, &right] {
                         let mut iter = rois.intersection(seg);
                         while let Some((overlap, _)) = iter.next() {
-                            stats.in_roi.max_len = stats.in_roi.max_len.max(overlap.len());
-                            stats.in_roi.total_len += overlap.len();
+                            let overlap = seg.intersection_length(overlap);
+                            stats.in_roi.max_len = stats.in_roi.max_len.max(overlap);
+                            stats.in_roi.total_len += overlap;
                         }
                     }
 
@@ -99,40 +136,41 @@ pub fn run<S: scoring::Score>(
             }
         }
 
-        if segments.is_empty() || !filter.is_valid(&alignment.score(), &stats) {
+        if segments.is_empty() || !filter.is_valid(&aln.score(), &stats) {
             continue;
         }
 
-        // Try to insert the alignment into the final list
-        let mut intersects_with = usize::MAX;
-        for ind in 0..passed.len() {
-            if passed[ind].0.intersects(&alignment) {
-                intersects_with = ind;
+        // Look for overlaps with existing hits
+        let mut intersection = None;
+        let envelope = AABB::from_corners(
+            (aln.seq1().start as isize, aln.seq2().start as isize),
+            (aln.seq1().end as isize, aln.seq2().end as isize),
+        );
+        for existing in passed.locate_in_envelope_intersecting(&envelope) {
+            if existing.1.intersects(&aln) {
+                intersection = Some(SelectByID(envelope, existing.0));
                 break;
             }
         }
 
-        if intersects_with == usize::MAX {
-            // If the alignment is unique then add it to the list
-            passed.push((alignment, segments));
-        } else {
-            // If the alignment intersects with another alignment then we need to decide which one
-            // to keep. The decision is based on the alignment score.
-            if passed[intersects_with].0.score() < alignment.score() {
-                passed[intersects_with] = (alignment, segments);
+        match intersection {
+            Some(x) => {
+                let ind = x.1;
+                passed.remove_with_selection_function(x);
+                passed.insert(Wrapper(ind, aln, segments));
+            }
+            None => {
+                passed.insert(Wrapper(length, aln, segments));
+                length += 1;
             }
         }
     }
 
     // Construct the final list of inverted repeats
-    let (mut irs, mut scores) = (
-        Vec::with_capacity(passed.len()),
-        Vec::with_capacity(passed.len()),
-    );
-
-    for (alignment, segments) in passed {
-        irs.push(InvRepeat::new(segments).unwrap());
-        scores.push(*alignment.score());
+    let (mut irs, mut scores) = (Vec::with_capacity(length), Vec::with_capacity(length));
+    for wrapper in passed.drain() {
+        irs.push(InvRepeat::new(wrapper.2).unwrap());
+        scores.push(*wrapper.1.score());
     }
 
     Ok((irs, scores))
@@ -144,13 +182,40 @@ mod tests {
 
     #[test]
     fn test_plain() -> Result<()> {
-        let seq = b"AANNUU";
+        let seq = b"AAUU";
         let (ir, mut scores) = run(seq, Filter::<i32>::default(), Scoring::default())?;
         assert_eq!(ir.len(), 3);
 
         scores.sort();
         assert_eq!(scores, vec![1, 1, 2]);
 
+        Ok(())
+    }
+
+    #[test]
+    fn why_do_i_fail() -> Result<()> {
+        let seq = b"UUGUAUUAUAUCUAUGUAUAUAGAUAUNAAUACGA";
+
+        let mut filter = Filter::<i32>::default();
+        filter.set_min_score(12);
+
+        // for ind in 0..seq.len() {
+        //     let mut seq = seq.to_vec();
+        //     seq.remove(ind);
+        //     println!("ind: {:?}, {}", (ind,), String::from_utf8(seq.clone())?);
+        //     run(&seq, filter.clone(), Scoring::default())?;
+        //
+        //     for j in ind..seq.len() {
+        //         if j >= seq.len() {
+        //             break;
+        //         }
+        //
+        //         println!("ind: {:?}, {}", (ind,), String::from_utf8(seq.clone())?);
+        //         run(&seq, filter.clone(), Scoring::default())?;
+        //     }
+        // }
+
+        run(seq, filter, Scoring::default())?;
         Ok(())
     }
 }

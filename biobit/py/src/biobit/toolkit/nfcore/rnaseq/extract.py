@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Callable
 
 from biobit import io
@@ -22,6 +23,16 @@ def bam(experiment: seqproj.Experiment, /, factory: BamReader = default) -> tupl
         raise ValueError(f"Attribute '__nfcore_rnaseq_bam__' not found for the experimetn: {experiment}")
     layout = experiment.ngs()
     return factory(experiment.attributes["__nfcore_rnaseq_bam__"], layout), layout
+
+
+def bigwig(experiment: seqproj.Experiment, /) -> tuple[Path, Path]:
+    for attr in "__nfcore_rnaseq_bigwig_fwd__", "__nfcore_rnaseq_bigwig_rev__":
+        if attr not in experiment.attributes:
+            raise ValueError(f"Attribute '{attr}' not found for the experimetn: {experiment}")
+
+    fwd = Path(experiment.attributes["__nfcore_rnaseq_bigwig_fwd__"])
+    rev = Path(experiment.attributes["__nfcore_rnaseq_bigwig_rev__"])
+    return fwd, rev
 
 
 def bams(project: seqproj.Project, /, factory: BamReader = default) -> dict[str, tuple[io.bam.Reader, Layout]]:

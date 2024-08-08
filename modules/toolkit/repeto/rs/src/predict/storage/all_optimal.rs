@@ -1,4 +1,8 @@
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+
 use derive_getters::Dissolve;
+
 use biobit_alignment_rs::pairwise::{
     scoring,
     sw::algo::{BestOrientationTracer, GapTracer, Tracer},
@@ -37,7 +41,7 @@ impl ROITracker {
                     && newpos < self.intervals[self.pointer].end()
         );
 
-        self.pointer < self.intervals.len() && self.intervals[self.pointer].end() <= newpos
+        self.pointer < self.intervals.len() && self.intervals[self.pointer].contains(newpos)
 
         // Fast-forward to the closest ROI
         // while self.rois.last().is_some_and(|x| x.1 <= nxtcol) {
@@ -71,7 +75,7 @@ pub struct AllOptimal<S: scoring::Score, F: SoftFilter<Score = S>> {
     best_gap_col: Vec<Option<CandidatesTracker<S>>>,
 
     // Cache for finished paths in each row
-    results: Vec<Vec<MayBeLocallyOptimal<S>>>,
+    results: Vec<HashMap<usize, MayBeLocallyOptimal<S>>>,
 }
 
 impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
@@ -84,28 +88,29 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
             cache: vec![None; 128],
             best_gap_row: None,
             best_gap_col: vec![None; 128],
-            results: vec![Vec::new(); 128],
+            results: vec![HashMap::new(); 128],
         }
     }
 
-    fn save(&mut self, p: CandidatesTracker<S>) {
+    fn save(&mut self, candidate: CandidatesTracker<S>) {
         // If path is not valid - skip it completely
-        if !self.filter.is_valid(&p.score, &p.stats) {
+        if !self.filter.is_valid(&candidate.score, &candidate.stats) {
             return;
         }
 
-        let row = p.start.0;
-        for r in &mut self.results[row] {
-            if r.start == p.start {
-                // If match & better score -> update the hit
-                if r.score < p.score {
-                    *r = p.into();
+        let row = candidate.start.0;
+        let col = candidate.start.1;
+
+        match self.results[row].entry(col) {
+            Entry::Occupied(mut existing) => {
+                if existing.get().score < candidate.score {
+                    existing.insert(candidate.into());
                 }
-                return;
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(candidate.into());
             }
         }
-        // New match -> store the new path
-        self.results[row].push(p.into())
     }
 
     fn update_diagonal(&mut self, newdiag: Option<CandidatesTracker<S>>) {
@@ -255,7 +260,7 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> Storage for AllOptimal<S, F> {
 
         // TODO: reuse result vectors when possible
         self.results.clear();
-        self.results.resize(newrows, Vec::new());
+        self.results.resize(newrows, HashMap::new());
 
         self.cache.clear();
         self.cache.resize(newrows, None);
@@ -280,12 +285,14 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> Storage for AllOptimal<S, F> {
 
         self.results
             .iter()
-            .flatten()
-            .map(|x| AlignmentSeed {
-                row: x.end.0,
-                col: x.end.1,
-                score: x.score,
+            .map(|map| {
+                map.values().map(|x| AlignmentSeed {
+                    row: x.end.0,
+                    col: x.end.1,
+                    score: x.score,
+                })
             })
+            .flatten()
             .collect()
     }
 }

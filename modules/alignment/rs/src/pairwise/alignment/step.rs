@@ -278,8 +278,9 @@ where
             },
         };
 
-        self.offset.seq1 = self.offset.seq1 + step.step.len.into();
-        self.offset.seq2 = self.offset.seq2 + step.step.len.into();
+        step.step
+            .op
+            .apply(&mut self.offset.seq1, &mut self.offset.seq2, step.step.len);
         Some(step)
     }
 }

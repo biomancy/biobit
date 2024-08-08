@@ -20,3 +20,4 @@ derive-getters = { workspace = true }
 derive_more = { workspace = true }
 itertools = { workspace = true }
 eyre = { workspace = true }
+rstar = { workspace = true }
