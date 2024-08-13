@@ -87,7 +87,7 @@ class InvRepeat:
         """
         pass
 
-    def right_brange(self) -> list[Segment]:
+    def right_brange(self) -> Segment:
         """
         A bounding range containing all right segments of the inverted repeat.
         """
