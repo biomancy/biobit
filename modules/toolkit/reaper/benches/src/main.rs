@@ -1,11 +1,11 @@
 use std::string::ToString;
 
-use rayon::ThreadPoolBuilder;
-
+use biobit_core_rs::loc::Orientation;
 use biobit_core_rs::parallelism;
 use biobit_core_rs::source::Source;
-use biobit_io_rs::bam::{ReaderBuilder, strdeductor, transform};
+use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
 use biobit_reaper_rs as reaper;
+use rayon::ThreadPoolBuilder;
 
 const THREADS: isize = -1;
 const QUERY: &[(&str, usize, usize)] = &[
@@ -137,7 +137,10 @@ fn main() {
             .unwrap()
             .set_group_within(1_000)
             .unwrap()
-            .set_boundaries(vec![1_000, 10_000, 100_000, 1_000_000, 10_000_000]);
+            .set_boundaries(
+                Orientation::Forward,
+                vec![1_000, 10_000, 100_000, 1_000_000, 10_000_000],
+            );
 
         let config = reaper::Config::new(model, enrichment, pcalling, nms);
         let mut workload = reaper::Workload::new();

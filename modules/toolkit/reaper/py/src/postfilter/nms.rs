@@ -1,8 +1,8 @@
+use biobit_core_py::loc::{IntoPyOrientation, Orientation};
+use biobit_reaper_rs::postfilter::NMS;
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use pyo3::prelude::*;
-
-use biobit_reaper_rs::postfilter::NMS;
 
 #[pyclass(eq, name = "NMS")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
@@ -46,27 +46,52 @@ impl PyNMS {
 
     pub fn set_boundaries(
         mut slf: PyRefMut<Self>,
+        orientation: IntoPyOrientation,
         boundaries: Vec<usize>,
     ) -> PyResult<PyRefMut<Self>> {
-        slf.rs.set_boundaries(boundaries.into_iter().collect());
+        slf.rs
+            .set_boundaries(orientation.0 .0, boundaries.into_iter().collect());
         Ok(slf)
     }
 
-    pub fn __getstate__(&self) -> (f32, usize, f32, (usize, usize), Vec<usize>) {
+    pub fn __getstate__(
+        &self,
+    ) -> (
+        f32,
+        usize,
+        f32,
+        (usize, usize),
+        (Vec<usize>, Vec<usize>, Vec<usize>),
+    ) {
         (
             *self.rs.fecutoff(),
             *self.rs.group_within(),
             *self.rs.slopfrac(),
             *self.rs.sloplim(),
-            self.rs.boundaries().clone(),
+            self.rs.boundaries().clone().dissolve(),
         )
     }
 
-    pub fn __setstate__(&mut self, state: (f32, usize, f32, (usize, usize), Vec<usize>)) {
+    pub fn __setstate__(
+        &mut self,
+        state: (
+            f32,
+            usize,
+            f32,
+            (usize, usize),
+            (Vec<usize>, Vec<usize>, Vec<usize>),
+        ),
+    ) {
         self.rs.set_fecutoff(state.0).unwrap();
         self.rs.set_group_within(state.1).unwrap();
         self.rs.set_slopfrac(state.2).unwrap();
         self.rs.set_sloplim(state.3 .0, state.3 .1).unwrap();
-        self.rs.set_boundaries_trusted(state.4);
+
+        self.rs
+            .set_boundaries_trusted(Orientation::Forward, state.4 .0);
+        self.rs
+            .set_boundaries_trusted(Orientation::Reverse, state.4 .1);
+        self.rs
+            .set_boundaries_trusted(Orientation::Dual, state.4 .2);
     }
 }

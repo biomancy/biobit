@@ -120,7 +120,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         for (orientation, enrichment) in enrichment.iter() {
             let mut _peaks = config.pcalling.run(enrichment);
             let cnts = sigcnts.get(orientation);
-            let _nms = config.postfilter.run(&mut _peaks, cnts)?;
+            let _nms = config.postfilter.run(orientation, &mut _peaks, cnts)?;
 
             *peaks.get_mut(orientation) = _peaks;
             *nms.get_mut(orientation) = _nms;

@@ -1,7 +1,7 @@
 use derive_getters::{Dissolve, Getters};
 use eyre::Result;
 
-use biobit_core_rs::loc::AsSegment;
+use biobit_core_rs::loc::{AsSegment, Orientation, PerOrientation};
 use biobit_core_rs::num::{Float, PrimInt};
 
 use crate::pcalling::ByCutoff;
@@ -14,7 +14,7 @@ pub struct NMS<Idx, Cnts> {
     slopfrac: f32,
     sloplim: (Idx, Idx),
     // Boundaries are in the region coordinates
-    boundaries: Vec<Idx>,
+    boundaries: PerOrientation<Vec<Idx>>,
 }
 
 impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
@@ -24,7 +24,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             group_within: Idx::zero(),
             slopfrac: 1.0,
             sloplim: (Idx::min_value(), Idx::max_value()),
-            boundaries: Vec::new(),
+            boundaries: PerOrientation::default(),
         }
     }
 
@@ -66,21 +66,30 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         Ok(self)
     }
 
-    pub fn set_boundaries(&mut self, mut boundaries: Vec<Idx>) -> &mut Self {
+    pub fn set_boundaries(
+        &mut self,
+        orientation: Orientation,
+        mut boundaries: Vec<Idx>,
+    ) -> &mut Self {
         boundaries.sort();
         boundaries.dedup();
 
-        self.boundaries = boundaries;
+        *self.boundaries.get_mut(orientation) = boundaries;
         self
     }
 
-    pub fn set_boundaries_trusted(&mut self, boundaries: Vec<Idx>) -> &mut Self {
-        self.boundaries = boundaries;
+    pub fn set_boundaries_trusted(
+        &mut self,
+        orientation: Orientation,
+        boundaries: Vec<Idx>,
+    ) -> &mut Self {
+        *self.boundaries.get_mut(orientation) = boundaries;
         self
     }
 
     pub fn run(
         &self,
+        orientation: Orientation,
         peaks: &mut [Peak<Idx, Cnts>],
         signal: &[Cnts],
     ) -> Result<Vec<Peak<Idx, Cnts>>> {
@@ -113,6 +122,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         cache.push(last);
         groups.push(cache);
 
+        let boundaries = self.boundaries.get(orientation);
         let mut nms_peaks = Vec::new();
         for group in groups.into_iter() {
             // Group limits
@@ -127,8 +137,8 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                 .unwrap_or(self.sloplim.1);
 
             // Coordinates of the slopped region
-            let slop_start = left_slop(&self.boundaries, start, slop).to_usize().unwrap();
-            let slop_end = right_slop(&self.boundaries, end, slop)
+            let slop_start = left_slop(boundaries, start, slop).to_usize().unwrap();
+            let slop_end = right_slop(boundaries, end, slop)
                 .min(end)
                 .to_usize()
                 .unwrap();
