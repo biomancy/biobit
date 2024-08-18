@@ -161,7 +161,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             let bycutoff = ByCutoff {
                 min_length: Idx::one(),
                 merge_within: Idx::zero(),
-                cutoff: Cnts::from(baseline).unwrap(),
+                cutoff: Cnts::from(baseline).unwrap() * self.fecutoff,
             };
 
             for peak in group {
