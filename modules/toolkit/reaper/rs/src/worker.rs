@@ -1,18 +1,18 @@
-use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
 use eyre::Report;
 pub use eyre::Result;
+use ::higher_kinded_types::prelude::*;
 
 use biobit_collections_rs::rle_vec;
+use biobit_core_rs::loc::{PerOrientation, Segment};
+use biobit_core_rs::source::Source;
 use biobit_core_rs::{
     loc::Contig,
     num::{Float, PrimInt},
     source::AnyMap,
 };
-use biobit_core_rs::loc::{PerOrientation, Segment};
-use biobit_core_rs::source::Source;
 use biobit_io_rs::bam::SegmentedAlignment;
 
 use super::result::{Harvest, HarvestRegion};
@@ -79,12 +79,11 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         );
 
         // 1. Calculate pileup for the signal & control sources
-        let counts = self.cnts_cache.pop().unwrap_or_default();
         let (ccnts, control, mut cntcov) = config.model.model_control(
             query.clone(),
             control,
             &mut self.sources_cache,
-            counts,
+            self.cnts_cache.pop().unwrap_or_default(),
             self.rle_cache.pop().unwrap_or_default(),
         )?;
 
@@ -92,7 +91,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             query,
             signal,
             &mut self.sources_cache,
-            ccnts,
+            self.cnts_cache.pop().unwrap_or_default(),
             self.rle_cache.pop().unwrap_or_default(),
         )?;
 
@@ -119,8 +118,13 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
         for (orientation, enrichment) in enrichment.iter() {
             let mut _peaks = config.pcalling.run(enrichment);
-            let cnts = sigcnts.get(orientation);
-            let _nms = config.postfilter.run(orientation, &mut _peaks, cnts)?;
+            let _nms = config.postfilter.run(
+                orientation,
+                &mut _peaks,
+                sigcnts.get(orientation),
+                ccnts.get(orientation),
+                &config.cmp.scaling,
+            )?;
 
             *peaks.get_mut(orientation) = _peaks;
             *nms.get_mut(orientation) = _nms;
@@ -130,6 +134,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         self.rle_cache.push(signal);
         self.rle_cache.push(control);
         self.rle_cache.push(enrichment);
+
+        self.cnts_cache.push(ccnts);
         self.cnts_cache.push(sigcnts);
 
         // 4. Save results

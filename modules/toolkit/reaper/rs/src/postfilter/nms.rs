@@ -4,6 +4,7 @@ use eyre::Result;
 use biobit_core_rs::loc::{AsSegment, Orientation, PerOrientation};
 use biobit_core_rs::num::{Float, PrimInt};
 
+use crate::cmp::Scaling;
 use crate::pcalling::ByCutoff;
 use crate::result::Peak;
 
@@ -91,7 +92,9 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         &self,
         orientation: Orientation,
         peaks: &mut [Peak<Idx, Cnts>],
-        signal: &[Cnts],
+        sigcnts: &[Cnts],
+        cntcnts: &[Cnts],
+        scaling: &Scaling<Cnts>,
     ) -> Result<Vec<Peak<Idx, Cnts>>> {
         if peaks.is_empty() {
             return Ok(Vec::new());
@@ -151,9 +154,13 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             );
 
             // Calculate the mean signal in the slopped region
-            let total: f64 = signal[slop_start..slop_end]
-                .iter()
-                .map(|x| x.to_f64().unwrap())
+            let total: f64 = (slop_start..slop_end)
+                .map(|x| {
+                    (sigcnts[x] * scaling.signal - cntcnts[x] * scaling.control)
+                        .max(Cnts::zero())
+                        .to_f64()
+                        .unwrap()
+                })
                 .sum();
             let baseline = total / (slop_end - slop_start) as f64 + 1e-6;
 
@@ -168,11 +175,12 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                 let start = peak.segment().start().to_usize().unwrap();
                 let end = peak.segment().end().to_usize().unwrap();
 
-                let iterator = signal[start..end].iter().enumerate().map(|(ind, x)| {
+                let iterator = (start..end).map(|ind| {
                     (
-                        Idx::from(start + ind).unwrap(),
-                        Idx::from(start + ind + 1).unwrap(),
-                        x.clone(),
+                        Idx::from(ind).unwrap(),
+                        Idx::from(ind + 1).unwrap(),
+                        (sigcnts[ind] * scaling.signal - cntcnts[ind] * scaling.control)
+                            .max(Cnts::zero()),
                     )
                 });
 
