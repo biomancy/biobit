@@ -95,6 +95,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         sigcnts: &[Cnts],
         cntcnts: &[Cnts],
         scaling: &Scaling<Cnts>,
+        sensitivity: Cnts,
     ) -> Result<Vec<Peak<Idx, Cnts>>> {
         if peaks.is_empty() {
             return Ok(Vec::new());
@@ -154,15 +155,28 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             );
 
             // Calculate the mean signal in the slopped region
+            let sensitivity = sensitivity;
+
+            let mut covered = 0;
             let total: f64 = (slop_start..slop_end)
-                .map(|x| {
-                    (sigcnts[x] * scaling.signal - cntcnts[x] * scaling.control)
-                        .max(Cnts::zero())
-                        .to_f64()
-                        .unwrap()
+                .filter_map(|x| {
+                    if sigcnts[x] <= sensitivity && cntcnts[x] <= sensitivity {
+                        None
+                    } else {
+                        covered += 1;
+                        Some(
+                            (sigcnts[x] * scaling.signal - cntcnts[x] * scaling.control)
+                                .max(Cnts::zero())
+                                .to_f64()
+                                .unwrap(),
+                        )
+                    }
                 })
                 .sum();
-            let baseline = total / (slop_end - slop_start) as f64 + 1e-6;
+            if covered == 0 {
+                continue;
+            }
+            let baseline = total / (covered as f64 + 1e-6);
 
             // Subdivided the original peak into smaller sub-peaks passing the NMS filter
             let bycutoff = ByCutoff {

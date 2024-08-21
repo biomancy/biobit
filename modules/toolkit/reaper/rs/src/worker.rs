@@ -124,6 +124,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 sigcnts.get(orientation),
                 ccnts.get(orientation),
                 &config.cmp.scaling,
+                config.model.sensitivity().clone()
             )?;
 
             *peaks.get_mut(orientation) = _peaks;
