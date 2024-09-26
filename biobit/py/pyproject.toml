@@ -47,3 +47,4 @@ dev = [
 check_untyped_defs = true
 allow_redefinition = true
 exclude = ["test.*"]
+enable_incomplete_feature = ["NewGenericSyntax"]
