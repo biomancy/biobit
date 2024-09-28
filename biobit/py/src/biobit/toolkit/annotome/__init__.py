@@ -1,5 +1,4 @@
-from .annotome import Annotome, read_pkl
-from .gene import Gene
-from .rna import RNA
+from . import transcriptome
+from .annotome import Annotome, read_pkl, preprocess_gff
 
-__all__ = ["Annotome", "Gene", "RNA", "read_pkl"]
+__all__ = ["Annotome", "read_pkl", "preprocess_gff", "transcriptome"]
