@@ -40,7 +40,9 @@ def read_pkl[AttrGene, AttrRNA, AttrORF](path: str) -> Annotome[AttrGene, AttrRN
 
 def preprocess_gff(
         path: Path, ignore_sources: set[str], ignore_types: set[str],
-        hook: Callable[[str, dict[str, str]], tuple[str, dict[str, str]]] = lambda x, y: (x, y),
+        hook: Callable[
+            [str, Location, dict[str, str]], tuple[str, Location, dict[str, str]] | None
+        ] = lambda x, y, z: (x, y, z),
         ind_key: Callable[[str, dict[str, str]], str] = lambda _, x: x["ID"]
 ) -> dict[str, dict[str, list[tuple[Location, str, dict[str, str]]]]]:
     df = pd.read_csv(
@@ -62,7 +64,10 @@ def preprocess_gff(
         loc = Location(seqid, strand, start, end)
         attributes = dict(x.split("=", maxsplit=1) for x in attributes.split(";"))
 
-        type, attributes = hook(type, attributes)
+        posthook = hook(type, loc, attributes)
+        if posthook is None:
+            continue
+        type, loc, attributes = posthook
 
         ind = ind_key(type, attributes)
         if ind2type.setdefault(ind, type) != type:
