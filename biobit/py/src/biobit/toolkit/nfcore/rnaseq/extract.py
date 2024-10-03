@@ -10,7 +10,7 @@ def default(path: str, layout: Layout) -> io.bam.Reader:
     if isinstance(layout, Layout.Single):
         return io.bam.Reader(path, inflags=0, exflags=2564, minmapq=0)
     elif isinstance(layout, Layout.Paired):
-        return io.bam.Reader(path, inflags=3, exflags=2564, minmapq=0)
+        return io.bam.Reader(path, inflags=1, exflags=2564, minmapq=0)
     else:
         raise ValueError(f"Unsupported layout: {layout}")
 
