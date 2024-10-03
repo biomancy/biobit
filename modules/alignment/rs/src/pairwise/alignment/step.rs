@@ -332,7 +332,7 @@ mod tests {
             iter.next(),
             Some(StepWithOffset {
                 step: Step::new(Op::Match, 3)?,
-                start: Offset { seq1: 13, seq2: 3 },
+                start: Offset { seq1: 13, seq2: 1 },
             })
         );
         assert_eq!(iter.next(), None);

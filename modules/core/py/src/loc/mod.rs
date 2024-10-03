@@ -5,6 +5,7 @@ pub use biobit_core_rs::loc::{AsSegment, Contig, Locus, Orientation, Segment, St
 pub use locus::{IntoPyLocus, PyLocus};
 pub use orientation::{IntoPyOrientation, PyOrientation};
 pub use per_orientation::PyPerOrientation;
+pub use per_strand::PyPerStrand;
 pub use segment::{IntoPySegment, PySegment};
 pub use strand::{IntoPyStrand, PyStrand};
 
@@ -13,6 +14,7 @@ mod orientation;
 mod per_orientation;
 mod segment;
 mod strand;
+mod per_strand;
 
 pub fn register<'b>(
     parent: &Bound<'b, PyModule>,
@@ -24,6 +26,7 @@ pub fn register<'b>(
     loc.add_class::<PyStrand>()?;
     loc.add_class::<PyOrientation>()?;
     loc.add_class::<PyPerOrientation>()?;
+    loc.add_class::<PyPerStrand>()?;
     loc.add_class::<PySegment>()?;
     loc.add_class::<PyLocus>()?;
 
@@ -31,6 +34,7 @@ pub fn register<'b>(
         PyStrand::type_object_bound(parent.py()),
         PyOrientation::type_object_bound(parent.py()),
         PyPerOrientation::type_object_bound(parent.py()),
+        PyPerStrand::type_object_bound(parent.py()),
         PySegment::type_object_bound(parent.py()),
         PyLocus::type_object_bound(parent.py()),
     ] {

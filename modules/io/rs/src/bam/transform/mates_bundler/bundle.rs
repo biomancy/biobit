@@ -16,7 +16,7 @@ impl Hash for CachedRecord {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hit_index.hash(state);
         match self.record.name() {
-            Some(name) => name.as_bytes().hash(state),
+            Some(name) => name.hash(state),
             None => 0.hash(state),
         }
     }
