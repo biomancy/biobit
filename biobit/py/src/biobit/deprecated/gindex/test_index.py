@@ -2,12 +2,12 @@ import intervaltree as it
 import pytest
 
 from biobit.core.loc import Orientation, Segment
-from biobit.deprecated.gindex.genomic_index import GenomicIndex
+from biobit.deprecated.gindex.genomic_index import Bundle
 
 
 @pytest.fixture
 def empty_index():
-    return GenomicIndex()
+    return Bundle()
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def complex_index():
     cache.addi(3, 10, data='3:10')
     itrees[('2', Orientation.Reverse)] = cache
 
-    return GenomicIndex(itrees)
+    return Bundle(itrees)
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def simple_index():
     cache = it.IntervalTree()
     cache.addi(-100, 100, data='-100:100')
     itrees = {('1', Orientation.Forward): cache}
-    return GenomicIndex(itrees)
+    return Bundle(itrees)
 
 
 def test_overlap_both_range_and_start_end_provided(empty_index):

@@ -8,7 +8,7 @@ from .overlap import Overlap
 _T = TypeVar("_T")
 
 
-class GenomicIndex(Generic[_T]):
+class Bundle(Generic[_T]):
     itrees: dict[tuple[str, Orientation], IntervalTree]
 
     def __init__(self, itrees: dict[tuple[str, Orientation], IntervalTree] | None = None):
