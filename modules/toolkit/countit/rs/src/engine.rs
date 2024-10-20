@@ -2,21 +2,22 @@ use std::cell::RefCell;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 
-use ::higher_kinded_types::prelude::*;
 use eyre::{eyre, Result};
+use ::higher_kinded_types::prelude::*;
+use ahash::HashMap;
 use rayon::ThreadPool;
 use thread_local::ThreadLocal;
 
-use biobit_collections_rs::genomic_index::GenomicIndex;
-use biobit_collections_rs::interval_tree::ITree;
+use biobit_collections_rs::interval_tree::{ITree};
+use biobit_core_rs::source::Source;
 use biobit_core_rs::{
     loc::{AsLocus, Contig},
     num::{Float, PrimInt},
 };
-use biobit_core_rs::source::Source;
+use biobit_core_rs::loc::Orientation;
 use biobit_io_rs::bam::SegmentedAlignment;
 
-use super::result::Stats;
+use super::result::Summary;
 use super::worker::Worker;
 
 #[derive(Debug)]
@@ -53,15 +54,15 @@ where
         pool: &mut ThreadPool,
         objects: usize,
         sources: &[Src],
-        index: &GenomicIndex<Ctg, IT>,
+        index: &HashMap<(Ctg, Orientation), IT>,
         partitions: &[Lcs],
-    ) -> Result<Vec<(Vec<Cnts>, Vec<Stats<Ctg, Idx, Cnts>>)>>
+    ) -> Result<Vec<(Vec<Cnts>, Vec<Summary<Ctg, Idx>>)>>
     where
         Src: Source<
             Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
             Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
-        IT: ITree<Idx = Idx, Value = usize> + Sync,
+        IT: ITree<Idx = Idx, Element= usize> + Sync,
         Lcs: AsLocus<Contig = Ctg, Idx = Idx> + Sync,
     {
         // Soft-reset all workers

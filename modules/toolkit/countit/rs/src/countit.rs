@@ -6,128 +6,164 @@ use higher_kinded_types::prelude::*;
 use rayon::prelude::*;
 use rayon::ThreadPool;
 
-use biobit_collections_rs::genomic_index::GenomicIndex;
-use biobit_collections_rs::interval_tree::{Builder, LapperBuilder};
+use biobit_collections_rs::interval_tree::{BitsBuilder, Builder};
+use biobit_core_rs::loc::{Orientation, Segment};
+use biobit_core_rs::source::Source;
 use biobit_core_rs::{
     loc::{Contig, Locus},
     num::{Float, PrimInt, PrimUInt},
 };
-use biobit_core_rs::loc::{Orientation, Segment};
-use biobit_core_rs::source::Source;
 use biobit_io_rs::bam::SegmentedAlignment;
 
 use crate::engine::Engine;
 
 use super::result::Counts;
 
-pub struct CountIt<Ctg, Idx, Cnts, Data, Tag, Src>
+// Vectors of target elements.
+// Each vector has the same length and correspond to a single element.
+pub struct VecOfTargets<Ctg, Idx: PrimInt, Elt, EltTag> {
+    elements: Vec<Elt>, // Target elements supplied by the user. No requirements, reported as is in the results.
+    tags: Vec<EltTag>, // Non-unique tags used to perform on-the-fly resolution of overlapping elements
+    // Segments that belong to each element
+    // (ctg, orient) -> [(element index, element segments), ...]
+    segments: AHashMap<(Ctg, Orientation), Vec<(usize, Vec<Segment<Idx>>)>>,
+}
+
+// Vector of alignment sources
+pub struct VecOfSources<SrcTag, Src> {
+    inds: Vec<SrcTag>, // User-supplied IDs for each source. No requirements, reported as is in the results.
+    sources: Vec<Src>, // Alignment sources
+}
+
+pub struct CountIt<Ctg, Idx, Cnts, Elt, EltTag, SrcTag, Src>
 where
     Idx: PrimInt + Send,
     Cnts: Float + Send,
     Ctg: Contig + Send,
 {
-    pool: ThreadPool,
+    // ThreadPool used to run the counting. If not provided, a default one will be used.
+    pool: Option<ThreadPool>,
+
+    // Target elements for counting
+    targets: VecOfTargets<Ctg, Idx, Elt, EltTag>,
+
+    // Target regions that will be processed during counting
+    // They might or might not overlap with the target elements
+    partitions: Vec<(Ctg, Orientation, Segment<Idx>)>,
+
+    // Alignment sources
+    sources: VecOfSources<SrcTag, Src>,
+
+    // Internal processing engine
     engine: Engine<Ctg, Idx, Cnts>,
-
-    data: Vec<Data>,
-    partitions: Vec<Locus<Ctg, Idx>>,
-
-    tags: Vec<Tag>,
-    sources: Vec<Src>,
-
-    annotations: AHashMap<(Ctg, Orientation), Vec<(usize, Vec<Segment<Idx>>)>>,
 }
 
-impl<Ctg, Idx, Cnts, Data, Tag, Src> CountIt<Ctg, Idx, Cnts, Data, Tag, Src>
+impl<Ctg, Idx, Cnts, Elt, EltTag, SrcTag, Src> CountIt<Ctg, Idx, Cnts, Elt, EltTag, SrcTag, Src>
 where
     Idx: PrimUInt + Send + Sync + 'static,
     Cnts: Float + Send,
     Ctg: Contig + Send + Sync,
-    Data: Clone,
+    Elt: Send,
+    EltTag: Send,
+    SrcTag: Send,
     Src: Source<
         Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
         Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
     >,
 {
-    pub fn new(pool: ThreadPool) -> Self {
+    pub fn new(pool: Option<ThreadPool>) -> Self {
         Self {
             pool,
-            engine: Engine::default(),
-            data: Vec::new(),
+            targets: VecOfTargets {
+                elements: Vec::new(),
+                tags: Vec::new(),
+                segments: AHashMap::new(),
+            },
             partitions: Vec::new(),
-            tags: Vec::new(),
-            sources: Vec::new(),
-            annotations: AHashMap::new(),
+            sources: VecOfSources {
+                inds: Vec::new(),
+                sources: Vec::new(),
+            },
+            engine: Engine::default(),
         }
     }
 
     pub fn add_annotation(
         &mut self,
-        item: Data,
-        locations: impl Iterator<Item = (Ctg, Orientation, impl Iterator<Item = Segment<Idx>>)>,
+        element: Elt,
+        tag: EltTag,
+        segments: impl Iterator<Item = (Ctg, Orientation, impl Iterator<Item = Segment<Idx>>)>,
     ) {
-        let ind = self.data.len();
-
-        self.data.push(item);
-        for (contig, orientation, segments) in locations {
-            self.annotations
+        let ind = self.targets.elements.len();
+        self.targets.elements.push(element);
+        self.targets.tags.push(tag);
+        for (contig, orientation, segments) in segments {
+            self.targets
+                .segments
                 .entry((contig, orientation))
                 .or_default()
                 .push((ind, segments.collect()));
         }
     }
 
-    pub fn add_source(&mut self, tag: Tag, source: Src) {
-        self.tags.push(tag);
-        self.sources.push(source);
+    pub fn add_source(&mut self, ind: SrcTag, source: Src) {
+        self.sources.inds.push(ind);
+        self.sources.sources.push(source);
     }
 
-    pub fn add_sources(&mut self, sources: impl Iterator<Item = (Tag, Src)>) {
-        for src in sources {
-            self.add_source(src.0, src.1);
-        }
+    pub fn add_partition(&mut self, partition: impl Into<(Ctg, Orientation, Segment<Idx>)>) {
+        self.partitions.push(partition.into());
     }
 
-    pub fn add_partition(&mut self, partition: Locus<Ctg, Idx>) {
-        self.partitions.push(partition);
-    }
-
-    pub fn run(&mut self) -> Result<Vec<Counts<Ctg, Idx, Cnts, Data, Tag>>> {
+    pub fn _run(&mut self) -> Result<Vec<Counts<Ctg, Idx, Cnts, Elt, SrcTag>>> {
         // Index the annotation
-        let itrees = self.pool.install(|| {
-            std::mem::take(&mut self.annotations)
+        let itrees = rayon::scope(|_| {
+            std::mem::take(&mut self.targets.segments)
                 .into_iter()
                 .par_bridge()
                 .map(|((contig, orientation), data)| {
-                    let mut tree = LapperBuilder::new();
-                    for (ind, segments) in data {
+                    let mut tree = BitsBuilder::default();
+                    for (ind, mut segments) in data {
+                        segments = Segment::merge(&mut segments);
                         for segment in segments {
-                            tree = tree.add(&segment, ind);
+                            tree = tree.addi(&segment, ind);
                         }
                     }
-                    (contig, orientation, tree)
+                    (contig, orientation, tree.build())
                 })
                 .collect::<Vec<_>>()
         });
 
-        let mut gindex = GenomicIndex::new();
-        for (contig, orientation, tree) in itrees {
-            gindex.set(contig, orientation, tree.build());
+        // let mut gindex = Bundle::new();
+        // for (contig, orientation, tree) in itrees {
+        //     gindex.set((contig, orientation), tree);
+        // }
+
+        // // Run the counting
+        // let result = self.engine.run(
+        //     self.data.len(),
+        //     &self.sources,
+        //     &gindex,
+        //     &self.partitions,
+        // )?;
+
+        // Ok(result
+        //     .into_iter()
+        //     .zip(self.tags.drain(..))
+        //     .map(|((cnts, stats), tag)| Counts::new(tag, self.data.clone(), cnts, stats))
+        //     .collect())
+        todo!("Implement CountIt::_run")
+    }
+
+    pub fn run(&mut self) -> Result<Vec<Counts<Ctg, Idx, Cnts, Elt, SrcTag>>> {
+        match self.pool.take() {
+            // Pool is behind the Arc, so we can clone it safely
+            Some(pool) => {
+                let result = pool.install(|| self._run());
+                self.pool = Some(pool);
+                result
+            }
+            None => rayon::scope(|s| self._run()),
         }
-
-        // Run the counting
-        let result = self.engine.run(
-            &mut self.pool,
-            self.data.len(),
-            &self.sources,
-            &gindex,
-            &self.partitions,
-        )?;
-
-        Ok(result
-            .into_iter()
-            .zip(self.tags.drain(..))
-            .map(|((cnts, stats), tag)| Counts::new(tag, self.data.clone(), cnts, stats))
-            .collect())
     }
 }

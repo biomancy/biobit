@@ -1,0 +1,89 @@
+use ahash::{HashMap, HashSet};
+use biobit_collections_rs::interval_tree::Bits;
+use biobit_core_rs::loc::{AsSegment, Contig, PerOrientation, Segment};
+use biobit_core_rs::num::PrimInt;
+use derive_getters::{Dissolve, Getters};
+use derive_more::Constructor;
+use log;
+
+// Partition is not 'per orientation' because BAM files are indexed only by contig and position
+// Contig + Orientation indexing will be the only supported indexing scheme in the future
+#[derive(Debug, Dissolve, Constructor, Getters)]
+pub struct Partition<Ctg, Idx: PrimInt, Elt> {
+    // Coordinates of the partition
+    contig: Ctg,
+    segment: Segment<Idx>,
+    // Elements that belong to the partition
+    index: PerOrientation<Bits<Idx, usize>>, // Annotation index (values are indices in the elements vector)
+    elements: Vec<Elt>,                      // Elements themselves
+    ordering: Vec<usize>, // Global index of each element (to aggregate counts across partitions)
+}
+
+impl<Ctg: Contig, Idx: PrimInt, Elt: Clone> Partition<Ctg, Idx, Elt> {
+    pub fn build(
+        contig: Ctg,
+        mut partitions: Vec<Segment<Idx>>,
+        elements: &[Elt],
+        mut candidates: PerOrientation<Vec<(usize, Vec<Segment<Idx>>)>>,
+    ) -> Vec<Self> {
+        // Merge all partitions to avoid overlapping queries downstream
+        let before = partitions.len();
+        let partitions = Segment::merge(&mut partitions);
+        let after = partitions.len();
+
+        // Report if there were overlapping partitions
+        if before != after {
+            let diff = before - after;
+            log::warn!("Merged {diff} overlapping partitions for contig {contig:?}");
+        }
+
+        // Build the partitions index
+        let mut prtindex = Bits::new(partitions.iter().cloned().enumerate());
+
+        // Map elements to partitions per orientation
+        let mut elements_per_partition =
+            vec![HashMap::<usize, PerOrientation<Vec<_>>>::default(); partitions.len()];
+        for (orientation, candidates) in candidates.into_iter() {
+            for (elind, mut segments) in candidates {
+                for segment in Segment::merge(&mut segments) {
+                    for (_, prtind) in prtindex.query(segment.start(), segment.end()) {
+                        elements_per_partition[*prtind]
+                            .entry(elind)
+                            .or_default()
+                            .get_mut(orientation)
+                            .push(segment.clone());
+                    }
+                }
+            }
+        }
+
+        // Build final partitions
+        elements_per_partition
+            .into_iter()
+            .zip(partitions)
+            .map(|(mapped, segment)| {
+                let mut index: PerOrientation<Vec<_>> = PerOrientation::default();
+                let mut ordering = Vec::with_capacity(mapped.len());
+                for (elind, orientations) in mapped {
+                    let ind = ordering.len();
+                    ordering.push(elind);
+
+                    for (orientation, segments) in orientations {
+                        for segment in segments {
+                            index.get_mut(orientation).push((ind, segment));
+                        }
+                    }
+                }
+
+                // Build the partition index for each orientation
+                let mut itree = PerOrientation::default();
+                for (orientation, elements) in index {
+                    *itree.get_mut(orientation) = Bits::new(elements.into_iter());
+                }
+
+                let elements = ordering.iter().map(|&ind| elements[ind].clone()).collect();
+                Partition::new(contig.clone(), segment, itree, elements, ordering)
+            })
+            .collect()
+    }
+}

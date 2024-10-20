@@ -6,7 +6,7 @@ members = [
     "modules/core/*",
     "modules/io/*",
     "modules/alignment/*",
-    "modules/collections/rs",
+    "modules/collections/*",
     # Toolkit
     "modules/toolkit/countit/*",
     "modules/toolkit/seqproj/*",
@@ -49,3 +49,4 @@ ahash = "0.8.11"
 gxhash = "3.4.1"
 anymap3 = "1.0.0"
 rstar = "0.12.0"
+log = "0.4.22"

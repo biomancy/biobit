@@ -1,0 +1,19 @@
+from core.loc import IntoSegment
+from . import overlap
+
+
+class BitsBuilder[T]:
+    def __init__(self) -> None: ...
+
+    def add(self, data: list[tuple[IntoSegment, T]]) -> 'BitsBuilder[T]': ...
+
+    def addi(self, interval: IntoSegment, element: T) -> 'BitsBuilder[T]': ...
+
+    def build(self) -> 'Bits[T]': ...
+
+
+class Bits[T]:
+    @staticmethod
+    def builder() -> BitsBuilder[T]: ...
+
+    def overlap(self, intervals: list[IntoSegment], buffer: overlap.Elements[T]) -> overlap.Elements[T]: ...

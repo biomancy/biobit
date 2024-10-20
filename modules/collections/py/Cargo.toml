@@ -1,0 +1,23 @@
+[package]
+name = "biobit-collections-py"
+readme = "README.md"
+description = "Rust-powered Python library for biological data analysis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[lib]
+path = "src/bindings/lib.rs"
+
+[dependencies]
+pyo3 = { workspace = true }
+biobit-collections-rs = { path = "../rs" }
+biobit-core-py = { path = "../../core/py" }
+derive_more = { workspace = true }
+derive-getters = { workspace = true }
+num = "0.4.2"

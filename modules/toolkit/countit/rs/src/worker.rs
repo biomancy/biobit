@@ -1,24 +1,26 @@
-use ::higher_kinded_types::prelude::*;
+use ahash::HashMap;
 use derive_getters::Dissolve;
 pub use eyre::Result;
+use ::higher_kinded_types::prelude::*;
 
-use biobit_collections_rs::genomic_index::{GenomicIndex, OverlapSegments, OverlapSteps};
+use biobit_collections_rs::interval_tree::overlap;
 use biobit_collections_rs::interval_tree::ITree;
+use biobit_core_rs::loc::Orientation;
 use biobit_core_rs::{
-    LendingIterator,
     loc::{AsLocus, AsSegment, Contig},
     num::{Float, PrimInt},
     source::{AnyMap, Source},
+    LendingIterator,
 };
 use biobit_io_rs::bam::SegmentedAlignment;
 
-use super::result::Stats;
+use super::result::{ResolutionOutcome, Summary};
 
 #[derive(Clone, Debug)]
 struct Cache<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     initialized: bool,
     cnts: Vec<Cnts>,
-    stats: Vec<Stats<Ctg, Idx, Cnts>>,
+    stats: Vec<Summary<Ctg, Idx>>,
 }
 
 impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Cache<Ctg, Idx, Cnts> {
@@ -50,8 +52,8 @@ pub struct Worker<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     srcache: AnyMap,
 
     // Cache for the overlap calculations
-    overlap_segments: OverlapSegments<'static, Idx, usize>,
-    overlap_steps: OverlapSteps<'static, Idx, usize>,
+    overlap_elements: overlap::Elements<Idx, usize>,
+    overlap_steps: overlap::Steps<Idx, usize>,
 }
 
 impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Default for Worker<Ctg, Idx, Cnts> {
@@ -59,8 +61,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Default for Worker<Ctg, Idx, Cnts> 
         Self {
             cache: Vec::default(),
             srcache: AnyMap::new(),
-            overlap_segments: OverlapSegments::default(),
-            overlap_steps: OverlapSteps::default(),
+            overlap_elements: overlap::Elements::default(),
+            overlap_steps: overlap::Steps::default(),
         }
     }
 }
@@ -90,7 +92,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         &mut self,
         ind: usize,
         objects: usize,
-        index: &GenomicIndex<Ctg, IT>,
+        index: &HashMap<(Ctg, Orientation), IT>,
         source: &mut Src,
         partition: &Lcs,
     ) -> Result<()>
@@ -100,7 +102,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
         Lcs: AsLocus<Contig = Ctg, Idx = Idx>,
-        IT: ITree<Idx = Idx, Value = usize>,
+        IT: ITree<Idx = Idx, Element = usize>,
     {
         source.populate_caches(&mut self.srcache);
         let launched_at = std::time::Instant::now();
@@ -113,7 +115,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 partition.segment().end(),
             ))?;
 
-            let mut overlaps = std::mem::take(&mut self.overlap_segments);
+            let mut overlaps = std::mem::take(&mut self.overlap_elements);
             let mut steps = std::mem::take(&mut self.overlap_steps);
 
             // Run the counting
@@ -123,13 +125,20 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
                 while let Some(blocks) = iterator.next() {
                     for (segments, orientation, n) in blocks?.iter() {
-                        overlaps = index.overlap(
-                            partition.contig(),
-                            orientation,
-                            segments.iter(),
-                            overlaps,
-                        );
+                        // let overlaps = match index.get(&(partition.contig().clone(), orientation)) {
+                        //     Some(tree) => tree.overlap(segments.iter(), overlaps),
+                        //     None => overlaps.reset(),
+                        // };
+                        //
+                        // overlaps = index.get(&(partition.contig().clone(), orientation)).overlap(
+                        //     ,
+                        //     segments.iter(),
+                        //     overlaps,
+                        // );
+                        let overlaps: overlap::Elements<Idx, usize> = todo!();
                         debug_assert!(overlaps.len() == segments.len());
+
+                        // The hard stuff is happening here. The actual counting is done here.
                         steps.build(segments.iter().zip(overlaps.iter()));
 
                         let length: Idx = segments
@@ -151,7 +160,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                                     inside_annotation = inside_annotation + segweight;
                                     let segweight = segweight / Cnts::from(hits.len()).unwrap();
                                     for x in hits {
-                                        cache.cnts[***x] = cache.cnts[***x] + segweight;
+                                        cache.cnts[*x] = cache.cnts[*x] + segweight;
                                     }
                                 }
                             }
@@ -159,18 +168,19 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                     }
                 }
 
-                cache.stats.push(Stats::new(
+                cache.stats.push(Summary::new(
                     partition.contig().clone(),
                     partition.segment().as_segment(),
                     launched_at.elapsed().as_secs_f64(),
-                    inside_annotation,
-                    outside_annotation,
+                    todo!()
                 ));
             }
 
             // Save back the overlap cache
-            self.overlap_segments = overlaps.reset();
-            self.overlap_steps = steps.reset();
+            overlaps.reset();
+            self.overlap_elements = overlaps;
+            steps.reset();
+            self.overlap_steps = steps;
         }
         source.release_caches(&mut self.srcache);
         Ok(())
@@ -181,7 +191,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         objects: usize,
         partitions: usize,
         workers: impl Iterator<Item = &'a mut Worker<Ctg, Idx, Cnts>>,
-    ) -> Vec<(Vec<Cnts>, Vec<Stats<Ctg, Idx, Cnts>>)>
+    ) -> Vec<(Vec<Cnts>, Vec<Summary<Ctg, Idx>>)>
     where
         Idx: 'a,
         Cnts: 'a,

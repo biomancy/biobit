@@ -6,11 +6,11 @@ use std::string::ToString;
 
 use rayon::ThreadPoolBuilder;
 
-use biobit_core_rs::{loc::Orientation, parallelism};
-use biobit_core_rs::loc::{Locus, Segment};
+use biobit_core_rs::loc::Segment;
 use biobit_core_rs::source::Source;
+use biobit_core_rs::{loc::Orientation, parallelism};
 use biobit_countit_rs::CountIt;
-use biobit_io_rs::bam::{ReaderBuilder, strdeductor, transform};
+use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
 
 const THREADS: isize = -1;
 const BED: &str = "/home/alnfedorov/projects/biobit/resources/bed/manual.bed";
@@ -140,12 +140,12 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut countit: CountIt<String, usize, f64, String, String, _> = CountIt::new(pool);
+    let mut countit: CountIt<String, usize, f64, String, String, _, _> = CountIt::new(Some(pool));
     for (contig, start, end) in PARTITIONS {
-        countit.add_partition(Locus::new(
+        countit.add_partition((
             contig.to_string(),
-            Segment::new(*start, *end).unwrap(),
             Orientation::Dual,
+            Segment::new(*start, *end).unwrap(),
         ))
     }
 
@@ -153,6 +153,7 @@ fn main() {
     for (item, items) in read_bed(Path::new(BED)) {
         countit.add_annotation(
             item,
+            "My-super-tag".to_string(),
             items
                 .into_iter()
                 .map(|(name, orientation, segments)| (name, orientation, segments.into_iter())),
@@ -187,17 +188,17 @@ fn main() {
     // Print the result
     for r in result {
         println!("Source: {}", r.source());
-        for (obj, cnt) in r.data().iter().zip(r.counts()) {
+        for (obj, cnt) in r.elements().iter().zip(r.counts()) {
             println!("\t{}: {}", obj, cnt);
         }
         println!("stats:");
-        for p in r.stats() {
+        for p in r.summaries() {
             println!(
                 "\t{:<3}:{:<25}\t{}\t{}",
-                p.contig(),
-                p.segment(),
-                p.inside_annotation(),
-                p.outside_annotation()
+                p.contig,
+                p.segment,
+                p.alignments.resolved,
+                p.alignments.discarded
             )
         }
         println!()

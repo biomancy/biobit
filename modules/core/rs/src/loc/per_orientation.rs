@@ -1,11 +1,11 @@
 use derive_getters::Dissolve;
-use derive_more::Constructor;
+use derive_more::{Constructor, From};
 
 use super::orientation::Orientation;
 
 /// A struct that holds data for each orientation.
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Dissolve, Constructor,
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, From, Dissolve, Constructor,
 )]
 pub struct PerOrientation<T> {
     pub forward: T,

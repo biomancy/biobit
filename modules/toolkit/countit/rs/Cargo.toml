@@ -27,3 +27,6 @@ dyn-clone = { workspace = true }
 flate2 = { workspace = true }
 ahash = { workspace = true }
 anymap3 = { workspace = true }
+log = { workspace = true }
+itertools = { workspace = true }
+impl-tools = { workspace = true }

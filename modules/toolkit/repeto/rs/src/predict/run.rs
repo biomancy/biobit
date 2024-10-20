@@ -1,12 +1,12 @@
 use eyre::Result;
-use rstar::{AABB, Envelope, RTree, RTreeObject, SelectionFunction};
+use rstar::{Envelope, RTree, RTreeObject, SelectionFunction, AABB};
 
 use biobit_alignment_rs::alignable::Reversed;
-use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
 use biobit_alignment_rs::pairwise::alignment::Alignment;
-use biobit_collections_rs::interval_tree::{Builder, ITree, LapperBuilder};
+use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
+use biobit_collections_rs::interval_tree::{BitsBuilder, Builder, ITree};
+use biobit_core_rs::loc::{AsSegment, Segment};
 use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::Segment;
 
 use crate::predict::filtering::Filter;
 use crate::predict::scoring::Scoring;
@@ -87,9 +87,9 @@ pub fn run<S: scoring::Score>(
         let (allopt, _, _) = tracer.dissolve();
         let filter = allopt.dissolve().0;
 
-        let mut index = LapperBuilder::new();
+        let mut index = BitsBuilder::default();
         for roi in filter.rois() {
-            index = index.add(roi, ());
+            index = index.addi(roi, ());
         }
         (index.build(), filter)
     };
@@ -119,9 +119,8 @@ pub fn run<S: scoring::Score>(
                     .unwrap();
 
                     for seg in [&left, &right] {
-                        let mut iter = rois.intersection(seg);
-                        while let Some((overlap, _)) = iter.next() {
-                            let overlap = seg.intersection_length(overlap);
+                        for (overlap, _) in rois.query(seg.start(), seg.end()) {
+                            let overlap = seg.intersection_length(&overlap);
                             stats.in_roi.max_len = stats.in_roi.max_len.max(overlap);
                             stats.in_roi.total_len += overlap;
                         }

@@ -12,6 +12,9 @@ repository.workspace = true
 license.workspace = true
 categories.workspace = true
 
+[lib]
+path = "src/bindings/lib.rs"
+
 [dependencies]
 pyo3 = { workspace = true }
 eyre = { workspace = true }
