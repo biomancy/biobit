@@ -10,14 +10,12 @@ use biobit_core_rs::loc::AsSegment;
 
 #[derive(Clone, Debug, Default)]
 pub struct OverlapWeighted<Idx: PrimInt> {
-    downscale_multimappers: bool,
     steps: overlap::Steps<Idx, usize>,
 }
 
 impl<Idx: PrimInt> OverlapWeighted<Idx> {
-    pub fn new(downscale_multimappers: bool) -> Self {
+    pub fn new() -> Self {
         Self {
-            downscale_multimappers,
             steps: overlap::Steps::default(),
         }
     }
@@ -28,7 +26,6 @@ impl<Idx: PrimInt, Cnts: Float, Elt> Resolution<Idx, Cnts, Elt> for OverlapWeigh
         &mut self,
         alignment: &SegmentedAlignment<Idx>,
         overlap: &mut [Elements<Idx, usize>],
-        _elements: &[Elt],
         counts: &mut [Cnts],
         outcome: &mut ResolutionOutcomes<Cnts>,
     ) {

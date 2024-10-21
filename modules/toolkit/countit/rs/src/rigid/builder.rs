@@ -30,7 +30,7 @@ impl<Ctg: Contig, Idx: PrimInt, Elt> Default for EngineBuilder<Ctg, Idx, Elt> {
 
 impl<Ctg: Contig, Idx: PrimInt, Elt> EngineBuilder<Ctg, Idx, Elt>
 where
-    Elt: Clone + Send + Sync,
+    Elt: Send + Sync,
 {
     pub fn add_elements(
         mut self,
@@ -62,7 +62,7 @@ where
         self
     }
 
-    pub fn _build(&mut self) -> Vec<Partition<Ctg, Idx, Elt>> {
+    pub fn _build(&mut self) -> Vec<Partition<Ctg, Idx>> {
         // Prepare the workload for each thread
         let mut workload = Vec::new();
         for (contig, mut segments) in std::mem::take(&mut self.partitions).into_iter() {
@@ -74,16 +74,14 @@ where
         // Prepare partitions
         let partitions: Vec<_> = workload
             .into_par_iter()
-            .map(|(contig, segments, elements)| {
-                Partition::build(contig, segments, &self.elements, elements)
-            })
+            .map(|(contig, segments, elements)| Partition::build(contig, segments, elements))
             .flatten()
             .collect();
 
         // Identify and report unused elements
         let mut used = vec![false; self.elements.len()];
         for prt in &partitions {
-            for ind in prt.ordering() {
+            for ind in prt.eltinds() {
                 used[*ind] = true;
             }
         }

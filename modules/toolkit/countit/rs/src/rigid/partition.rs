@@ -9,21 +9,19 @@ use log;
 // Partition is not 'per orientation' because BAM files are indexed only by contig and position
 // Contig + Orientation indexing will be the only supported indexing scheme in the future
 #[derive(Debug, Dissolve, Constructor, Getters)]
-pub struct Partition<Ctg, Idx: PrimInt, Elt> {
+pub struct Partition<Ctg, Idx: PrimInt> {
     // Coordinates of the partition
     contig: Ctg,
     segment: Segment<Idx>,
     // Elements that belong to the partition
     index: PerOrientation<Bits<Idx, usize>>, // Annotation index (values are indices in the elements vector)
-    elements: Vec<Elt>,                      // Elements themselves
-    ordering: Vec<usize>, // Global index of each element (to aggregate counts across partitions)
+    eltinds: Vec<usize>, // Global index of each element (to aggregate counts across partitions)
 }
 
-impl<Ctg: Contig, Idx: PrimInt, Elt: Clone> Partition<Ctg, Idx, Elt> {
+impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
     pub fn build(
         contig: Ctg,
         mut partitions: Vec<Segment<Idx>>,
-        elements: &[Elt],
         mut candidates: PerOrientation<Vec<(usize, Vec<Segment<Idx>>)>>,
     ) -> Vec<Self> {
         // Merge all partitions to avoid overlapping queries downstream
@@ -63,10 +61,10 @@ impl<Ctg: Contig, Idx: PrimInt, Elt: Clone> Partition<Ctg, Idx, Elt> {
             .zip(partitions)
             .map(|(mapped, segment)| {
                 let mut index: PerOrientation<Vec<_>> = PerOrientation::default();
-                let mut ordering = Vec::with_capacity(mapped.len());
+                let mut elements = Vec::with_capacity(mapped.len());
                 for (elind, orientations) in mapped {
-                    let ind = ordering.len();
-                    ordering.push(elind);
+                    let ind = elements.len();
+                    elements.push(elind);
 
                     for (orientation, segments) in orientations {
                         for segment in segments {
@@ -81,8 +79,7 @@ impl<Ctg: Contig, Idx: PrimInt, Elt: Clone> Partition<Ctg, Idx, Elt> {
                     *itree.get_mut(orientation) = Bits::new(elements.into_iter());
                 }
 
-                let elements = ordering.iter().map(|&ind| elements[ind].clone()).collect();
-                Partition::new(contig.clone(), segment, itree, elements, ordering)
+                Partition::new(contig.clone(), segment, itree, elements)
             })
             .collect()
     }

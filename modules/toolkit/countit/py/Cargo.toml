@@ -27,3 +27,4 @@ higher-kinded-types = { workspace = true }
 noodles = { workspace = true }
 eyre = { workspace = true }
 log = { workspace = true }
+dyn-clone = { workspace = true }

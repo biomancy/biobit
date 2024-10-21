@@ -25,7 +25,7 @@ pub struct Engine<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> {
     thread_pool: Option<ThreadPool>,
     elements: Vec<Elt>,
     workers: ThreadLocal<RefCell<Worker<Ctg, Idx, Cnts, Elt>>>,
-    partitions: Vec<Partition<Ctg, Idx, Elt>>,
+    partitions: Vec<Partition<Ctg, Idx>>,
 }
 
 impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Engine<Ctg, Idx, Cnts, Elt>
@@ -51,22 +51,38 @@ where
         let (tags, sources): (Vec<_>, Vec<_>) = sources.unzip();
         match self.thread_pool.take() {
             Some(pool) => {
-                let result = pool.install(|| self._run(tags, sources, resolution));
+                pool.install(|| self._run(sources, resolution))?;
                 self.thread_pool = Some(pool);
-                result
             }
-            None => self._run(tags, sources, resolution),
+            None => self._run(sources, resolution)?,
         }
+
+        let collapsed = Worker::aggregate(
+            tags.len(),
+            self.elements.len(),
+            &self.partitions,
+            self.workers.iter_mut().map(|x| x.get_mut()),
+        );
+        let result = collapsed
+            .into_iter()
+            .zip(tags)
+            .map(|((cnts, stats), tag)| Counts {
+                source: tag,
+                elements: &self.elements,
+                counts: cnts,
+                partitions: stats,
+            })
+            .collect();
+
+        Ok(result)
     }
 
-    pub fn _run<SrcTag, Src>(
+    pub fn _run<Src>(
         &mut self,
-        tags: Vec<SrcTag>,
         sources: Vec<Src>,
         resolution: Box<dyn Resolution<Idx, Cnts, Elt>>,
-    ) -> eyre::Result<Vec<Counts<Ctg, Idx, Cnts, Elt, SrcTag>>>
+    ) -> eyre::Result<()>
     where
-        SrcTag: Send,
         Src: Source<
             Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
             Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
@@ -112,8 +128,13 @@ where
                             })
                             .borrow_mut();
 
-                        let result =
-                            worker.process(*srcind, source, *prtind, &self.partitions[*prtind]);
+                        let result = worker.process(
+                            &self.elements,
+                            *srcind,
+                            source,
+                            *prtind,
+                            &self.partitions[*prtind],
+                        );
 
                         if let Err(err) = result {
                             has_failed.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -128,24 +149,6 @@ where
         if has_failed {
             return Err(eyre!("CountIt internal error. See log for details."));
         }
-
-        let collapsed = Worker::aggregate(
-            sources.len(),
-            self.elements.len(),
-            &self.partitions,
-            self.workers.iter_mut().map(|x| x.get_mut()),
-        );
-        let result = collapsed
-            .into_iter()
-            .zip(tags)
-            .map(|((cnts, stats), tag)| Counts {
-                source: tag,
-                elements: self.elements.clone(),
-                counts: cnts,
-                partitions: stats,
-            })
-            .collect();
-
-        Ok(result)
+        Ok(())
     }
 }

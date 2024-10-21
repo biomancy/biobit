@@ -2,6 +2,7 @@ use biobit_core_py::loc::{AsSegment, PySegment};
 pub use biobit_countit_rs::{Counts, PartitionMetrics, ResolutionOutcomes};
 use derive_more::{From, Into};
 use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyType};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[pyclass(frozen, eq, hash, get_all, name = "ResolutionOutcome")]
@@ -27,7 +28,7 @@ impl IntoPy<PyResolutionOutcome> for ResolutionOutcomes<f64> {
     }
 }
 
-#[pyclass(frozen, get_all, name = "Stats")]
+#[pyclass(frozen, get_all, name = "PartitionMetrics")]
 #[derive(Clone, Debug, From, Into)]
 pub struct PyPartitionMetrics {
     contig: String,
@@ -79,15 +80,15 @@ impl PyPartitionMetrics {
 #[derive(Clone, Debug, From, Into)]
 pub struct PyCounts {
     source: PyObject,
-    data: Vec<PyObject>,
+    elements: Vec<PyObject>,
     counts: Vec<f64>,
-    stats: Vec<Py<PyPartitionMetrics>>,
+    partitions: Vec<Py<PyPartitionMetrics>>,
 }
 
-impl IntoPy<PyCounts> for Counts<String, usize, f64, PyObject, PyObject> {
+impl<'a> IntoPy<PyCounts> for Counts<'a, String, usize, f64, PyObject, PyObject> {
     fn into_py(self, py: Python<'_>) -> PyCounts {
-        let (source, data, counts, stats) = self.into();
-        let stats: Vec<Py<PyPartitionMetrics>> = stats
+        let (source, elements, counts, stats) = self.into();
+        let partitions: Vec<Py<PyPartitionMetrics>> = stats
             .into_iter()
             .map(|x| Py::new(py, x.into_py(py)))
             .collect::<PyResult<_>>()
@@ -95,44 +96,59 @@ impl IntoPy<PyCounts> for Counts<String, usize, f64, PyObject, PyObject> {
 
         PyCounts {
             source,
-            data,
+            elements: elements.to_vec(),
             counts,
-            stats,
+            partitions,
         }
     }
 }
 
-// #[pymethods]
-// impl PyCounts {
-//     pub fn __hash__(&self, py: Python) -> u64 {
-//         let mut hasher = DefaultHasher::new();
-//
-//         self.source.hash(&mut hasher);
-//         self.data.iter().for_each(|x| x.hash(&mut hasher));
-//         self.stats.iter().for_each(|x| x.borrow(py).hash(&mut hasher));
-//         self.counts.to_bits().hash(&mut hasher);
-//         hasher.finish()
-//     }
-//
-//
-//     pub fn __eq__(&self, other: &PyCounts, py: Python) -> bool {
-//
-//
-//
-//
-//         self.source.is(&other.source)
-//             && self.data.len() == other.data.len()
-//             && self.stats.len() == other.stats.len()
-//             && self.counts == other.counts
-//             && self
-//                 .data
-//                 .iter()
-//                 .zip(other.data.iter())
-//                 .all(|(a, b)| a.bind(py), b))
-//             && self
-//                 .stats
-//                 .iter()
-//                 .zip(other.stats.iter())
-//                 .all(|(a, b)| a.is(b))
-//     }
-// }
+#[pymethods]
+impl PyCounts {
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
+        let locals = PyDict::new_bound(py);
+        locals.set_item("cls", cls)?;
+        locals.set_item("args", args)?;
+
+        py.run_bound(
+            r#"import types;result = types.GenericAlias(cls, args);"#,
+            None,
+            Some(&locals),
+        )?;
+
+        Ok(locals.get_item("result")?.unwrap().unbind())
+    }
+
+    // pub fn __hash__(&self, py: Python) -> u64 {
+    //     let mut hasher = DefaultHasher::new();
+    //
+    //     self.source.hash(&mut hasher);
+    //     self.data.iter().for_each(|x| x.hash(&mut hasher));
+    //     self.stats.iter().for_each(|x| x.borrow(py).hash(&mut hasher));
+    //     self.counts.to_bits().hash(&mut hasher);
+    //     hasher.finish()
+    // }
+    //
+    //
+    // pub fn __eq__(&self, other: &PyCounts, py: Python) -> bool {
+    //
+    //
+    //
+    //
+    //     self.source.is(&other.source)
+    //         && self.data.len() == other.data.len()
+    //         && self.stats.len() == other.stats.len()
+    //         && self.counts == other.counts
+    //         && self
+    //             .data
+    //             .iter()
+    //             .zip(other.data.iter())
+    //             .all(|(a, b)| a.bind(py), b))
+    //         && self
+    //             .stats
+    //             .iter()
+    //             .zip(other.stats.iter())
+    //             .all(|(a, b)| a.is(b))
+    // }
+}

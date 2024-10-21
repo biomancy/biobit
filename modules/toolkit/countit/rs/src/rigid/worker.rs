@@ -101,10 +101,11 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
 
     pub fn process<Src>(
         &mut self,
+        elts: &[Elt],
         srcind: usize,
         source: &mut Src,
         prtind: usize,
-        partition: &Partition<Ctg, Idx, Elt>,
+        partition: &Partition<Ctg, Idx>,
     ) -> Result<()>
     where
         Src: Source<
@@ -113,7 +114,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
         >,
     {
         source.populate_caches(&mut self.cache);
-        self.resolution.reset(partition.elements());
+        self.resolution.reset(elts, partition.eltinds());
 
         let launched_at = std::time::Instant::now();
         let mut outcomes = ResolutionOutcomes::default();
@@ -127,7 +128,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
             ))?;
 
             // Get the cache and initialize it if needed
-            self.setup(srcind, prtind, partition.elements().len());
+            self.setup(srcind, prtind, partition.eltinds().len());
             let counts = self.accumulator.get_mut(&(srcind, prtind)).unwrap();
 
             while let Some(blocks) = iterator.next() {
@@ -151,7 +152,6 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 self.resolution.resolve(
                     blocks,
                     &mut self.overlaps[0..blocks.len()],
-                    partition.elements(),
                     &mut counts.cnts,
                     &mut outcomes,
                 );
@@ -172,7 +172,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
     pub fn aggregate<'a>(
         sources: usize,
         elements: usize,
-        partitions: &[Partition<Ctg, Idx, Elt>],
+        partitions: &[Partition<Ctg, Idx>],
         workers: impl Iterator<Item = &'a mut Self>,
     ) -> Vec<(Vec<Cnts>, Vec<PartitionMetrics<Ctg, Idx, Cnts>>)>
     where
@@ -194,9 +194,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 saveto.1[*prtind] = Some(result.stats.clone());
 
                 // Add the counts from the cache to the collapsed counts
-                let ordering = partitions[*prtind].ordering();
+                let eltinds = partitions[*prtind].eltinds();
                 for (i, cnt) in result.cnts.iter().enumerate() {
-                    let global_index = ordering[i];
+                    let global_index = eltinds[i];
                     saveto.0[global_index] = saveto.0[global_index] + *cnt;
                 }
             }

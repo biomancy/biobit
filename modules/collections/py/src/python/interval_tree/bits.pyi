@@ -1,4 +1,4 @@
-from core.loc import IntoSegment
+from biobit.core.loc import IntoSegment
 from . import overlap
 
 

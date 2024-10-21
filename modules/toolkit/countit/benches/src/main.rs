@@ -150,7 +150,6 @@ fn main() {
     );
     builder = builder.add_elements(read_bed(Path::new(BED)).into_iter());
     let mut engine = builder.build::<f64>();
-    println!("Engine constructed");
 
     let mut sources = Vec::new();
     for path in BAM {
@@ -169,8 +168,8 @@ fn main() {
             );
         sources.push((path.to_string(), source));
     }
-    // let resolution = biobit_countit_rs::rigid::resolution::OverlapWeighted::new(true);
-    // let resolution = biobit_countit_rs::rigid::resolution::AnyOverlap::new(true);
+    // let resolution = biobit_countit_rs::rigid::resolution::OverlapWeighted::new();
+    // let resolution = biobit_countit_rs::rigid::resolution::AnyOverlap::new();
 
     let priorities = vec![
         "1:81334878-81334926".to_string(),
@@ -179,18 +178,17 @@ fn main() {
         "1:81979818-81980040".to_string(),
     ];
     let resolution = biobit_countit_rs::rigid::resolution::TopRanked::new(
-        move |mut ranks: Vec<usize>, _elements: &[String]| {
+        move |mut ranks: Vec<usize>, elements: &[String], partition: &[usize]| {
             let ranking: HashMap<&String, usize> =
                 priorities.iter().enumerate().map(|(i, p)| (p, i)).collect();
 
             ranks.clear();
-            for element in _elements {
-                let rank = ranking.get(element).copied().unwrap();
+            for ind in partition {
+                let rank = ranking.get(&elements[*ind]).copied().unwrap();
                 ranks.push(rank);
             }
             ranks
         },
-        true,
     );
 
     // Run the countit

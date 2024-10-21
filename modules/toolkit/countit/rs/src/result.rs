@@ -21,9 +21,9 @@ pub struct PartitionMetrics<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
 }
 
 #[derive(Clone, PartialEq, Debug, Default, From, Into)]
-pub struct Counts<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt, SrcTag> {
+pub struct Counts<'a, Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt, SrcTag> {
     pub source: SrcTag,
-    pub elements: Vec<Elt>,
+    pub elements: &'a [Elt],
     pub counts: Vec<Cnts>,
     pub partitions: Vec<PartitionMetrics<Ctg, Idx, Cnts>>,
 }

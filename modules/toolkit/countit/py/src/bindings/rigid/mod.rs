@@ -17,6 +17,8 @@ pub fn register<'b>(
     module.add_class::<PyEngine>()?;
     module.add_class::<PyEngineBuilder>()?;
 
+    resolution::register(&module, sysmod)?;
+
     parent.add_submodule(&module)?;
     sysmod.set_item(module.name()?, &module)?;
 

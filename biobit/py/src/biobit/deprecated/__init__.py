@@ -1,3 +1,3 @@
-from . import gindex
+from . import repmasker
 
-__all__ = ['gindex']
+__all__ = ['repmasker']

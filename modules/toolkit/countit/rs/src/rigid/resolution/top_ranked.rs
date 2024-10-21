@@ -7,23 +7,21 @@ use biobit_io_rs::bam::SegmentedAlignment;
 #[derive(Clone, Debug)]
 pub struct TopRanked<Ranker, Elt>
 where
-    Ranker: for<'a> FnMut(Vec<usize>, &'a [Elt]) -> Vec<usize>,
+    Ranker: for<'a> FnMut(Vec<usize>, &'a [Elt], &'a [usize]) -> Vec<usize> + Clone + Send + Sync,
 {
     ranks: Vec<usize>,
     ranker: Ranker,
-    downscale_multimappers: bool,
     _phantom: std::marker::PhantomData<Elt>,
 }
 
 impl<Ranker, Elt> TopRanked<Ranker, Elt>
 where
-    Ranker: for<'a> FnMut(Vec<usize>, &'a [Elt]) -> Vec<usize>,
+    Ranker: for<'a> FnMut(Vec<usize>, &'a [Elt], &'a [usize]) -> Vec<usize> + Clone + Send + Sync,
 {
-    pub fn new(ranker: Ranker, downscale_multimappers: bool) -> Self {
+    pub fn new(ranker: Ranker) -> Self {
         Self {
             ranks: Vec::new(),
             ranker,
-            downscale_multimappers,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -32,17 +30,16 @@ where
 impl<Idx: PrimInt, Cnts: Float, Elt, Ranker> Resolution<Idx, Cnts, Elt> for TopRanked<Ranker, Elt>
 where
     Elt: Send + Sync + Clone,
-    Ranker: for<'a> FnMut(Vec<usize>, &'a [Elt]) -> Vec<usize> + Clone + Send + Sync,
+    Ranker: for<'a> FnMut(Vec<usize>, &'a [Elt], &'a [usize]) -> Vec<usize> + Clone + Send + Sync,
 {
-    fn reset(&mut self, _elements: &[Elt]) {
-        self.ranks = (self.ranker)(self.ranks.clone(), _elements);
+    fn reset(&mut self, elements: &[Elt], partition: &[usize]) {
+        self.ranks = (self.ranker)(self.ranks.clone(), elements, partition);
     }
 
     fn resolve(
         &mut self,
         _alignment: &SegmentedAlignment<Idx>,
         overlap: &mut [Elements<Idx, usize>],
-        _elements: &[Elt],
         counts: &mut [Cnts],
         outcome: &mut ResolutionOutcomes<Cnts>,
     ) {

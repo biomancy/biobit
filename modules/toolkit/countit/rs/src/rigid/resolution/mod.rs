@@ -16,14 +16,17 @@ pub use top_ranked::TopRanked;
 
 #[autoimpl(for <M: trait> Box<M> where Box<M>: Clone)]
 pub trait Resolution<Idx: PrimInt, Cnts: Float, Elt>: DynClone + Send + Sync {
-    fn reset(&mut self, _elements: &[Elt]) {}
+    fn reset(&mut self, _elements: &[Elt], _partition: &[usize]) {}
 
     fn resolve(
         &mut self,
+        // Alignments to resolve
         alignment: &SegmentedAlignment<Idx>,
+        // Overlap between alignments and elements in the partition  (true element = elements[partition[overlap ind]])
         overlap: &mut [overlap::Elements<Idx, usize>],
-        elements: &[Elt],
+        // Output counts for each element in the partition
         counts: &mut [Cnts],
+        // Output resolution outcomes
         outcome: &mut ResolutionOutcomes<Cnts>,
     );
 }

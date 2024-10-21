@@ -4,6 +4,7 @@ use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use eyre::WrapErr;
 use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyType};
 use rayon::ThreadPoolBuilder;
 
 use crate::rigid::PyEngine;
@@ -29,10 +30,6 @@ impl PyEngineBuilder {
 
         slf.0 = std::mem::take(&mut slf.0).set_thread_pool(pool);
         Ok(slf)
-    }
-
-    pub fn build(mut slf: PyRefMut<Self>) -> PyEngine {
-        PyEngine(std::mem::take(&mut slf.0).build())
     }
 
     pub fn add_elements(
@@ -77,5 +74,24 @@ impl PyEngineBuilder {
         });
         slf.0 = std::mem::take(&mut slf.0).add_partitions(partitions);
         slf
+    }
+
+    pub fn build(mut slf: PyRefMut<Self>) -> PyEngine {
+        PyEngine(std::mem::take(&mut slf.0).build())
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
+        let locals = PyDict::new_bound(py);
+        locals.set_item("cls", cls)?;
+        locals.set_item("args", args)?;
+
+        py.run_bound(
+            r#"import types;result = types.GenericAlias(cls, args);"#,
+            None,
+            Some(&locals),
+        )?;
+
+        Ok(locals.get_item("result")?.unwrap().unbind())
     }
 }

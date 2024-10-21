@@ -5,10 +5,10 @@ from typing import Any, Callable
 import pandas as pd
 
 from biobit.core.loc import Segment, Orientation, IntoOrientation
-from .countit import Counts
+from .result import Counts
 
 
-def result_to_pandas(cnts: list[Counts]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def result_to_pandas[S, E](cnts: list[Counts[S, E]]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Converts a list of Counts objects to a pair of pandas DataFrames.
 
@@ -20,14 +20,14 @@ def result_to_pandas(cnts: list[Counts]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     allcounts, allstats = [], []
     for r in cnts:
-        record = dict(zip(r.data, r.counts))
+        record: dict[Any, Any] = dict(zip(r.elements, r.counts))
         record['source'] = r.source
         allcounts.append(record)
 
-        for stat in r.stats:
+        for metric in r.partitions:
             record = {
-                "contig": stat.contig, "segment": stat.segment, "time_s": stat.time_s, "source": r.source,
-                "inside_annotation": stat.inside_annotation, "outside_annotation": stat.outside_annotation
+                "contig": metric.contig, "segment": metric.segment, "time_s": metric.time_s, "source": r.source,
+                "resolved": metric.outcomes.resolved, "discarded": metric.outcomes.discarded
             }
             allstats.append(record)
     return pd.DataFrame(allcounts), pd.DataFrame(allstats)
