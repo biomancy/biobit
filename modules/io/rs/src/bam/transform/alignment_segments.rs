@@ -46,6 +46,14 @@ impl<Idx: PrimInt> SegmentedAlignment<Idx> {
             .zip(&self.total_hits)
             .map(|((segments, orientation), total_hits)| (segments, *orientation, *total_hits))
     }
+
+    pub fn len(&self) -> usize {
+        self.segments.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Dissolve)]

@@ -9,7 +9,7 @@ use rayon::ThreadPoolBuilder;
 use biobit_core_rs::loc::Segment;
 use biobit_core_rs::source::Source;
 use biobit_core_rs::{loc::Orientation, parallelism};
-use biobit_countit_rs::CountIt;
+use biobit_countit_rs;
 use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
 
 const THREADS: isize = -1;
@@ -134,32 +134,25 @@ fn read_bed(path: &Path) -> Vec<(String, Vec<(String, Orientation, Vec<Segment<u
 
 fn main() {
     let threads = parallelism::available(THREADS).unwrap();
+    println!("Threads: {}", threads);
     let pool = ThreadPoolBuilder::new()
         .num_threads(threads)
         .use_current_thread()
         .build()
         .unwrap();
 
-    let mut countit: CountIt<String, usize, f64, String, String, _, _> = CountIt::new(Some(pool));
-    for (contig, start, end) in PARTITIONS {
-        countit.add_partition((
-            contig.to_string(),
-            Orientation::Dual,
-            Segment::new(*start, *end).unwrap(),
-        ))
-    }
+    let mut builder = biobit_countit_rs::rigid::Engine::<String, usize, f64, String>::builder();
+    builder = builder.set_thread_pool(pool);
+    builder = builder.add_partitions(
+        PARTITIONS
+            .iter()
+            .map(|(contig, start, end)| (contig.to_string(), Segment::new(*start, *end).unwrap())),
+    );
+    builder = builder.add_elements(read_bed(Path::new(BED)).into_iter());
+    let mut engine = builder.build::<f64>();
+    println!("Engine constructed");
 
-    // Annotation from the BED file
-    for (item, items) in read_bed(Path::new(BED)) {
-        countit.add_annotation(
-            item,
-            "My-super-tag".to_string(),
-            items
-                .into_iter()
-                .map(|(name, orientation, segments)| (name, orientation, segments.into_iter())),
-        );
-    }
-
+    let mut sources = Vec::new();
     for path in BAM {
         let source = ReaderBuilder::new(path)
             .with_inflags(2)
@@ -174,31 +167,52 @@ fn main() {
                 transform::ExtractPairedAlignmentSegments::new(strdeductor::deduce::pe::reverse),
                 (),
             );
-
-        countit.add_source(path.to_string(), source);
+        sources.push((path.to_string(), source));
     }
+    // let resolution = biobit_countit_rs::rigid::resolution::OverlapWeighted::new(true);
+    // let resolution = biobit_countit_rs::rigid::resolution::AnyOverlap::new(true);
+
+    let priorities = vec![
+        "1:81334878-81334926".to_string(),
+        "1:81991464-81992577".to_string(),
+        "1:81991464-81992577".to_string(),
+        "1:81979818-81980040".to_string(),
+    ];
+    let resolution = biobit_countit_rs::rigid::resolution::TopRanked::new(
+        move |mut ranks: Vec<usize>, _elements: &[String]| {
+            let ranking: HashMap<&String, usize> =
+                priorities.iter().enumerate().map(|(i, p)| (p, i)).collect();
+
+            ranks.clear();
+            for element in _elements {
+                let rank = ranking.get(element).copied().unwrap();
+                ranks.push(rank);
+            }
+            ranks
+        },
+        true,
+    );
 
     // Run the countit
     let result = {
         #[cfg(feature = "dhat-heap")]
         let _profiler = dhat::Profiler::new_heap();
-        countit.run().unwrap()
+        engine
+            .run(sources.into_iter(), Box::new(resolution))
+            .unwrap()
     };
 
     // Print the result
     for r in result {
-        println!("Source: {}", r.source());
-        for (obj, cnt) in r.elements().iter().zip(r.counts()) {
+        println!("Source: {}", r.source);
+        for (obj, cnt) in r.elements.iter().zip(r.counts) {
             println!("\t{}: {}", obj, cnt);
         }
         println!("stats:");
-        for p in r.summaries() {
+        for p in r.partitions {
             println!(
                 "\t{:<3}:{:<25}\t{}\t{}",
-                p.contig,
-                p.segment,
-                p.alignments.resolved,
-                p.alignments.discarded
+                p.contig, p.segment, p.outcomes.resolved, p.outcomes.discarded
             )
         }
         println!()

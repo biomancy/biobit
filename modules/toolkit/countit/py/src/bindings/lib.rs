@@ -1,10 +1,11 @@
 use pyo3::prelude::*;
 
-pub use countit::PyCountIt;
-pub use result::{PyCounts, PyStats};
+pub use result::{
+    Counts, PartitionMetrics, PyCounts, PyPartitionMetrics, PyResolutionOutcome, ResolutionOutcomes,
+};
 
-mod countit;
 mod result;
+pub mod rigid;
 
 pub fn register<'b>(
     parent: &Bound<'b, PyModule>,
@@ -13,9 +14,11 @@ pub fn register<'b>(
     let name = format!("{}.countit", parent.name()?);
     let module = PyModule::new_bound(parent.py(), &name)?;
 
-    module.add_class::<PyCountIt>()?;
+    module.add_class::<PyResolutionOutcome>()?;
     module.add_class::<PyCounts>()?;
-    module.add_class::<PyStats>()?;
+    module.add_class::<PyPartitionMetrics>()?;
+
+    rigid::register(&module, sysmod)?;
 
     parent.add_submodule(&module)?;
     sysmod.set_item(module.name()?, &module)?;

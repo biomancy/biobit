@@ -1,10 +1,6 @@
-pub use countit::CountIt;
-pub use result::{Counts, Summary};
+pub use result::{Counts, PartitionMetrics, ResolutionOutcomes};
 
-mod countit;
-mod engine;
 mod result;
-mod rigid;
-mod worker;
+pub mod rigid;
 
-// mod elastic;
+// pub mod elastic;

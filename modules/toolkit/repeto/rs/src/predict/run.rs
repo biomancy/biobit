@@ -4,9 +4,8 @@ use rstar::{Envelope, RTree, RTreeObject, SelectionFunction, AABB};
 use biobit_alignment_rs::alignable::Reversed;
 use biobit_alignment_rs::pairwise::alignment::Alignment;
 use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
-use biobit_collections_rs::interval_tree::{BitsBuilder, Builder, ITree};
+use biobit_collections_rs::interval_tree::{BitsBuilder, Builder};
 use biobit_core_rs::loc::{AsSegment, Segment};
-use biobit_core_rs::LendingIterator;
 
 use crate::predict::filtering::Filter;
 use crate::predict::scoring::Scoring;

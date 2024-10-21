@@ -62,10 +62,10 @@ where
         self
     }
 
-    pub fn _build<Cnts: Float>(mut self) -> Engine<Ctg, Idx, Cnts, Elt> {
+    pub fn _build(&mut self) -> Vec<Partition<Ctg, Idx, Elt>> {
         // Prepare the workload for each thread
         let mut workload = Vec::new();
-        for (contig, mut segments) in self.partitions.into_iter() {
+        for (contig, mut segments) in std::mem::take(&mut self.partitions).into_iter() {
             // Select elements inside the partition
             let elements = self.annotation.remove(&contig).unwrap_or_default();
             workload.push((contig, segments, elements));
@@ -81,13 +81,13 @@ where
             .collect();
 
         // Identify and report unused elements
-        let mut unused = vec![false; self.elements.len()];
+        let mut used = vec![false; self.elements.len()];
         for prt in &partitions {
             for ind in prt.ordering() {
-                unused[*ind] = true;
+                used[*ind] = true;
             }
         }
-        let unused: Vec<_> = unused
+        let unused: Vec<_> = used
             .into_iter()
             .enumerate()
             .filter_map(|(ind, used)| if used { None } else { Some(ind) })
@@ -95,26 +95,26 @@ where
 
         if !unused.is_empty() {
             log::warn!(
-                "Elements with the following indices were not part of any partition: {:?}",
+                "Elements with the following indices (N={}) were not part of any partition: {:?}",
+                unused.len(),
                 unused
             );
         }
 
-        Engine::new(
-            self.thread_pool,
-            self.elements,
-            ThreadLocal::new(),
-            partitions,
-        )
+        partitions
     }
 
     pub fn build<Cnts>(mut self) -> Engine<Ctg, Idx, Cnts, Elt>
     where
         Cnts: Float + Send,
     {
-        match self.thread_pool.take() {
-            Some(pool) => pool.install(|| self._build()),
-            None => self._build(),
-        }
+        let (pool, partitions) = match self.thread_pool.take() {
+            Some(pool) => {
+                let partitions = pool.install(|| self._build());
+                (Some(pool), partitions)
+            }
+            None => (None, self._build()),
+        };
+        Engine::new(pool, self.elements, ThreadLocal::new(), partitions)
     }
 }

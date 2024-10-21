@@ -138,7 +138,12 @@ where
         let result = collapsed
             .into_iter()
             .zip(tags)
-            .map(|((cnts, stats), tag)| Counts::new(tag, self.elements.clone(), cnts, stats))
+            .map(|((cnts, stats), tag)| Counts {
+                source: tag,
+                elements: self.elements.clone(),
+                counts: cnts,
+                partitions: stats,
+            })
             .collect();
 
         Ok(result)

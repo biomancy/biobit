@@ -1,10 +1,10 @@
+use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 pub use eyre::Result;
-use ::higher_kinded_types::prelude::*;
 use std::collections::hash_map::Entry;
 
-use crate::result::{ResolutionOutcome, Summary};
+use crate::result::{PartitionMetrics, ResolutionOutcomes};
 use crate::rigid::{resolution, Partition};
 use crate::Counts;
 use biobit_collections_rs::interval_tree::overlap;
@@ -21,14 +21,14 @@ use biobit_io_rs::bam::SegmentedAlignment;
 #[derive(Clone, Debug, Default)]
 struct CountingResult<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     cnts: Vec<Cnts>,
-    stats: Summary<Ctg, Idx>,
+    stats: PartitionMetrics<Ctg, Idx, Cnts>,
 }
 
 impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> CountingResult<Ctg, Idx, Cnts> {
     fn reset(&mut self, new_size: usize) {
         self.cnts.clear();
         self.cnts.resize(new_size, Cnts::zero());
-        self.stats = Summary::default();
+        self.stats = PartitionMetrics::default();
     }
 }
 
@@ -43,7 +43,7 @@ pub struct Worker<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> {
     buffer: Vec<CountingResult<Ctg, Idx, Cnts>>,
 
     // Cache for the overlap calculation
-    overlaps: overlap::Elements<Idx, usize>,
+    overlaps: Vec<overlap::Elements<Idx, usize>>,
 
     // Resolution strategy
     resolution: Box<dyn resolution::Resolution<Idx, Cnts, Elt>>,
@@ -55,8 +55,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Default for Worker<Ctg, Idx, C
             accumulator: HashMap::default(),
             cache: AnyMap::new(),
             buffer: Vec::new(),
-            overlaps: overlap::Elements::default(),
-            resolution: Box::new(resolution::Binary::new()),
+            overlaps: Vec::new(),
+            resolution: Box::new(resolution::AnyOverlap::default()),
         }
     }
 }
@@ -67,7 +67,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
             accumulator: HashMap::default(),
             cache: AnyMap::new(),
             buffer: Vec::new(),
-            overlaps: overlap::Elements::default(),
+            overlaps: Vec::new(),
             resolution,
         }
     }
@@ -116,7 +116,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
         self.resolution.reset(partition.elements());
 
         let launched_at = std::time::Instant::now();
-        let mut outcomes = ResolutionOutcome::default();
+        let mut outcomes = ResolutionOutcomes::default();
 
         // Run the counting
         {
@@ -134,18 +134,23 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 let blocks = blocks?;
 
                 // Populate the overlap
-                self.overlaps.reset();
-                for (segments, orientation, _) in blocks.iter() {
+                if self.overlaps.len() < blocks.len() {
+                    self.overlaps
+                        .resize(blocks.len(), overlap::Elements::default());
+                }
+                for ((segments, orientation, _), overlap) in
+                    blocks.iter().zip(self.overlaps.iter_mut())
+                {
                     partition
                         .index()
                         .get(orientation)
-                        .overlap_single_element(segments, &mut self.overlaps);
+                        .overlap_single_element(segments, overlap);
                 }
 
                 // Resolve the overlaps
                 self.resolution.resolve(
                     blocks,
-                    &mut self.overlaps,
+                    &mut self.overlaps[0..blocks.len()],
                     partition.elements(),
                     &mut counts.cnts,
                     &mut outcomes,
@@ -153,12 +158,12 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
             }
 
             // Save the statistics
-            counts.stats = Summary::new(
-                partition.contig().clone(),
-                partition.segment().as_segment(),
-                launched_at.elapsed().as_secs_f64(),
+            counts.stats = PartitionMetrics {
+                contig: partition.contig().clone(),
+                segment: partition.segment().as_segment(),
+                time_s: launched_at.elapsed().as_secs_f64(),
                 outcomes,
-            );
+            };
         }
         source.release_caches(&mut self.cache);
         Ok(())
@@ -169,7 +174,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
         elements: usize,
         partitions: &[Partition<Ctg, Idx, Elt>],
         workers: impl Iterator<Item = &'a mut Self>,
-    ) -> Vec<(Vec<Cnts>, Vec<Summary<Ctg, Idx>>)>
+    ) -> Vec<(Vec<Cnts>, Vec<PartitionMetrics<Ctg, Idx, Cnts>>)>
     where
         Ctg: 'a,
         Idx: 'a,

@@ -21,7 +21,7 @@ impl PyElements {
         segments: Vec<Vec<IntoPySegment>>,
         elements: Vec<Vec<PyObject>>,
     ) {
-        self.0.reset();
+        self.0.clear();
         for (segments, elements) in segments.into_iter().zip(elements) {
             assert_eq!(segments.len(), elements.len());
 
@@ -72,6 +72,10 @@ impl PyElements {
             result.append(inner)?;
         }
         Ok(result)
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
     }
 
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
@@ -191,6 +195,10 @@ impl PySteps {
         Ok(slf)
     }
 
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
     pub fn __len__(&self) -> usize {
         self.0.len()
     }
@@ -198,7 +206,7 @@ impl PySteps {
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
         let result = PyList::empty_bound(py);
         for sample in self.0.iter() {
-            let mut inner = PyList::empty_bound(py);
+            let inner = PyList::empty_bound(py);
             for (segment, objects) in sample.iter() {
                 let pyset = PySet::new_bound(py, objects.into_iter())?;
                 inner.append((segment.into_py(py), pyset))?;
@@ -206,6 +214,40 @@ impl PySteps {
             result.append(inner)?;
         }
         PyIterator::from_bound_object(result.as_any())
+    }
+
+    pub fn __eq__(&self, py: Python, other: &PySteps) -> PyResult<bool> {
+        if self.0.len() != other.0.len() {
+            return Ok(false);
+        };
+
+        for (x, y) in self.0.iter().zip(other.0.iter()) {
+            if x.len() != y.len() {
+                return Ok(false);
+            }
+            for (x, y) in x.iter().zip(y.iter()) {
+                if x.0 != y.0 {
+                    return Ok(false);
+                }
+                if x.1.len() != y.1.len() {
+                    return Ok(false);
+                }
+                for (x, y) in x.1.iter().zip(y.1.iter()) {
+                    if !x.bind(py).eq(y.bind(py))? {
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+        Ok(true)
+    }
+
+    pub fn __getstate__(&self) -> Vec<Vec<(PySegment, Vec<PyObject>)>> {
+        self.0.clone()
+    }
+
+    pub fn __setstate__(&mut self, state: Vec<Vec<(PySegment, Vec<PyObject>)>>) {
+        self.0 = state;
     }
 }
 
