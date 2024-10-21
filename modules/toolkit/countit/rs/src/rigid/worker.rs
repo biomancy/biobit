@@ -1,7 +1,7 @@
-use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 pub use eyre::Result;
+use ::higher_kinded_types::prelude::*;
 use std::collections::hash_map::Entry;
 
 use crate::result::{PartitionMetrics, ResolutionOutcomes};
@@ -142,10 +142,11 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 for ((segments, orientation, _), overlap) in
                     blocks.iter().zip(self.overlaps.iter_mut())
                 {
+                    overlap.clear();                                // Clear the previous overlap
                     partition
                         .index()
                         .get(orientation)
-                        .overlap_single_element(segments, overlap);
+                        .overlap_single_element(segments, overlap); // Set the new one
                 }
 
                 // Resolve the overlaps

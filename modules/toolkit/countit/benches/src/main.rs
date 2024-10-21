@@ -13,7 +13,7 @@ use biobit_countit_rs;
 use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
 
 const THREADS: isize = -1;
-const BED: &str = "/home/alnfedorov/projects/biobit/resources/bed/manual.bed";
+const BED: &str = "/home/alnfedorov/projects/biobit/resources/bed/GRCh38.bed";
 
 const PARTITIONS: &[(&str, usize, usize)] = &[
     // GRCh38
@@ -69,8 +69,8 @@ const PARTITIONS: &[(&str, usize, usize)] = &[
 
 const BAM: &[&str] = &[
     "/home/alnfedorov/projects/biobit/resources/bam/A1+THP-1_mock_no-RNase_2.bam",
-    // "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.bam",
-    // "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
+    "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.bam",
+    "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
     // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518960+MEF_Vector_1.markdup.sorted.bam",
     // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518961+MEF_Vector_2.markdup.sorted.bam",
     // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518962+MEF_ICP27_1.markdup.sorted.bam",
@@ -168,28 +168,28 @@ fn main() {
             );
         sources.push((path.to_string(), source));
     }
-    // let resolution = biobit_countit_rs::rigid::resolution::OverlapWeighted::new();
+    let resolution = biobit_countit_rs::rigid::resolution::OverlapWeighted::new();
     // let resolution = biobit_countit_rs::rigid::resolution::AnyOverlap::new();
 
-    let priorities = vec![
-        "1:81334878-81334926".to_string(),
-        "1:81991464-81992577".to_string(),
-        "1:81991464-81992577".to_string(),
-        "1:81979818-81980040".to_string(),
-    ];
-    let resolution = biobit_countit_rs::rigid::resolution::TopRanked::new(
-        move |mut ranks: Vec<usize>, elements: &[String], partition: &[usize]| {
-            let ranking: HashMap<&String, usize> =
-                priorities.iter().enumerate().map(|(i, p)| (p, i)).collect();
-
-            ranks.clear();
-            for ind in partition {
-                let rank = ranking.get(&elements[*ind]).copied().unwrap();
-                ranks.push(rank);
-            }
-            ranks
-        },
-    );
+    // let priorities = vec![
+    //     "1:81334878-81334926".to_string(),
+    //     "1:81991464-81992577".to_string(),
+    //     "1:81991464-81992577".to_string(),
+    //     "1:81979818-81980040".to_string(),
+    // ];
+    // let resolution = biobit_countit_rs::rigid::resolution::TopRanked::new(
+    //     move |mut ranks: Vec<usize>, elements: &[String], partition: &[usize]| {
+    //         let ranking: HashMap<&String, usize> =
+    //             priorities.iter().enumerate().map(|(i, p)| (p, i)).collect();
+    //
+    //         ranks.clear();
+    //         for ind in partition {
+    //             let rank = ranking.get(&elements[*ind]).copied().unwrap();
+    //             ranks.push(rank);
+    //         }
+    //         ranks
+    //     },
+    // );
 
     // Run the countit
     let result = {
@@ -204,6 +204,9 @@ fn main() {
     for r in result {
         println!("Source: {}", r.source);
         for (obj, cnt) in r.elements.iter().zip(r.counts) {
+            if cnt == 0.0 {
+                continue;
+            }
             println!("\t{}: {}", obj, cnt);
         }
         println!("stats:");

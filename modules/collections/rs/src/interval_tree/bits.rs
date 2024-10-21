@@ -128,6 +128,10 @@ impl<Idx: PrimInt, Element> Bits<Idx, Element> {
         self.starts.is_empty()
     }
 
+    pub fn elements(&self) -> &[Element] {
+        &self.elements
+    }
+
     pub fn builder() -> BitsBuilder<Idx, Element> {
         BitsBuilder::default()
     }
