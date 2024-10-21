@@ -4,7 +4,7 @@ use biobit_collections_rs::interval_tree::overlap;
 use biobit_collections_rs::interval_tree::overlap::Elements;
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_io_rs::bam::SegmentedAlignment;
-use itertools::izip;
+use itertools::{izip, Itertools};
 
 use biobit_core_rs::loc::AsSegment;
 
@@ -34,6 +34,7 @@ impl<Idx: PrimInt, Cnts: Float, Elt> Resolution<Idx, Cnts, Elt> for OverlapWeigh
             alignment.total_hits.iter(),
             overlap.iter()
         ) {
+            debug_assert_eq!(query.len(), overlap.len());
             self.steps.build(query.iter().zip(overlap.iter()));
 
             let length: Idx = query
@@ -58,6 +59,20 @@ impl<Idx: PrimInt, Cnts: Float, Elt> Resolution<Idx, Cnts, Elt> for OverlapWeigh
                     }
                 }
             }
+
+            debug_assert!(
+                self.steps
+                    .iter()
+                    .map(|x| x
+                        .map(|(start, end, _)| end - start)
+                        .fold(Idx::zero(), |sum, x| sum + x))
+                    .fold(Idx::zero(), |sum, x| sum + x)
+                    == length,
+                "Query: {:?}\n{:?}\n{:?}",
+                query.iter().collect_vec(),
+                self.steps,
+                overlap
+            );
         }
     }
 }

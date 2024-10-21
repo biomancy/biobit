@@ -207,14 +207,15 @@ impl<Idx: PrimInt, Element: Clone> ITree for Bits<Idx, Element> {
         intervals: &[Segment<Self::Idx>],
         buffer: &'a mut Elements<Self::Idx, Self::Element>,
     ) -> &'a mut Elements<Self::Idx, Self::Element> {
-        let mut adder = buffer.add();
         for interval in intervals {
+            let mut adder = buffer.add();
             let mut query = self.query(interval.start(), interval.end());
             while let Some((segment, element)) = query.next() {
                 adder.add(segment, element.clone());
             }
+            adder.finish();
         }
-        adder.finish();
+        debug_assert!(buffer.len() == intervals.len());
         buffer
     }
 }

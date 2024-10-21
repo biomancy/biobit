@@ -71,14 +71,7 @@ const BAM: &[&str] = &[
     "/home/alnfedorov/projects/biobit/resources/bam/A1+THP-1_mock_no-RNase_2.bam",
     "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.bam",
     "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518960+MEF_Vector_1.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518961+MEF_Vector_2.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518962+MEF_ICP27_1.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518963+MEF_ICP27_2.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518964+MEF_ICP27-m15_1.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518965+MEF_ICP27-m15_2.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518966+MEF_ICP27-n504_1.markdup.sorted.bam",
-    // "/home/alnfedorov/projects/Z-DoTT/stories/nextflow/series/internal/B287138/results/star_salmon/2518967+MEF_ICP27-n504_2.markdup.sorted.bam",
+    // "/home/alnfedorov/projects/biobit/resources/bam/2360303+MEF_mock_IgG-RIP_1.markdup.sorted.bam",
 ];
 
 #[cfg(feature = "dhat-heap")]
@@ -154,7 +147,7 @@ fn main() {
     let mut sources = Vec::new();
     for path in BAM {
         let source = ReaderBuilder::new(path)
-            .with_inflags(2)
+            .with_inflags(3)
             .with_exflags(2572)
             .with_minmapq(0)
             .build()
@@ -203,19 +196,22 @@ fn main() {
     // Print the result
     for r in result {
         println!("Source: {}", r.source);
-        for (obj, cnt) in r.elements.iter().zip(r.counts) {
-            if cnt == 0.0 {
-                continue;
-            }
-            println!("\t{}: {}", obj, cnt);
-        }
-        println!("stats:");
+
+        println!("\tMetrics:");
         for p in r.partitions {
             println!(
-                "\t{:<3}:{:<25}\t{}\t{}",
+                "\t\t{:<3}:{:<25}\t{:.2}\t{:.2}",
                 p.contig, p.segment, p.outcomes.resolved, p.outcomes.discarded
             )
         }
-        println!()
+        println!();
+
+        // println!("\tCounts:");
+        // for (obj, cnt) in r.elements.iter().zip(r.counts) {
+        //     if cnt == 0.0 {
+        //         continue;
+        //     }
+        //     println!("\t\t{}: {}", obj, cnt);
+        // }
     }
 }
