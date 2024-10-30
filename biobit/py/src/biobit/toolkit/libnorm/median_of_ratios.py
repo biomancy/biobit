@@ -8,6 +8,7 @@ from attrs import define
 @define(slots=True, frozen=True)
 class MedianOfRatiosNormalization:
     data: pd.DataFrame
+    minval: int = 0
 
     def rename(self, map: dict[Hashable, str]) -> 'MedianOfRatiosNormalization':
         return MedianOfRatiosNormalization(self.data.rename(columns=map))
@@ -25,15 +26,13 @@ class MedianOfRatiosNormalization:
         scaling_factors = np.exp(median)
         return scaling_factors
 
-    def scaling_factors(
-            self, samples: dict[Hashable, list[Any]], minval: int = 0
-    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+    def scaling_factors(self, samples: dict[Hashable, list[Any]]) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
         columns = {}
         for sample, cols in samples.items():
             columns[sample] = self.data[cols].sum(axis=1)
         rawdf = pd.DataFrame(columns)
 
-        mask = (rawdf >= minval).any(axis=1)
+        mask = (rawdf >= self.minval).any(axis=1)
         df = rawdf[mask].copy()
 
         return rawdf, df, self._calculate_scaling_factors(df)
