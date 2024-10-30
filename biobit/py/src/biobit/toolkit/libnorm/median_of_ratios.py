@@ -9,6 +9,9 @@ from attrs import define
 class MedianOfRatiosNormalization:
     data: pd.DataFrame
 
+    def rename(self, map: dict[Hashable, str]) -> 'MedianOfRatiosNormalization':
+        return MedianOfRatiosNormalization(self.data.rename(columns=map))
+
     def _calculate_scaling_factors(self, elements: pd.DataFrame) -> pd.Series:
         with np.errstate(divide='ignore'):
             logdata = elements.apply(np.log)
