@@ -35,5 +35,11 @@ def bigwig(experiment: seqproj.Experiment, /) -> tuple[Path, Path]:
     return fwd, rev
 
 
+def salmon(exp: seqproj.Experiment, /) -> Path:
+    if "__nfcore_rnaseq_salmon__" not in exp.attributes:
+        raise ValueError(f"Attribute '__nfcore_rnaseq_salmon__' not found for the experiment: {exp}")
+    return Path(exp.attributes["__nfcore_rnaseq_salmon__"])
+
+
 def bams(project: seqproj.Project, /, factory: BamReader = default) -> dict[str, tuple[io.bam.Reader, Layout]]:
     return {exp.ind: bam(exp, factory=factory) for exp in project.experiments}
