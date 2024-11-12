@@ -1,7 +1,10 @@
 use pyo3::prelude::*;
 use pyo3::PyTypeInfo;
 
-pub use biobit_core_rs::loc::{Contig, Interval, IntervalOp, Locus, Orientation, Strand};
+use crate::loc::chain_interval::PyChainInterval;
+pub use biobit_core_rs::loc::{
+    ChainInterval, Contig, Interval, IntervalOp, Locus, Orientation, Strand,
+};
 pub use interval::{IntoPyInterval, PyInterval};
 pub use locus::{IntoPyLocus, PyLocus};
 pub use orientation::{IntoPyOrientation, PyOrientation};
@@ -9,6 +12,7 @@ pub use per_orientation::PyPerOrientation;
 pub use per_strand::PyPerStrand;
 pub use strand::{IntoPyStrand, PyStrand};
 
+mod chain_interval;
 mod interval;
 mod locus;
 mod orientation;
@@ -28,6 +32,7 @@ pub fn register<'b>(
     module.add_class::<PyPerOrientation>()?;
     module.add_class::<PyPerStrand>()?;
     module.add_class::<PyInterval>()?;
+    module.add_class::<PyChainInterval>()?;
     module.add_class::<PyLocus>()?;
 
     for typbj in [
@@ -36,6 +41,7 @@ pub fn register<'b>(
         PyPerOrientation::type_object_bound(parent.py()),
         PyPerStrand::type_object_bound(parent.py()),
         PyInterval::type_object_bound(parent.py()),
+        PyChainInterval::type_object_bound(parent.py()),
         PyLocus::type_object_bound(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?

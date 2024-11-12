@@ -84,7 +84,9 @@ impl<Idx: PrimInt> InvRepeat<Idx> {
                 ));
             }
         }
-        Ok(Self { segments: intervals })
+        Ok(Self {
+            segments: intervals,
+        })
     }
 
     pub fn seqlen(&self) -> Idx {

@@ -5,7 +5,7 @@ import pytest
 from biobit.core.loc import Interval
 
 
-def test_segment_new():
+def test_interval_new():
     segment = Interval(0, 10)
     assert segment == Interval(0, 10) == (0, 10)
     assert segment.start == 0
@@ -22,12 +22,12 @@ def test_segment_new():
             Interval(start, end)
 
 
-def test_segment_len():
+def test_interval_len():
     assert Interval(0, 10).len() == 10
     assert Interval(0, 1).len() == 1
 
 
-def test_segment_contains():
+def test_interval_contains():
     segment = Interval(1, 10)
     assert segment.contains(0) is False
     assert segment.contains(1) is True
@@ -125,7 +125,7 @@ def test_merge():
     assert Interval.merge(segments) == [Interval(1, 15), Interval(20, 30)]
 
 
-def test_pickle_segment():
+def test_pickle_interval():
     segment = Interval(1, 10)
     assert pickle.loads(pickle.dumps(segment)) == segment
     assert pickle.loads(pickle.dumps(segment)) == Interval(1, 10)
