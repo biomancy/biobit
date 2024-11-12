@@ -10,11 +10,11 @@ use eyre::{eyre, Result};
 use rayon::ThreadPool;
 use thread_local::ThreadLocal;
 
+use biobit_core_rs::source::Source;
 use biobit_core_rs::{
     loc::Contig,
     num::{Float, PrimInt},
 };
-use biobit_core_rs::source::Source;
 use biobit_io_rs::bam::SegmentedAlignment;
 
 use super::result::Harvest;
@@ -78,6 +78,7 @@ where
         );
 
         // Run the counting
+        #[allow(clippy::type_complexity)]
         let sources: ThreadLocal<RefCell<HashMap<usize, (Vec<Src>, Vec<Src>)>>> =
             ThreadLocal::new();
 

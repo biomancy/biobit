@@ -74,6 +74,7 @@ impl<S: DynSource> Source for SourceBridge<S> {
     type Iter = For!(<'borrow> = Box<dyn 'borrow + LendingIterator<Item = Self::Item>>);
 
     #[inline(always)]
+    #[allow(clippy::needless_lifetimes)]
     fn fetch<'borrow, 'args>(
         &'borrow mut self,
         args: <<Self as Core>::Args as ForLt>::Of<'args>,

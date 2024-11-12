@@ -7,7 +7,7 @@ use derive_more::{Constructor, From, Into};
 
 use biobit_core_rs::num::{Num, PrimUInt};
 
-use super::step::{Step, StepsWithOffsetsIterator, StepWithOffset};
+use super::step::{Step, StepWithOffset, StepsWithOffsetsIterator};
 use super::utils;
 
 /// A genomic alignment between two sequences.

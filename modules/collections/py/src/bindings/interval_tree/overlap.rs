@@ -1,33 +1,32 @@
 pub use biobit_collections_rs::interval_tree::overlap::{Elements, Steps};
 use biobit_core_py::fallible_py_runtime::FallibleBorrowed;
-use biobit_core_py::loc::{IntoPySegment, PySegment};
+use biobit_core_py::loc::{IntoPyInterval, PyInterval};
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyIterator, PyList, PySet};
 use pyo3::{pyclass, pymethods, PyObject, PyTypeInfo};
-use std::hash::{Hash, Hasher};
 
 #[pyclass(name = "Elements")]
 #[repr(transparent)]
-#[derive(Dissolve, From, Into)]
+#[derive(Default, Dissolve, From, Into)]
 pub struct PyElements(pub Elements<i64, PyObject>);
 
 impl PyElements {
     fn reset_with(
         &mut self,
         py: Python,
-        segments: Vec<Vec<IntoPySegment>>,
+        intervals: Vec<Vec<IntoPyInterval>>,
         elements: Vec<Vec<PyObject>>,
     ) {
         self.0.clear();
-        for (segments, elements) in segments.into_iter().zip(elements) {
-            assert_eq!(segments.len(), elements.len());
+        for (intervals, elements) in intervals.into_iter().zip(elements) {
+            assert_eq!(intervals.len(), elements.len());
 
             let mut adder = self.0.add();
-            for (segment, element) in segments.into_iter().zip(elements) {
-                adder.add(segment.0.into_bound(py).borrow().rs, element);
+            for (interval, element) in intervals.into_iter().zip(elements) {
+                adder.add(interval.0.into_bound(py).borrow().rs, element);
             }
             adder.finish();
         }
@@ -38,26 +37,26 @@ impl PyElements {
 impl PyElements {
     #[new]
     pub fn new() -> Self {
-        Self(Elements::default())
+        Self::default()
     }
 
     #[staticmethod]
     pub fn from_existent(
         py: Python,
-        segments: Vec<Vec<IntoPySegment>>,
+        intervals: Vec<Vec<IntoPyInterval>>,
         elements: Vec<Vec<PyObject>>,
     ) -> Self {
         let mut result = PyElements::new();
-        result.reset_with(py, segments, elements);
+        result.reset_with(py, intervals, elements);
         result
     }
 
     #[getter]
-    pub fn segments<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+    pub fn intervals<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let result = PyList::empty_bound(py);
 
-        for x in self.0.segments() {
-            let inner = PyList::new_bound(py, x.iter().map(|y| PySegment::from(*y).into_py(py)));
+        for x in self.0.intervals() {
+            let inner = PyList::new_bound(py, x.iter().map(|y| PyInterval::from(*y).into_py(py)));
             result.append(inner)?;
         }
         Ok(result)
@@ -81,10 +80,10 @@ impl PyElements {
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
         let result = PyList::empty_bound(py);
         for x in self.0.iter() {
-            let segments =
-                PyList::new_bound(py, x.0.iter().map(|y| PySegment::from(*y).into_py(py)));
+            let intervals =
+                PyList::new_bound(py, x.0.iter().map(|y| PyInterval::from(*y).into_py(py)));
             let annotations = PyList::new_bound(py, x.1.iter().map(|y| y.clone_ref(py)));
-            result.append((segments, annotations))?
+            result.append((intervals, annotations))?
         }
 
         PyIterator::from_bound_object(result.as_any())
@@ -115,7 +114,7 @@ impl PyElements {
 
     pub fn __getstate__(&self, py: Python) -> PyResult<(PyObject, PyObject)> {
         Ok((
-            self.segments(py)?.to_object(py),
+            self.intervals(py)?.to_object(py),
             self.elements(py)?.to_object(py),
         ))
     }
@@ -123,7 +122,7 @@ impl PyElements {
     pub fn __setstate__(
         &mut self,
         py: Python,
-        state: (Vec<Vec<IntoPySegment>>, Vec<Vec<PyObject>>),
+        state: (Vec<Vec<IntoPyInterval>>, Vec<Vec<PyObject>>),
     ) {
         self.reset_with(py, state.0, state.1);
     }
@@ -131,21 +130,21 @@ impl PyElements {
 
 #[pyclass(name = "Steps")]
 #[repr(transparent)]
-#[derive(Dissolve, From, Into)]
-pub struct PySteps(Vec<Vec<(PySegment, Vec<PyObject>)>>);
+#[derive(Default, Dissolve, From, Into)]
+pub struct PySteps(Vec<Vec<(PyInterval, Vec<PyObject>)>>);
 
 #[pymethods]
 impl PySteps {
     #[new]
     pub fn new() -> Self {
-        Self(Vec::new())
+        Self::default()
     }
 
     pub fn build<'py>(
         mut slf: PyRefMut<'py, Self>,
         py: Python<'py>,
         elements: &PyElements,
-        query: Vec<IntoPySegment>,
+        query: Vec<IntoPyInterval>,
     ) -> PyResult<PyRefMut<'py, Self>> {
         let mut steps = Steps::default();
 
@@ -182,12 +181,12 @@ impl PySteps {
         for iter in steps.iter() {
             let mut hits = Vec::new();
             for x in iter {
-                let segment = PySegment::new(x.0, x.1)?;
+                let interval = PyInterval::new(x.0, x.1)?;
                 let objects =
                     x.2.iter()
                         .map(|y: &FallibleBorrowed| (*y.0).clone().unbind().to_object(py))
                         .collect();
-                hits.push((segment, objects));
+                hits.push((interval, objects));
             }
             slf.0.push(hits);
         }
@@ -207,9 +206,9 @@ impl PySteps {
         let result = PyList::empty_bound(py);
         for sample in self.0.iter() {
             let inner = PyList::empty_bound(py);
-            for (segment, objects) in sample.iter() {
-                let pyset = PySet::new_bound(py, objects.into_iter())?;
-                inner.append((segment.into_py(py), pyset))?;
+            for (interval, objects) in sample.iter() {
+                let pyset = PySet::new_bound(py, objects)?;
+                inner.append((interval.into_py(py), pyset))?;
             }
             result.append(inner)?;
         }
@@ -242,11 +241,11 @@ impl PySteps {
         Ok(true)
     }
 
-    pub fn __getstate__(&self) -> Vec<Vec<(PySegment, Vec<PyObject>)>> {
+    pub fn __getstate__(&self) -> Vec<Vec<(PyInterval, Vec<PyObject>)>> {
         self.0.clone()
     }
 
-    pub fn __setstate__(&mut self, state: Vec<Vec<(PySegment, Vec<PyObject>)>>) {
+    pub fn __setstate__(&mut self, state: Vec<Vec<(PyInterval, Vec<PyObject>)>>) {
         self.0 = state;
     }
 }

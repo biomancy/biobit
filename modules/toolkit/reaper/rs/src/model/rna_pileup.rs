@@ -3,11 +3,11 @@ use derive_getters::{Dissolve, Getters};
 use eyre::{Report, Result};
 
 use biobit_collections_rs::rle_vec::RleVec;
-use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::{Contig, PerOrientation, Segment};
-use biobit_core_rs::loc::AsSegment;
+use biobit_core_rs::loc::IntervalOp;
+use biobit_core_rs::loc::{Contig, Interval, PerOrientation};
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_core_rs::source::{AnyMap, Source};
+use biobit_core_rs::LendingIterator;
 use biobit_io_rs::bam::SegmentedAlignment;
 
 use crate::worker::RleIdentical;
@@ -19,14 +19,20 @@ pub struct RNAPileup<Cnts: Float> {
     min_signal: Cnts,
 }
 
-impl<Cnts: Float> RNAPileup<Cnts> {
-    pub const DEFAULT_SENSITIVITY: f64 = 1e-6;
-    pub fn new() -> Self {
+impl<Cnts: Float> Default for RNAPileup<Cnts> {
+    fn default() -> Self {
         RNAPileup {
             sensitivity: Cnts::from(Self::DEFAULT_SENSITIVITY).unwrap(),
             control_baseline: Cnts::zero(),
             min_signal: Cnts::zero(),
         }
+    }
+}
+
+impl<Cnts: Float> RNAPileup<Cnts> {
+    pub const DEFAULT_SENSITIVITY: f64 = 1e-6;
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn set_sensitivity(&mut self, sensitivity: Cnts) -> &mut Self {
@@ -48,6 +54,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         RleIdentical::new(self.sensitivity)
     }
 
+    #[allow(clippy::type_complexity)]
     fn pileup<Ctg, Idx, Src>(
         &self,
         query: (&Ctg, Idx, Idx),
@@ -80,22 +87,22 @@ impl<Cnts: Float> RNAPileup<Cnts> {
             {
                 let mut iter = src.fetch(query)?;
                 while let Some(blocks) = iter.next() {
-                    for (segments, orientation, n) in blocks?.iter() {
+                    for (intervals, orientation, n) in blocks?.iter() {
                         let weight = Cnts::one() / Cnts::from(n).unwrap();
                         let saveto = counts.get_mut(orientation);
 
-                        for s in segments {
+                        for s in intervals {
                             if s.end() <= start || s.start() >= end {
                                 continue;
                             }
 
-                            // Clip the segment to the query boundaries and transform it to local coordinates
-                            let segment_start = (s.start().max(start) - start).to_usize().unwrap();
-                            let segment_end = (s.end().min(end) - start).to_usize().unwrap();
-                            debug_assert!(segment_start <= segment_end);
+                            // Clip the interval to the query boundaries and transform it to local coordinates
+                            let istart = (s.start().max(start) - start).to_usize().unwrap();
+                            let iend = (s.end().min(end) - start).to_usize().unwrap();
+                            debug_assert!(istart <= iend);
 
-                            for i in segment_start..segment_end {
-                                saveto[i] = saveto[i] + weight;
+                            for item in &mut saveto[istart..iend] {
+                                *item = *item + weight;
                             }
                         }
                     }
@@ -118,6 +125,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         Ok((counts, rle))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn model_signal<Ctg, Idx, Src>(
         &self,
         query: (&Ctg, Idx, Idx),
@@ -128,8 +136,8 @@ impl<Cnts: Float> RNAPileup<Cnts> {
     ) -> Result<(
         PerOrientation<Vec<Cnts>>,
         PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
-        PerOrientation<Vec<Segment<Idx>>>,
-        PerOrientation<Vec<Segment<Idx>>>,
+        PerOrientation<Vec<Interval<Idx>>>,
+        PerOrientation<Vec<Interval<Idx>>>,
     )>
     where
         Ctg: Contig,
@@ -158,13 +166,13 @@ impl<Cnts: Float> RNAPileup<Cnts> {
             for (val, length) in rle.runs_mut() {
                 end = start + Idx::from(*length).unwrap();
 
-                // Save covered segments
+                // Save covered intervals
                 if !val.is_zero() {
                     if covered_end == start {
                         covered_end = end;
                     } else {
                         if covered_end != query.1 {
-                            covered_cache.push(Segment::new(covered_start, covered_end)?);
+                            covered_cache.push(Interval::new(covered_start, covered_end)?);
                         }
                         covered_start = start;
                         covered_end = end;
@@ -174,16 +182,14 @@ impl<Cnts: Float> RNAPileup<Cnts> {
                 // Save modeled segments
                 if *val <= self.min_signal {
                     *val = Cnts::zero();
+                } else if start == model_end {
+                    model_end = end;
                 } else {
-                    if start == model_end {
-                        model_end = end;
-                    } else {
-                        if model_end != query.1 {
-                            model_cache.push(Segment::new(model_start, model_end)?);
-                        }
-                        model_start = start;
-                        model_end = end;
+                    if model_end != query.1 {
+                        model_cache.push(Interval::new(model_start, model_end)?);
                     }
+                    model_start = start;
+                    model_end = end;
                 }
 
                 start = end;
@@ -191,12 +197,12 @@ impl<Cnts: Float> RNAPileup<Cnts> {
 
             // Save the model & covered segments
             if covered_end != query.1 {
-                covered_cache.push(Segment::new(covered_start, covered_end)?);
+                covered_cache.push(Interval::new(covered_start, covered_end)?);
             }
             *covered.get_mut(o) = covered_cache;
 
             if model_end != query.1 {
-                model_cache.push(Segment::new(model_start, model_end)?);
+                model_cache.push(Interval::new(model_start, model_end)?);
             }
             *modeled.get_mut(o) = model_cache;
 
@@ -206,6 +212,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         Ok((counts, rle, covered, modeled))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn model_control<Ctg, Idx, Src>(
         &self,
         query: (&Ctg, Idx, Idx),
@@ -216,7 +223,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
     ) -> Result<(
         PerOrientation<Vec<Cnts>>,
         PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
-        PerOrientation<Vec<Segment<Idx>>>,
+        PerOrientation<Vec<Interval<Idx>>>,
     )>
     where
         Ctg: Contig,
@@ -247,7 +254,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
                         covered_end = end;
                     } else {
                         if covered_end != query.1 {
-                            covered_cache.push(Segment::new(covered_start, covered_end)?);
+                            covered_cache.push(Interval::new(covered_start, covered_end)?);
                         }
                         covered_start = start;
                         covered_end = end;
@@ -259,7 +266,7 @@ impl<Cnts: Float> RNAPileup<Cnts> {
             }
 
             if covered_end != query.1 {
-                covered_cache.push(Segment::new(covered_start, covered_end)?);
+                covered_cache.push(Interval::new(covered_start, covered_end)?);
             }
             *covered.get_mut(o) = covered_cache;
 

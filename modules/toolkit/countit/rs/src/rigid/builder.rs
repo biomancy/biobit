@@ -1,7 +1,7 @@
 use crate::rigid::partition::Partition;
 use crate::rigid::Engine;
 use ahash::AHashMap;
-use biobit_core_rs::loc::{AsSegment, Orientation, PerOrientation, Segment};
+use biobit_core_rs::loc::{Interval, Orientation, PerOrientation};
 use biobit_core_rs::{
     loc::Contig,
     num::{Float, PrimInt},
@@ -12,8 +12,9 @@ use thread_local::ThreadLocal;
 
 pub struct EngineBuilder<Ctg: Contig, Idx: PrimInt, Elt> {
     elements: Vec<Elt>,
-    annotation: AHashMap<Ctg, PerOrientation<Vec<(usize, Vec<Segment<Idx>>)>>>,
-    partitions: AHashMap<Ctg, Vec<Segment<Idx>>>,
+    #[allow(clippy::type_complexity)]
+    annotation: AHashMap<Ctg, PerOrientation<Vec<(usize, Vec<Interval<Idx>>)>>>,
+    partitions: AHashMap<Ctg, Vec<Interval<Idx>>>,
     thread_pool: Option<ThreadPool>,
 }
 
@@ -34,7 +35,7 @@ where
 {
     pub fn add_elements(
         mut self,
-        elements: impl Iterator<Item = (Elt, Vec<(Ctg, Orientation, Vec<Segment<Idx>>)>)>,
+        elements: impl Iterator<Item = (Elt, Vec<(Ctg, Orientation, Vec<Interval<Idx>>)>)>,
     ) -> Self {
         for (element, segments) in elements {
             let ind = self.elements.len();
@@ -50,7 +51,10 @@ where
         self
     }
 
-    pub fn add_partitions(mut self, partitions: impl Iterator<Item = (Ctg, Segment<Idx>)>) -> Self {
+    pub fn add_partitions(
+        mut self,
+        partitions: impl Iterator<Item = (Ctg, Interval<Idx>)>,
+    ) -> Self {
         for (contig, segment) in partitions {
             self.partitions.entry(contig).or_default().push(segment);
         }
@@ -65,7 +69,7 @@ where
     pub fn _build(&mut self) -> Vec<Partition<Ctg, Idx>> {
         // Prepare the workload for each thread
         let mut workload = Vec::new();
-        for (contig, mut segments) in std::mem::take(&mut self.partitions).into_iter() {
+        for (contig, segments) in std::mem::take(&mut self.partitions).into_iter() {
             // Select elements inside the partition
             let elements = self.annotation.remove(&contig).unwrap_or_default();
             workload.push((contig, segments, elements));

@@ -6,4 +6,5 @@ pub use rle_vec::RleVec;
 mod identical;
 mod merge;
 mod merge2;
+#[allow(clippy::module_inception)]
 mod rle_vec;

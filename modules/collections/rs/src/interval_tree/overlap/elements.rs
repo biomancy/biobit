@@ -1,16 +1,15 @@
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::Interval;
 use biobit_core_rs::num::PrimInt;
 use derive_getters::Dissolve;
-use std::hash::Hash;
 
 // Each query can have 0 or more hits which are stored in a single vector
 // For i-th query the hits are stored like this:
 // start = hitlen[0] + hitlen[1] + ... + hitlen[i-1]
 // end = start + hitlen[i]
-// segments[start..end] & annotations[start..end] are the hits for the i-th query
+// intervals[start..end] & annotations[start..end] are the hits for the i-th query
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Dissolve)]
 pub struct Elements<Idx: PrimInt, T> {
-    segments: Vec<Segment<Idx>>,
+    intervals: Vec<Interval<Idx>>,
     elements: Vec<T>,
     hitlen: Vec<usize>, // Strictly equal to the number of queries
 }
@@ -30,14 +29,14 @@ impl<Idx: PrimInt, T> Elements<Idx, T> {
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            segments: Vec::with_capacity(capacity),
+            intervals: Vec::with_capacity(capacity),
             elements: Vec::with_capacity(capacity),
             hitlen: Vec::with_capacity(capacity),
         }
     }
 
     pub fn clear(&mut self) {
-        self.segments.clear();
+        self.intervals.clear();
         self.elements.clear();
         self.hitlen.clear();
     }
@@ -49,15 +48,15 @@ impl<Idx: PrimInt, T> Elements<Idx, T> {
         }
     }
 
-    pub fn segments(&self) -> impl Iterator<Item = &'_ [Segment<Idx>]> {
+    pub fn intervals(&self) -> impl Iterator<Item = &'_ [Interval<Idx>]> {
         let mut start = 0;
         self.hitlen.iter().map(move |&x| {
             if x == 0 {
-                &self.segments[0..0]
+                &self.intervals[0..0]
             } else {
                 let rng = start..(start + x);
                 start += x;
-                &self.segments[rng]
+                &self.intervals[rng]
             }
         })
     }
@@ -74,15 +73,15 @@ impl<Idx: PrimInt, T> Elements<Idx, T> {
         })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&'_ [Segment<Idx>], &'_ [T])> {
+    pub fn iter(&self) -> impl Iterator<Item = (&'_ [Interval<Idx>], &'_ [T])> {
         let mut start = 0;
         self.hitlen.iter().map(move |x| {
             if *x == 0 {
-                (&self.segments[0..0], &self.elements[0..0])
+                (&self.intervals[0..0], &self.elements[0..0])
             } else {
                 let rng = start..(start + x);
                 start += x;
-                (&self.segments[rng.clone()], &self.elements[rng])
+                (&self.intervals[rng.clone()], &self.elements[rng])
             }
         })
     }
@@ -102,8 +101,8 @@ pub struct OverlapSegmentsAddValue<'a, Idx: PrimInt, T> {
 }
 
 impl<'a, Idx: PrimInt, T> OverlapSegmentsAddValue<'a, Idx, T> {
-    pub fn add(&mut self, segment: Segment<Idx>, annotation: T) {
-        self.buffer.segments.push(segment);
+    pub fn add(&mut self, interval: Interval<Idx>, annotation: T) {
+        self.buffer.intervals.push(interval);
         self.buffer.elements.push(annotation);
         self.length += 1;
     }
@@ -114,7 +113,7 @@ impl<'a, Idx: PrimInt, T> OverlapSegmentsAddValue<'a, Idx, T> {
     }
 }
 
-impl<'a, 'b, Idx: PrimInt, T> Drop for OverlapSegmentsAddValue<'a, Idx, T> {
+impl<'a, Idx: PrimInt, T> Drop for OverlapSegmentsAddValue<'a, Idx, T> {
     fn drop(&mut self) {
         if self.length != usize::MAX {
             self.buffer.hitlen.push(self.length);
@@ -128,7 +127,7 @@ pub(crate) mod tests {
 
     pub(crate) fn add_overlaps<'a>(
         query: &mut Elements<usize, &'a str>,
-        overlaps: &Vec<Vec<(Segment<usize>, &'a str)>>,
+        overlaps: &Vec<Vec<(Interval<usize>, &'a str)>>,
     ) {
         for ov in overlaps.into_iter() {
             let mut adder = query.add();
@@ -139,7 +138,10 @@ pub(crate) mod tests {
         }
     }
 
-    fn assert_elements(query: &Elements<usize, &str>, overlaps: &Vec<Vec<(Segment<usize>, &str)>>) {
+    fn assert_elements(
+        query: &Elements<usize, &str>,
+        overlaps: &Vec<Vec<(Interval<usize>, &str)>>,
+    ) {
         assert_eq!(query.len(), overlaps.len());
 
         let slices: Vec<_> = query.iter().collect();

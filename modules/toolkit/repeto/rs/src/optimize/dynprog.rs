@@ -4,12 +4,12 @@ use std::ops::Range;
 
 use itertools::Itertools;
 
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
-use super::{index, trace};
-use super::InvRepeat;
 use super::trace::TraceCell;
+use super::InvRepeat;
+use super::{index, trace};
 
 // General rules:
 // 1. If a hypothesis is included -> the best subset of its embedded hypothesis is also included
@@ -158,7 +158,7 @@ impl<Score: PrimInt> DynProgSolution<Score> {
             }
         }
 
-        return match bestt {
+        match bestt {
             None => {
                 // No traces scored > 0
                 self.cache[sind].insert(eind, Score::zero());
@@ -169,13 +169,13 @@ impl<Score: PrimInt> DynProgSolution<Score> {
                 self.cache[sind].insert(eind, bestt.1);
                 bestt.1
             }
-        };
+        }
     }
 
     fn gapsolve<Idx, IR>(
         &mut self,
         w: &Workload<Idx, IR, Score>,
-        blocks: &[Segment<Idx>],
+        blocks: &[Interval<Idx>],
         mut minsind: usize,
         maxeind: usize,
     ) -> (Score, Vec<(usize, usize)>)
@@ -235,7 +235,7 @@ impl<Score: PrimInt> DynProgSolution<Score> {
             minend = eind;
         }
         debug_assert!(
-            score.is_zero() && traces.len() == 0 || score > Score::zero() && traces.len() > 0
+            score.is_zero() && traces.is_empty() || score > Score::zero() && !traces.is_empty()
         );
         (score, traces)
     }

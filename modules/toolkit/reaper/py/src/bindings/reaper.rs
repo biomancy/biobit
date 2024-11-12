@@ -6,7 +6,7 @@ use rayon::ThreadPoolBuilder;
 
 use biobit_core_py::ngs::PyLayout;
 use biobit_core_py::parallelism;
-use biobit_io_py::bam::{IntoPyReader, utils::SegmentedAlignmentSource};
+use biobit_io_py::bam::{utils::SegmentedAlignmentSource, IntoPyReader};
 use biobit_reaper_rs::Reaper;
 
 use crate::PyHarvest;
@@ -24,7 +24,7 @@ pub struct PyReaper {
 impl PyReaper {
     fn find_sample(&mut self, tag: &PyObject, py: Python) -> Result<Option<usize>> {
         for (ind, sample) in self.samples.iter().enumerate() {
-            if sample.bind(py).compare(&tag)? == Ordering::Equal {
+            if sample.bind(py).compare(tag)? == Ordering::Equal {
                 return Ok(Some(ind));
             }
         }

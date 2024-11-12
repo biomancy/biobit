@@ -5,5 +5,6 @@ pub use transform::Transform;
 
 mod core;
 mod dyn_source;
+#[allow(clippy::module_inception)]
 mod source;
 mod transform;

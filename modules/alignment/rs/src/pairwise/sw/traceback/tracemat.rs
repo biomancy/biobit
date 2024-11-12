@@ -3,9 +3,9 @@ use std::ops::Range;
 
 use eyre::{eyre, Result};
 
-use crate::pairwise::{Op, scoring, Step};
 use crate::pairwise::sw::algo::{BestOrientationTracer, GapTracer, Tracer};
-use crate::pairwise::sw::traceback::{TracedAlignment, TraceMat};
+use crate::pairwise::sw::traceback::{TraceMat, TracedAlignment};
+use crate::pairwise::{scoring, Op, Step};
 
 // TODO: implement to use only 2 bits
 #[repr(u8)]

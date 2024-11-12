@@ -5,7 +5,7 @@ use biobit_alignment_rs::alignable::Reversed;
 use biobit_alignment_rs::pairwise::alignment::Alignment;
 use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
 use biobit_collections_rs::interval_tree::{BitsBuilder, Builder};
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 
 use crate::predict::filtering::Filter;
 use crate::predict::scoring::Scoring;
@@ -99,7 +99,7 @@ pub fn run<S: scoring::Score>(
     let mut passed: RTree<Wrapper<_>> = RTree::new();
     let mut length = 0;
     for aln in alignments.into_iter() {
-        let mut segments = Vec::with_capacity(aln.steps().len());
+        let mut intervals = Vec::with_capacity(aln.steps().len());
         let mut stats = EquivRunStats::default();
 
         for step in aln.tracked_steps() {
@@ -109,9 +109,9 @@ pub fn run<S: scoring::Score>(
                     stats.all.total_len += *step.step.len() as usize;
 
                     let left =
-                        Segment::new(step.start.seq2, step.start.seq2 + *step.step.len() as usize)
+                        Interval::new(step.start.seq2, step.start.seq2 + *step.step.len() as usize)
                             .unwrap();
-                    let right = Segment::new(
+                    let right = Interval::new(
                         seq.len() - step.start.seq1 - (*step.step().len() as usize),
                         seq.len() - step.start.seq1,
                     )
@@ -125,7 +125,7 @@ pub fn run<S: scoring::Score>(
                         }
                     }
 
-                    segments.push(InvSegment::new(left, right).unwrap());
+                    intervals.push(InvSegment::new(left, right).unwrap());
                 }
                 alignment::Op::Mismatch | alignment::Op::GapSecond | alignment::Op::GapFirst => {}
                 alignment::Op::Match => {
@@ -134,7 +134,7 @@ pub fn run<S: scoring::Score>(
             }
         }
 
-        if segments.is_empty() || !filter.is_valid(&aln.score(), &stats) {
+        if intervals.is_empty() || !filter.is_valid(aln.score(), &stats) {
             continue;
         }
 
@@ -155,10 +155,10 @@ pub fn run<S: scoring::Score>(
             Some(x) => {
                 let ind = x.1;
                 passed.remove_with_selection_function(x);
-                passed.insert(Wrapper(ind, aln, segments));
+                passed.insert(Wrapper(ind, aln, intervals));
             }
             None => {
-                passed.insert(Wrapper(length, aln, segments));
+                passed.insert(Wrapper(length, aln, intervals));
                 length += 1;
             }
         }

@@ -1,10 +1,9 @@
-use pyo3::{Bound, PyAny, PyResult, PyTypeInfo};
 use pyo3::prelude::{PyAnyMethods, PyModule, PyModuleMethods};
+use pyo3::{Bound, PyAny, PyResult, PyTypeInfo};
 
 pub use inv::{PyInvRepeat, PyInvSegment};
 
 mod inv;
-
 
 pub fn register<'b>(
     parent: &Bound<'b, PyModule>,

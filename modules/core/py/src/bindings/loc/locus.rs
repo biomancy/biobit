@@ -9,8 +9,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
+use super::interval::{IntoPyInterval, PyInterval};
 use super::orientation::{IntoPyOrientation, PyOrientation};
-use super::segment::{IntoPySegment, PySegment};
 
 #[derive(Debug, Into, From, Dissolve)]
 pub struct IntoPyLocus(pub Py<PyLocus>);
@@ -29,10 +29,10 @@ impl FromPyObject<'_> for IntoPyLocus {
             }
 
             let contig = obj.get_item(0)?.extract::<String>()?;
-            let segment = obj.get_item(1)?.extract::<IntoPySegment>()?;
+            let interval = obj.get_item(1)?.extract::<IntoPyInterval>()?;
             let orientation = obj.get_item(2)?.extract::<IntoPyOrientation>()?;
 
-            Py::new(obj.py(), PyLocus::new(contig, segment, orientation)?)?
+            Py::new(obj.py(), PyLocus::new(contig, interval, orientation)?)?
         } else {
             return Err(PyValueError::new_err(format!("Unknown locus: {:?}", obj)));
         };
@@ -45,7 +45,7 @@ impl FromPyObject<'_> for IntoPyLocus {
 #[derive(Clone, Debug, Dissolve)]
 pub struct PyLocus {
     pub contig: String,
-    pub segment: Py<PySegment>,
+    pub interval: Py<PyInterval>,
     pub orientation: PyOrientation,
 }
 
@@ -54,12 +54,12 @@ impl PyLocus {
     #[new]
     pub fn new(
         contig: String,
-        segment: IntoPySegment,
+        interval: IntoPyInterval,
         orientation: IntoPyOrientation,
     ) -> PyResult<Self> {
         Ok(Self {
             contig,
-            segment: segment.0,
+            interval: interval.0,
             orientation: orientation.0,
         })
     }
@@ -70,8 +70,8 @@ impl PyLocus {
     }
 
     #[setter]
-    pub fn set_segment(&mut self, segment: IntoPySegment) {
-        self.segment = segment.0;
+    pub fn set_interval(&mut self, interval: IntoPyInterval) {
+        self.interval = interval.0;
     }
 
     #[setter]
@@ -80,7 +80,7 @@ impl PyLocus {
     }
 
     pub fn len(&self, py: Python<'_>) -> i64 {
-        self.segment.borrow(py).len()
+        self.interval.borrow(py).len()
     }
 
     pub fn flip(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
@@ -91,7 +91,7 @@ impl PyLocus {
     pub fn flipped(&self, py: Python<'_>) -> PyResult<Self> {
         Ok(Self {
             contig: self.contig.clone(),
-            segment: Py::new(py, *self.segment.borrow(py))?,
+            interval: Py::new(py, *self.interval.borrow(py))?,
             orientation: self.orientation.flipped(),
         })
     }
@@ -212,7 +212,7 @@ impl PyLocus {
     fn __hash__(&self, py: Python) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.contig.hash(&mut hasher);
-        self.segment.borrow(py).hash(&mut hasher);
+        self.interval.borrow(py).hash(&mut hasher);
         self.orientation.hash(&mut hasher);
         hasher.finish()
     }
@@ -220,11 +220,11 @@ impl PyLocus {
     pub fn __richcmp__(&self, py: Python, other: IntoPyLocus, op: CompareOp) -> bool {
         let borrow = other.0.borrow(py);
 
-        let this = (&self.contig, self.orientation, self.segment.borrow(py).rs);
+        let this = (&self.contig, self.orientation, self.interval.borrow(py).rs);
         let that = (
             &borrow.contig,
             borrow.orientation,
-            borrow.segment.borrow(py).rs,
+            borrow.interval.borrow(py).rs,
         );
 
         match op {
@@ -240,7 +240,7 @@ impl PyLocus {
     pub fn __getnewargs__(&self, py: Python) -> (String, (i64, i64), &str) {
         (
             self.contig.clone(),
-            self.segment.borrow(py).__getnewargs__(),
+            self.interval.borrow(py).__getnewargs__(),
             self.orientation.symbol(),
         )
     }
@@ -249,7 +249,7 @@ impl PyLocus {
 impl Display for PyLocus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Python::with_gil(|py| {
-            let segment = self.segment.borrow(py);
+            let segment = self.interval.borrow(py);
             write!(
                 f,
                 "{}:{}-{}({})",

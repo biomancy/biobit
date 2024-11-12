@@ -4,8 +4,8 @@ use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
 use noodles::bam;
 
-use biobit_core_rs::LendingIterator;
 use biobit_core_rs::source::{AnyMap, Transform};
+use biobit_core_rs::LendingIterator;
 use bundle::Bundler;
 
 mod bundle;
@@ -80,12 +80,13 @@ where
         self.batch_size = batch_size;
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn transform<'borrow, 'args>(
         &'borrow mut self,
         iterator: InIter::Of<'borrow>,
         _: &'args Self::Args,
     ) -> <Self::OutIter as ForLifetime>::Of<'borrow> {
-        let cache = self.cache.get_or_insert_with(|| Default::default());
+        let cache = self.cache.get_or_insert_with(Default::default);
         cache.clear();
 
         Iterator {

@@ -1,8 +1,6 @@
-use ::higher_kinded_types::prelude::*;
-
 use crate::interval_tree::overlap;
 use biobit_core_rs::{
-    loc::{AsSegment, Segment},
+    loc::{Interval, IntervalOp},
     num::PrimInt,
 };
 
@@ -19,7 +17,7 @@ pub trait Builder {
 
     fn addi(
         self,
-        interval: impl AsSegment<Idx = <Self::Target as ITree>::Idx>,
+        interval: impl IntervalOp<Idx = <Self::Target as ITree>::Idx>,
         element: <Self::Target as ITree>::Element,
     ) -> Self;
     fn add(
@@ -27,7 +25,7 @@ pub trait Builder {
         data: impl Iterator<
             Item = (
                 <Self::Target as ITree>::Element,
-                impl AsSegment<Idx = <Self::Target as ITree>::Idx>,
+                impl IntervalOp<Idx = <Self::Target as ITree>::Idx>,
             ),
         >,
     ) -> Self;
@@ -37,7 +35,7 @@ pub trait Builder {
 pub trait Record<'borrow, 'iter> {
     type Idx: PrimInt + 'iter;
     type Value: 'borrow;
-    fn interval(&self) -> &'iter Segment<Self::Idx>;
+    fn interval(&self) -> &'iter Interval<Self::Idx>;
     fn value(&self) -> &'borrow Self::Value;
 }
 
@@ -55,7 +53,7 @@ pub trait ITree {
     // * How to make this work with a tree that can be mutated?
     fn overlap_single_element<'a>(
         &self,
-        intervals: &[Segment<Self::Idx>],
+        intervals: &[Interval<Self::Idx>],
         buffer: &'a mut overlap::Elements<Self::Idx, Self::Element>,
     ) -> &'a mut overlap::Elements<Self::Idx, Self::Element>;
 }
@@ -74,12 +72,12 @@ pub trait ITree {
 // }
 
 impl<'borrow, 'iter, Idx: PrimInt, Val> Record<'borrow, 'iter>
-    for (&'iter Segment<Idx>, &'borrow Val)
+    for (&'iter Interval<Idx>, &'borrow Val)
 {
     type Idx = Idx;
     type Value = Val;
 
-    fn interval(&self) -> &'iter Segment<Self::Idx> {
+    fn interval(&self) -> &'iter Interval<Self::Idx> {
         self.0
     }
 
@@ -105,22 +103,22 @@ pub mod tests {
     {
         // Construct the tree
         for (start, stop, element) in setup {
-            builder = builder.addi(&Segment::new(*start, *stop).unwrap(), *element);
+            builder = builder.addi(&Interval::new(*start, *stop).unwrap(), *element);
         }
         let tree = builder.build();
 
         // Run the queries
         let mut result = overlap::Elements::default();
-        let mut expected: Vec<(Vec<Segment<Idx>>, Vec<Element>)> =
+        let mut expected: Vec<(Vec<Interval<Idx>>, Vec<Element>)> =
             Vec::with_capacity(queries.len());
         for (start, end, indices) in queries {
-            tree.overlap_single_element(&[Segment::new(*start, *end).unwrap()], &mut result);
+            tree.overlap_single_element(&[Interval::new(*start, *end).unwrap()], &mut result);
             expected.push(
                 indices
                     .iter()
                     .map(|i| {
                         (
-                            Segment::new(setup[*i].0, setup[*i].1).unwrap(),
+                            Interval::new(setup[*i].0, setup[*i].1).unwrap(),
                             &setup[*i].2,
                         )
                     })

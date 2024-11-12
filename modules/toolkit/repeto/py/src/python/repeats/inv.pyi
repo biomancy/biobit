@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from biobit.core.loc import Segment, IntoSegment
+from biobit.core.loc import Interval, IntoInterval
 
 
 class InvSegment:
@@ -12,23 +12,23 @@ class InvSegment:
      * left segment coordinates < right segment coordinates
     """
 
-    def __init__(self, left: IntoSegment, right: IntoSegment): ...
+    def __init__(self, left: IntoInterval, right: IntoInterval): ...
 
     @property
-    def left(self) -> Segment:
+    def left(self) -> Interval:
         """
         Left segment of the inverted repeat.
         """
         pass
 
     @property
-    def right(self) -> Segment:
+    def right(self) -> Interval:
         """
         Right segment of the inverted repeat.
         """
         pass
 
-    def brange(self) -> Segment:
+    def brange(self) -> Interval:
         """
         A bounding range of the segment - minimum range that contains both the left and right arms of the segment.
         """
@@ -87,19 +87,19 @@ class InvRepeat:
         """
         pass
 
-    def right_brange(self) -> Segment:
+    def right_brange(self) -> Interval:
         """
         A bounding range containing all right segments of the inverted repeat.
         """
         pass
 
-    def left_brange(self) -> Segment:
+    def left_brange(self) -> Interval:
         """
         A bounding range containing all left segments of the inverted repeat.
         """
         pass
 
-    def brange(self) -> Segment:
+    def brange(self) -> Interval:
         """
         A bounding range of the repeat - minimum range that contains all its segments.
         """
@@ -111,7 +111,7 @@ class InvRepeat:
         """
         pass
 
-    def seqranges(self) -> list[Segment]:
+    def seqranges(self) -> list[Interval]:
         """
         Ordered sequence blocks, i.e. sequence ranges, that underlay the inverted repeat.
         """

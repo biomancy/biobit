@@ -8,7 +8,7 @@ pub struct FallibleBorrowed<'a, 'py>(pub Borrowed<'a, 'py, PyAny>);
 
 impl<'a, 'py> PartialEq for FallibleBorrowed<'a, 'py> {
     fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0).expect("Failed to compare PyObjects")
+        self.0.eq(other.0).expect("Failed to compare PyObjects")
     }
 }
 
@@ -29,7 +29,7 @@ impl<'a, 'py> PartialOrd for FallibleBorrowed<'a, 'py> {
 impl<'a, 'py> Ord for FallibleBorrowed<'a, 'py> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0
-            .compare(&other.0)
+            .compare(other.0)
             .expect("Failed to compare PyObjects")
     }
 }

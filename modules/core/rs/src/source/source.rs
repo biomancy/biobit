@@ -3,8 +3,8 @@ use dyn_clone::DynClone;
 use eyre::Result;
 use impl_tools::autoimpl;
 
-use crate::LendingIterator;
 use crate::source::dyn_source::DynSource;
+use crate::LendingIterator;
 
 use super::{
     core::{AnyMap, Core},
@@ -15,6 +15,7 @@ use super::{
 pub trait Source: Core + DynClone + Send + Sync {
     type Iter: for<'borrow> ForLt<Of<'borrow>: LendingIterator<Item = Self::Item>>;
 
+    #[allow(clippy::needless_lifetimes)]
     fn fetch<'borrow, 'args>(
         &'borrow mut self,
         args: <<Self as Core>::Args as ForLt>::Of<'args>,

@@ -2,7 +2,7 @@ import pickle
 
 import pytest
 
-from biobit.core.loc import Segment
+from biobit.core.loc import Interval
 from biobit.toolkit.repeto import repeats
 
 SHIFTS = [0, -1, 1, -10, 10]
@@ -38,15 +38,15 @@ def test_inv_segment(left, right):
         assert segment == segment
         assert pickle.loads(pickle.dumps(segment)) == segment
 
-    left = Segment(*left)
-    right = Segment(*right)
+    left = Interval(*left)
+    right = Interval(*right)
     segment = repeats.InvSegment(left, right)
     dotest(segment, left, right)
 
     for shift in SHIFTS:
         segment.shift(shift)
-        left = Segment(left.start + shift, left.end + shift)
-        right = Segment(right.start + shift, right.end + shift)
+        left = Interval(left.start + shift, left.end + shift)
+        right = Interval(right.start + shift, right.end + shift)
 
         dotest(segment, left, right)
 

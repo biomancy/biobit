@@ -4,7 +4,7 @@ mod overlap_weighted;
 mod top_ranked;
 
 use biobit_collections_rs::interval_tree::overlap;
-use biobit_core_rs::num::{Float, Num, PrimInt};
+use biobit_core_rs::num::{Float, PrimInt};
 use biobit_io_rs::bam::SegmentedAlignment;
 use dyn_clone::DynClone;
 use impl_tools::autoimpl;

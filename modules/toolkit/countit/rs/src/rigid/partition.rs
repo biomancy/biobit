@@ -1,6 +1,6 @@
-use ahash::{HashMap, HashSet};
+use ahash::HashMap;
 use biobit_collections_rs::interval_tree::Bits;
-use biobit_core_rs::loc::{AsSegment, Contig, PerOrientation, Segment};
+use biobit_core_rs::loc::{Contig, Interval, IntervalOp, PerOrientation};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
@@ -12,7 +12,7 @@ use log;
 pub struct Partition<Ctg, Idx: PrimInt> {
     // Coordinates of the partition
     contig: Ctg,
-    segment: Segment<Idx>,
+    interval: Interval<Idx>,
     // Elements that belong to the partition
     index: PerOrientation<Bits<Idx, usize>>, // Annotation index (values are indices in the elements vector)
     eltinds: Vec<usize>, // Global index of each element (to aggregate counts across partitions)
@@ -21,12 +21,12 @@ pub struct Partition<Ctg, Idx: PrimInt> {
 impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
     pub fn build(
         contig: Ctg,
-        mut partitions: Vec<Segment<Idx>>,
-        mut candidates: PerOrientation<Vec<(usize, Vec<Segment<Idx>>)>>,
+        mut partitions: Vec<Interval<Idx>>,
+        candidates: PerOrientation<Vec<(usize, Vec<Interval<Idx>>)>>,
     ) -> Vec<Self> {
         // Merge all partitions to avoid overlapping queries downstream
         let before = partitions.len();
-        let partitions = Segment::merge(&mut partitions);
+        let partitions = Interval::merge(&mut partitions);
         let after = partitions.len();
 
         // Report if there were overlapping partitions
@@ -36,20 +36,20 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
         }
 
         // Build the partitions index
-        let mut prtindex = Bits::new(partitions.iter().cloned().enumerate());
+        let prtindex = Bits::new(partitions.iter().cloned().enumerate());
 
         // Map elements to partitions per orientation
         let mut elements_per_partition =
             vec![HashMap::<usize, PerOrientation<Vec<_>>>::default(); partitions.len()];
         for (orientation, candidates) in candidates.into_iter() {
             for (elind, mut segments) in candidates {
-                for segment in Segment::merge(&mut segments) {
+                for segment in Interval::merge(&mut segments) {
                     for (_, prtind) in prtindex.query(segment.start(), segment.end()) {
                         elements_per_partition[*prtind]
                             .entry(elind)
                             .or_default()
                             .get_mut(orientation)
-                            .push(segment.clone());
+                            .push(segment);
                     }
                 }
             }

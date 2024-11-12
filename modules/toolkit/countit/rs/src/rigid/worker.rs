@@ -1,17 +1,14 @@
+use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 pub use eyre::Result;
-use ::higher_kinded_types::prelude::*;
 use std::collections::hash_map::Entry;
 
 use crate::result::{PartitionMetrics, ResolutionOutcomes};
 use crate::rigid::{resolution, Partition};
-use crate::Counts;
-use biobit_collections_rs::interval_tree::overlap;
-use biobit_collections_rs::interval_tree::ITree;
-use biobit_core_rs::loc::Orientation;
+use biobit_collections_rs::interval_tree::{overlap, ITree};
 use biobit_core_rs::{
-    loc::{AsLocus, AsSegment, Contig},
+    loc::{Contig, IntervalOp},
     num::{Float, PrimInt},
     source::{AnyMap, Source},
     LendingIterator,
@@ -123,8 +120,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
         {
             let mut iterator = source.fetch((
                 partition.contig(),
-                partition.segment().start(),
-                partition.segment().end(),
+                partition.interval().start(),
+                partition.interval().end(),
             ))?;
 
             // Get the cache and initialize it if needed
@@ -142,7 +139,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 for ((segments, orientation, _), overlap) in
                     blocks.iter().zip(self.overlaps.iter_mut())
                 {
-                    overlap.clear();                                // Clear the previous overlap
+                    overlap.clear(); // Clear the previous overlap
                     partition
                         .index()
                         .get(orientation)
@@ -161,7 +158,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
             // Save the statistics
             counts.stats = PartitionMetrics {
                 contig: partition.contig().clone(),
-                segment: partition.segment().as_segment(),
+                interval: partition.interval().as_interval(),
                 time_s: launched_at.elapsed().as_secs_f64(),
                 outcomes,
             };
@@ -170,6 +167,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
         Ok(())
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn aggregate<'a>(
         sources: usize,
         elements: usize,

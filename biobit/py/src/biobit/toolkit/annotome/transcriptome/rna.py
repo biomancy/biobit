@@ -1,6 +1,6 @@
 from attr import define, field
 
-from biobit.core.loc import Segment, Strand
+from biobit.core.loc import Interval, Strand
 from .core import Location, Bundle, Entry
 
 
@@ -11,13 +11,13 @@ class RNA[Attrs](Entry[Attrs]):
     attrs: Attrs
 
     gene: str
-    exons: tuple[Segment, ...] = field(converter=lambda x: tuple(x))
+    exons: tuple[Interval, ...] = field(converter=lambda x: tuple(x))
 
     @property
-    def introns(self) -> tuple[Segment, ...]:
+    def introns(self) -> tuple[Interval, ...]:
         introns = []
         for i in range(1, len(self.exons)):
-            introns.append(Segment(self.exons[i - 1].end, self.exons[i].start))
+            introns.append(Interval(self.exons[i - 1].end, self.exons[i].start))
         return tuple(introns)
 
     @property

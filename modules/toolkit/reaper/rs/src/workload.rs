@@ -22,11 +22,17 @@ pub struct Workload<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     pub regions: Vec<(Ctg, Idx, Idx, Config<Idx, Cnts>)>,
 }
 
-impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Workload<Ctg, Idx, Cnts> {
-    pub fn new() -> Self {
+impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Default for Workload<Ctg, Idx, Cnts> {
+    fn default() -> Self {
         Self {
             regions: Vec::new(),
         }
+    }
+}
+
+impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Workload<Ctg, Idx, Cnts> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn add_region(

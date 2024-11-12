@@ -92,7 +92,7 @@ fn main() {
 
     // Sources
     for (name, paths) in SOURCES {
-        for path in paths.into_iter() {
+        for path in *paths {
             let source = ReaderBuilder::new(path)
                 .with_inflags(2)
                 .with_exflags(2572)
@@ -174,12 +174,17 @@ fn main() {
             println!(
                 "\tRegion: {}:{}[{}]",
                 region.contig(),
-                region.segment(),
+                region.interval(),
                 region.orientation()
             );
 
             for peak in region.filtered_peaks() {
-                println!("\t\t{} {} {}", peak.segment(), peak.signal(), peak.summit())
+                println!(
+                    "\t\t{} {} {}",
+                    peak.interval(),
+                    peak.signal(),
+                    peak.summit()
+                )
             }
         }
         println!()

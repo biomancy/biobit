@@ -6,7 +6,7 @@ use biobit_repeto_rs::predict::Score;
 pub use biobit_repeto_rs::predict::Scoring;
 
 #[pyclass(eq, ord, name = "Scoring")]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
 pub struct PyScoring {
     rs: Scoring<i32>,
 }
@@ -15,9 +15,7 @@ pub struct PyScoring {
 impl PyScoring {
     #[new]
     pub fn new() -> Self {
-        PyScoring {
-            rs: Scoring::default(),
-        }
+        Self::default()
     }
 
     #[getter]

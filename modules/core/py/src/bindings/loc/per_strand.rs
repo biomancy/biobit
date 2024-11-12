@@ -78,7 +78,7 @@ impl PyPerStrand {
             ],
         );
 
-        Ok(slf.rich_compare(other, op)?.extract()?)
+        slf.rich_compare(other, op)?.extract()
     }
 
     pub fn __getnewargs__(&self) -> (PyObject, PyObject) {

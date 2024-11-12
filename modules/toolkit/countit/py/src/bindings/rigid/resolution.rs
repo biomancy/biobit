@@ -1,5 +1,4 @@
 use biobit_core_py::fallible_py_runtime::FallibleBound;
-use biobit_core_py::loc::{IntoPySegment, PySegment};
 pub use biobit_countit_rs::rigid::resolution::{
     AnyOverlap, OverlapWeighted, Resolution, TopRanked,
 };
@@ -7,33 +6,32 @@ use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PySequence;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 #[pyclass(name = "AnyOverlap")]
 #[repr(transparent)]
-#[derive(Dissolve, From, Into)]
+#[derive(Default, Dissolve, From, Into)]
 pub struct PyAnyOverlap(pub AnyOverlap);
 
 #[pymethods]
 impl PyAnyOverlap {
     #[new]
     pub fn new() -> Self {
-        AnyOverlap::new().into()
+        Self::default()
     }
 }
 
 #[pyclass(name = "OverlapWeighted")]
 #[repr(transparent)]
-#[derive(Dissolve, From, Into)]
+#[derive(Default, Dissolve, From, Into)]
 pub struct PyOverlapWeighted(pub OverlapWeighted<usize>);
 
 #[pymethods]
 impl PyOverlapWeighted {
     #[new]
     pub fn new() -> Self {
-        OverlapWeighted::new().into()
+        Self::default()
     }
 }
 

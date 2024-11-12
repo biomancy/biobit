@@ -5,25 +5,25 @@ use derive_more::{From, Into};
 use eyre::Result;
 use itertools::{chain, Itertools};
 
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Getters, Dissolve)]
 pub struct InvSegment<Idx: PrimInt> {
-    left: Segment<Idx>,
-    right: Segment<Idx>,
+    left: Interval<Idx>,
+    right: Interval<Idx>,
 }
 
 impl<Idx: PrimInt> InvSegment<Idx> {
-    pub fn new(left: Segment<Idx>, right: Segment<Idx>) -> Result<Self> {
+    pub fn new(left: Interval<Idx>, right: Interval<Idx>) -> Result<Self> {
         if left.len() != right.len() {
             return Err(eyre::eyre!(
-                "Repeat segments' length must be equal: {left:?} vs {right:?}"
+                "Repeat intervals' length must be equal: {left:?} vs {right:?}"
             ));
         }
         if left.intersects(&right) {
             return Err(eyre::eyre!(
-                "Repeat segments must not overlap: {left:?} vs {right:?}"
+                "Repeat intervals must not overlap: {left:?} vs {right:?}"
             ));
         }
 
@@ -38,8 +38,8 @@ impl<Idx: PrimInt> InvSegment<Idx> {
         self.left().len().shl(1) // = len * 2
     }
 
-    pub fn brange(&self) -> Segment<Idx> {
-        Segment::new(self.left().start(), self.right().end()).unwrap()
+    pub fn brange(&self) -> Interval<Idx> {
+        Interval::new(self.left().start(), self.right().end()).unwrap()
     }
 
     pub fn len(&self) -> Idx {
@@ -70,21 +70,21 @@ pub struct InvRepeat<Idx: PrimInt> {
 }
 
 impl<Idx: PrimInt> InvRepeat<Idx> {
-    pub fn new(segments: Vec<InvSegment<Idx>>) -> Result<Self> {
-        if segments.is_empty() {
+    pub fn new(intervals: Vec<InvSegment<Idx>>) -> Result<Self> {
+        if intervals.is_empty() {
             return Err(eyre::eyre!(
                 "Inverted repeat must have at least one segment"
             ));
         }
 
-        for (prev, nxt) in segments.iter().tuple_windows() {
+        for (prev, nxt) in intervals.iter().tuple_windows() {
             if prev.left.end() > nxt.left.start() || prev.right.start() < nxt.right.end() {
                 return Err(eyre::eyre!(
-                    "Segments must be ordered from outer to inner and must not overlap: {prev:?} vs {nxt:?}"
+                    "Intervals must be ordered from outer to inner and must not overlap: {prev:?} vs {nxt:?}"
                 ));
             }
         }
-        Ok(Self { segments })
+        Ok(Self { segments: intervals })
     }
 
     pub fn seqlen(&self) -> Idx {
@@ -97,23 +97,23 @@ impl<Idx: PrimInt> InvRepeat<Idx> {
         self.segments().last().unwrap().inner_gap()
     }
 
-    pub fn left_brange(&self) -> Segment<Idx> {
-        Segment::new(
+    pub fn left_brange(&self) -> Interval<Idx> {
+        Interval::new(
             self.segments()[0].left().start(),
             self.segments().last().unwrap().left().end(),
         )
         .unwrap()
     }
 
-    pub fn right_brange(&self) -> Segment<Idx> {
-        Segment::new(
+    pub fn right_brange(&self) -> Interval<Idx> {
+        Interval::new(
             self.segments().last().unwrap().right().start(),
             self.segments()[0].right().end(),
         )
         .unwrap()
     }
 
-    pub fn brange(&self) -> Segment<Idx> {
+    pub fn brange(&self) -> Interval<Idx> {
         self.segments()[0].brange()
     }
 
@@ -123,7 +123,7 @@ impl<Idx: PrimInt> InvRepeat<Idx> {
         }
     }
 
-    pub fn seqranges(&self) -> impl Iterator<Item = &'_ Segment<Idx>> {
+    pub fn seqranges(&self) -> impl Iterator<Item = &'_ Interval<Idx>> {
         chain(
             self.segments.iter().map(|x| x.left()),
             self.segments.iter().rev().map(|x| x.right()),

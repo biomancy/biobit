@@ -1,6 +1,6 @@
-use pyo3::{Bound, PyAny, PyResult, PyTypeInfo, wrap_pyfunction};
 use pyo3::prelude::*;
 use pyo3::prelude::{PyAnyMethods, PyModule, PyModuleMethods};
+use pyo3::{wrap_pyfunction, Bound, PyAny, PyResult, PyTypeInfo};
 
 use biobit_repeto_rs::predict as rs;
 pub use filtering::PyFilter;

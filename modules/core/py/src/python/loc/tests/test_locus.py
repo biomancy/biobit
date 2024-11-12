@@ -2,7 +2,7 @@ import pickle
 
 import pytest
 
-from biobit.core.loc import Locus, Segment, Orientation
+from biobit.core.loc import Locus, Interval, Orientation
 
 
 def test_locus_new():
@@ -12,8 +12,8 @@ def test_locus_new():
         locus = Locus(contig, (start, end), orientation)
         assert locus.contig == contig
         assert locus.len() == end - start
-        assert locus.segment == (start, end)
-        assert locus.segment == Segment(start, end)
+        assert locus.interval == (start, end)
+        assert locus.interval == Interval(start, end)
         assert locus.orientation == orientation
         assert locus.orientation == Orientation(orientation)
 
@@ -25,7 +25,7 @@ def test_locus_new():
 
 
 # def test_locus_fields():
-#     segment = Segment(1, 123)
+#     segment = Interval(1, 123)
 #     locus = Locus("1", segment, "+")
 #     assert locus.segment is segment
 #
@@ -44,11 +44,11 @@ def test_locus_flip():
 
     flipped = locus.flipped()
     assert flipped is not locus and flipped.orientation == "+"
-    assert flipped.orientation is not locus.orientation and flipped.segment is not locus.segment
+    assert flipped.orientation is not locus.orientation and flipped.interval is not locus.interval
 
     flipped.orientation = "-"
     assert flipped is not locus and flipped.orientation == "-"
-    assert flipped.orientation is not locus.orientation and flipped.segment is not locus.segment
+    assert flipped.orientation is not locus.orientation and flipped.interval is not locus.interval
 
 
 # def test_locus_contains():

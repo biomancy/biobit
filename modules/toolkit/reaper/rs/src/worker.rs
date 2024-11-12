@@ -1,12 +1,12 @@
+use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
 use eyre::Report;
 pub use eyre::Result;
-use ::higher_kinded_types::prelude::*;
 
 use biobit_collections_rs::rle_vec;
-use biobit_core_rs::loc::{PerOrientation, Segment};
+use biobit_core_rs::loc::{Interval, PerOrientation};
 use biobit_core_rs::source::Source;
 use biobit_core_rs::{
     loc::Contig,
@@ -33,6 +33,7 @@ impl<Cnts: Float> rle_vec::Identical<Cnts> for RleIdentical<Cnts> {
 #[derive(Debug, Default, Dissolve)]
 pub struct Worker<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     // (Comparison ID, Query ID) -> pcalling results
+    #[allow(clippy::type_complexity)]
     comparisons: HashMap<(usize, usize), Vec<HarvestRegion<Ctg, Idx, Cnts>>>,
     // Internal caches
     rle_cache: Vec<PerOrientation<rle_vec::RleVec<Cnts, u32, RleIdentical<Cnts>>>>,
@@ -80,7 +81,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
         // 1. Calculate pileup for the signal & control sources
         let (ccnts, control, mut cntcov) = config.model.model_control(
-            query.clone(),
+            query,
             control,
             &mut self.sources_cache,
             self.cnts_cache.pop().unwrap_or_default(),
@@ -124,7 +125,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 sigcnts.get(orientation),
                 ccnts.get(orientation),
                 &config.cmp.scaling,
-                config.model.sensitivity().clone()
+                *config.model.sensitivity(),
             )?;
 
             *peaks.get_mut(orientation) = _peaks;
@@ -140,7 +141,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         self.cnts_cache.push(sigcnts);
 
         // 4. Save results
-        let segment = Segment::new(query.1, query.2)?;
+        let interval = Interval::new(query.1, query.2)?;
         let mut harvest = Vec::with_capacity(3);
         for (orientation, model) in modeled.into_iter() {
             // Completely ignore regions without any signal model
@@ -151,7 +152,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             harvest.push(HarvestRegion::new(
                 query.0.clone(),
                 orientation,
-                segment.clone(),
+                interval,
                 std::mem::take(sigcov.get_mut(orientation)),
                 std::mem::take(cntcov.get_mut(orientation)),
                 model,

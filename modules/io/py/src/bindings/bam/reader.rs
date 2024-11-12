@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
-use pyo3::{exceptions::PyValueError, prelude::*};
 use pyo3::types::PyString;
+use pyo3::{exceptions::PyValueError, prelude::*};
 
 use biobit_io_rs::bam::{Reader, ReaderBuilder};
 

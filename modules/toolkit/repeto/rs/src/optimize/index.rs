@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use itertools::Itertools;
 
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
 use super::InvRepeat;
@@ -22,7 +22,7 @@ pub struct Index<Idx: PrimInt> {
     revend: Vec<usize>,
 
     // InvertedRepeat blocks in each InvertedRepeat
-    blocks: Vec<Vec<Segment<Idx>>>,
+    blocks: Vec<Vec<Interval<Idx>>>,
 }
 
 impl<Idx: PrimInt> Index<Idx> {
@@ -67,7 +67,7 @@ impl<Idx: PrimInt> Index<Idx> {
         (self.revstart[rnaid], self.revend[rnaid])
     }
 
-    pub fn blocks(&self, rnaid: usize) -> &[Segment<Idx>] {
+    pub fn blocks(&self, rnaid: usize) -> &[Interval<Idx>] {
         &self.blocks[rnaid]
     }
 

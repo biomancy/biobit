@@ -4,7 +4,7 @@ use eyre::{eyre, Result};
 
 use biobit_core_rs::num::PrimInt;
 
-use super::repeats::{InvRepeat};
+use super::repeats::InvRepeat;
 
 mod dynprog;
 mod index;
@@ -36,9 +36,9 @@ mod tests {
 
     use itertools::Itertools;
 
-    use biobit_core_rs::loc::AsSegment;
-    use crate::repeats::InvSegment;
     use super::*;
+    use crate::repeats::InvSegment;
+    use biobit_core_rs::loc::IntervalOp;
 
     pub type Score = i32;
 
@@ -57,9 +57,7 @@ mod tests {
             scores.push(score);
             let segments = segments
                 .into_iter()
-                .map(|x| {
-                    InvSegment::new(x.0.try_into().unwrap(), x.1.try_into().unwrap()).unwrap()
-                })
+                .map(|x| InvSegment::new(x.0.try_into().unwrap(), x.1.try_into().unwrap()).unwrap())
                 .collect();
             transformed.push(InvRepeat::new(segments).unwrap());
         }

@@ -1,6 +1,6 @@
 from attr import define, field
 
-from biobit.core.loc import Segment
+from biobit.core.loc import Interval
 from .core import Location, Bundle, Entry
 
 
@@ -10,7 +10,7 @@ class CDS[Attrs](Entry[Attrs]):
     loc: Location
     attrs: Attrs
 
-    blocks: tuple[Segment, ...] = field(converter=lambda x: tuple(x))
+    blocks: tuple[Interval, ...] = field(converter=lambda x: tuple(x))
 
 
 class CDSBundle[Attrs](Bundle[CDS[Attrs]]):

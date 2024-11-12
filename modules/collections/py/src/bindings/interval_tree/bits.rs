@@ -1,27 +1,27 @@
 use crate::interval_tree::overlap;
 pub use biobit_collections_rs::interval_tree::{Bits, BitsBuilder};
 use biobit_collections_rs::interval_tree::{Builder, ITree};
-use biobit_core_py::loc::IntoPySegment;
+use biobit_core_py::loc::IntoPyInterval;
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use pyo3::prelude::*;
 
 #[pyclass(name = "BitsBuilder")]
 #[repr(transparent)]
-#[derive(Dissolve, From, Into)]
+#[derive(Default, Dissolve, From, Into)]
 pub struct PyBitsBuilder(pub BitsBuilder<i64, PyObject>);
 
 #[pymethods]
 impl PyBitsBuilder {
     #[new]
     pub fn new() -> Self {
-        Self(BitsBuilder::default())
+        Self::default()
     }
 
     pub fn add<'py>(
         mut slf: PyRefMut<'py, Self>,
         py: Python<'py>,
-        data: Vec<(IntoPySegment, PyObject)>,
+        data: Vec<(IntoPyInterval, PyObject)>,
     ) -> PyRefMut<'py, Self> {
         let mut builder = std::mem::take(&mut slf.0);
         for (interval, element) in data {
@@ -34,7 +34,7 @@ impl PyBitsBuilder {
     pub fn addi<'py>(
         mut slf: PyRefMut<'py, Self>,
         py: Python<'py>,
-        interval: IntoPySegment,
+        interval: IntoPyInterval,
         element: PyObject,
     ) -> PyRefMut<'py, Self> {
         slf.0 = std::mem::take(&mut slf.0).addi(&interval.0.bind(py).borrow().rs, element);
@@ -61,7 +61,7 @@ impl PyBits {
     pub fn overlap<'py>(
         &self,
         py: Python<'py>,
-        intervals: Vec<IntoPySegment>,
+        intervals: Vec<IntoPyInterval>,
         mut buffer: PyRefMut<'py, overlap::PyElements>,
     ) -> PyRefMut<'py, overlap::PyElements> {
         let intervals = intervals

@@ -1,4 +1,4 @@
-from biobit.core.loc import IntoSegment
+from biobit.core.loc import IntoInterval
 
 
 class Filter:
@@ -12,7 +12,7 @@ class Filter:
         """
         pass
 
-    def set_rois(self, rois: list[IntoSegment]) -> Filter:
+    def set_rois(self, rois: list[IntoInterval]) -> Filter:
         """
         Filter predicted inverted repeats relative the given set of regions of interest (ROIs).
         """

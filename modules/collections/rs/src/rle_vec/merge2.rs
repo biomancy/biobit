@@ -143,7 +143,7 @@ where
     let mut first = first.runs();
     let (mut first_val, first_end) = match first.next() {
         None => {
-            append_to.extend(second.runs().map(|(v, l)| (merge.single(v), l.clone())));
+            append_to.extend(second.runs().map(|(v, l)| (merge.single(v), *l)));
             return Ok(append_to);
         }
         Some(x) => x,
@@ -154,7 +154,7 @@ where
     let (mut second_val, second_end) = match second.next() {
         None => {
             append_to.push(merge.single(first_val), L::from(first_end).unwrap());
-            append_to.extend(first.map(|(v, l)| (merge.single(v), l.clone())));
+            append_to.extend(first.map(|(v, l)| (merge.single(v), *l)));
             return Ok(append_to);
         }
         Some(x) => x,
@@ -163,7 +163,7 @@ where
 
     let mut current_end: u64 = 0;
     let mut current_length = L::zero();
-    let mut current_value = merge.two(&first_val, &second_val);
+    let mut current_value = merge.two(first_val, second_val);
 
     let mut first_iter_running = true;
     let mut second_iter_running = true;
@@ -173,7 +173,7 @@ where
         let new_end = first_end.min(second_end);
 
         // Next value is a transform of current values
-        let new_value = merge.two(&first_val, &second_val);
+        let new_value = merge.two(first_val, second_val);
 
         let length = L::from(new_end - current_end)
             .ok_or_else(|| eyre!("Length can't fit in {:?}", L::max_value()))?;
@@ -197,7 +197,7 @@ where
                 None => first_iter_running = false,
                 Some((v, l)) => {
                     first_val = v;
-                    first_end = first_end + l.to_u64().unwrap();
+                    first_end += l.to_u64().unwrap();
                 }
             }
         }
@@ -206,7 +206,7 @@ where
                 None => second_iter_running = false,
                 Some((v, l)) => {
                     second_val = v;
-                    second_end = second_end + l.to_u64().unwrap();
+                    second_end += l.to_u64().unwrap();
                 }
             }
         }
@@ -226,7 +226,7 @@ where
     // Consume cached iteration
     debug_assert!(end > current_end);
 
-    let new_value = merge.single(&val);
+    let new_value = merge.single(val);
     let length = L::from(end - current_end)
         .ok_or_else(|| eyre!("Length can't fit in {:?}", L::max_value()))?;
 
@@ -241,10 +241,10 @@ where
 
     // Consume the rest of the iterator
     for (val, length) in iter {
-        let val = merge.single(&val);
+        let val = merge.single(val);
 
         if append_to.identical(&current_value, &val) {
-            current_length = current_length.checked_add(&length).unwrap();
+            current_length = current_length.checked_add(length).unwrap();
         } else {
             append_to.push(current_value, current_length);
 

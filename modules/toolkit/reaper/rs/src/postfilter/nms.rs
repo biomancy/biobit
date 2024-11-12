@@ -1,7 +1,7 @@
 use derive_getters::{Dissolve, Getters};
 use eyre::Result;
 
-use biobit_core_rs::loc::{AsSegment, Orientation, PerOrientation};
+use biobit_core_rs::loc::{IntervalOp, Orientation, PerOrientation};
 use biobit_core_rs::num::{Float, PrimInt};
 
 use crate::cmp::Scaling;
@@ -18,8 +18,8 @@ pub struct NMS<Idx, Cnts> {
     boundaries: PerOrientation<Vec<Idx>>,
 }
 
-impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
-    pub fn new() -> Self {
+impl<Idx: PrimInt, Cnts: Float> Default for NMS<Idx, Cnts> {
+    fn default() -> Self {
         NMS {
             fecutoff: Cnts::one(),
             group_within: Idx::zero(),
@@ -27,6 +27,12 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             sloplim: (Idx::min_value(), Idx::max_value()),
             boundaries: PerOrientation::default(),
         }
+    }
+}
+
+impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn set_fecutoff(&mut self, fecutoff: Cnts) -> Result<&mut Self> {
@@ -100,7 +106,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         if peaks.is_empty() {
             return Ok(Vec::new());
         }
-        peaks.sort_by_key(|x| x.segment().start());
+        peaks.sort_by_key(|x| x.interval().start());
 
         // Group peaks within X bases
         let mut groups = vec![];
@@ -110,9 +116,9 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         let mut cache = vec![];
 
         for p in peaks_iter {
-            debug_assert!(p.segment().start() > last.segment().end());
+            debug_assert!(p.interval().start() > last.interval().end());
 
-            if p.segment().start() - last.segment().end() > self.group_within {
+            if p.interval().start() - last.interval().end() > self.group_within {
                 cache.push(last);
                 groups.push(cache);
 
@@ -131,13 +137,13 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         for group in groups.into_iter() {
             // Group limits
             let (start, end) = (
-                group.first().unwrap().segment().start(),
-                group.last().unwrap().segment().end(),
+                group.first().unwrap().interval().start(),
+                group.last().unwrap().interval().end(),
             );
 
             // Slop size
             let slop = Idx::from((end - start).to_f32().unwrap() * self.slopfrac)
-                .and_then(|x| Some(x.clamp(self.sloplim.0, self.sloplim.1)))
+                .map(|x| x.clamp(self.sloplim.0, self.sloplim.1))
                 .unwrap_or(self.sloplim.1);
 
             // Coordinates of the slopped region
@@ -155,8 +161,6 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             );
 
             // Calculate the mean signal in the slopped region
-            let sensitivity = sensitivity;
-
             let mut covered = 0;
             let total: f64 = (slop_start..slop_end)
                 .filter_map(|x| {
@@ -186,8 +190,8 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             };
 
             for peak in group {
-                let start = peak.segment().start().to_usize().unwrap();
-                let end = peak.segment().end().to_usize().unwrap();
+                let start = peak.interval().start().to_usize().unwrap();
+                let end = peak.interval().end().to_usize().unwrap();
 
                 let iterator = (start..end).map(|ind| {
                     (

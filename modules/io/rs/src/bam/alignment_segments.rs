@@ -1,10 +1,10 @@
-use biobit_core_rs::loc::Segment;
+use biobit_core_rs::loc::Interval;
 use biobit_core_rs::num::PrimInt;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct AlignmentSegments<Idx: PrimInt> {
     /// Ranges of the alignment segments [start, end), many segments correspond to a single alignment
-    segments: Vec<Segment<Idx>>,
+    segments: Vec<Interval<Idx>>,
     /// Each i-th alignment corresponds to segments[alignments[i]..alignments[i + 1]]
     alignments: Vec<usize>,
 }
@@ -27,14 +27,14 @@ impl<Idx: PrimInt> AlignmentSegments<Idx> {
     }
 
     pub fn len(&self) -> usize {
-        return if self.alignments.is_empty() {
+        if self.alignments.is_empty() {
             0
         } else {
             self.alignments.len() - 1
-        };
+        }
     }
 
-    pub fn push(&mut self, segments: &[Segment<Idx>]) {
+    pub fn push(&mut self, segments: &[Interval<Idx>]) {
         if segments.is_empty() {
             return;
         }
@@ -46,13 +46,11 @@ impl<Idx: PrimInt> AlignmentSegments<Idx> {
         self.alignments.push(self.segments.len());
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &'_ [Segment<Idx>]> {
-        (0..self.len())
-            .into_iter()
-            .map(move |i| &self.segments[self.alignments[i]..self.alignments[i + 1]])
+    pub fn iter(&self) -> impl Iterator<Item = &'_ [Interval<Idx>]> {
+        (0..self.len()).map(move |i| &self.segments[self.alignments[i]..self.alignments[i + 1]])
     }
 
-    pub fn at(&self, i: usize) -> &[Segment<Idx>] {
+    pub fn at(&self, i: usize) -> &[Interval<Idx>] {
         &self.segments[self.alignments[i]..self.alignments[i + 1]]
     }
 }

@@ -6,13 +6,13 @@ use biobit_collections_rs::rle_vec;
 use biobit_collections_rs::rle_vec::{Identical, RleVec};
 use biobit_core_rs::num::{Float, PrimInt, PrimUInt};
 
-#[derive(Clone, PartialEq, Debug, Constructor, Dissolve)]
+#[derive(Clone, PartialEq, Default, Debug, Constructor, Dissolve)]
 pub struct Scaling<Cnts: Float> {
     pub signal: Cnts,
     pub control: Cnts,
 }
 
-#[derive(Clone, PartialEq, Debug, Dissolve)]
+#[derive(Clone, PartialEq, Debug, Default, Dissolve)]
 pub struct Enrichment<Cnts: Float> {
     // Scaling is left here intentionally.
     // In the future I might want to do per-step ops with a higher precision and then
@@ -22,9 +22,7 @@ pub struct Enrichment<Cnts: Float> {
 
 impl<Cnts: Float> Enrichment<Cnts> {
     pub fn new() -> Self {
-        Enrichment {
-            scaling: Scaling::new(Cnts::one(), Cnts::one()),
-        }
+        Enrichment::default()
     }
 
     pub fn set_scaling(&mut self, signal: Cnts, control: Cnts) -> &mut Self {
@@ -45,7 +43,7 @@ impl<Cnts: Float> Enrichment<Cnts> {
                 |_| unreachable!("This should never be called"),
                 move |&signal, &control| {
                     if signal == Cnts::zero() {
-                        return signal;
+                        signal
                     } else {
                         (signal * self.scaling.signal) / (control * self.scaling.control)
                     }

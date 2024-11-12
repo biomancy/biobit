@@ -1,4 +1,4 @@
-use biobit_core_py::loc::{AsSegment, PySegment};
+use biobit_core_py::loc::{IntervalOp, PyInterval};
 pub use biobit_countit_rs::{Counts, PartitionMetrics, ResolutionOutcomes};
 use derive_more::{From, Into};
 use pyo3::prelude::*;
@@ -32,16 +32,16 @@ impl IntoPy<PyResolutionOutcome> for ResolutionOutcomes<f64> {
 #[derive(Clone, Debug, From, Into)]
 pub struct PyPartitionMetrics {
     contig: String,
-    segment: Py<PySegment>,
+    interval: Py<PyInterval>,
     time_s: f64,
     outcomes: Py<PyResolutionOutcome>,
 }
 
 impl IntoPy<PyPartitionMetrics> for PartitionMetrics<String, usize, f64> {
     fn into_py(self, py: Python<'_>) -> PyPartitionMetrics {
-        let (contig, segment, time_s, alignments) = self.into();
-        let segment: PySegment = PySegment::new(segment.start() as i64, segment.end() as i64)
-            .expect("Failed to convert segment");
+        let (contig, interval, time_s, alignments) = self.into();
+        let interval: PyInterval = PyInterval::new(interval.start() as i64, interval.end() as i64)
+            .expect("Failed to convert interval");
         let alignments: PyResolutionOutcome = PyResolutionOutcome {
             resolved: alignments.resolved,
             discarded: alignments.discarded,
@@ -49,7 +49,7 @@ impl IntoPy<PyPartitionMetrics> for PartitionMetrics<String, usize, f64> {
 
         PyPartitionMetrics {
             contig,
-            segment: Py::new(py, segment).expect("Failed to convert segment"),
+            interval: Py::new(py, interval).expect("Failed to convert interval"),
             time_s,
             outcomes: Py::new(py, alignments).expect("Failed to convert AlignmentsSummary"),
         }
@@ -62,7 +62,7 @@ impl PyPartitionMetrics {
         let mut hasher = DefaultHasher::new();
 
         self.contig.hash(&mut hasher);
-        self.segment.borrow(py).rs.hash(&mut hasher);
+        self.interval.borrow(py).rs.hash(&mut hasher);
         self.time_s.to_bits().hash(&mut hasher);
         self.outcomes.borrow(py).hash(&mut hasher);
         hasher.finish()
@@ -70,7 +70,7 @@ impl PyPartitionMetrics {
 
     pub fn __eq__(&self, py: Python, other: &PyPartitionMetrics) -> bool {
         self.contig == other.contig
-            && *self.segment.borrow(py) == *other.segment.borrow(py)
+            && *self.interval.borrow(py) == *other.interval.borrow(py)
             && self.time_s == other.time_s
             && *self.outcomes.borrow(py) == *other.outcomes.borrow(py)
     }

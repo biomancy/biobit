@@ -1,5 +1,5 @@
-use pyo3::{Bound, PyAny, PyResult};
 use pyo3::prelude::{PyAnyMethods, PyModule, PyModuleMethods};
+use pyo3::{Bound, PyAny, PyResult};
 
 pub mod optimize;
 pub mod predict;

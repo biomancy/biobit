@@ -86,10 +86,10 @@ impl PyWorkload {
     }
 }
 
-impl Into<Workload<String, usize, f32>> for PyWorkload {
-    fn into(self) -> Workload<String, usize, f32> {
+impl From<PyWorkload> for Workload<String, usize, f32> {
+    fn from(val: PyWorkload) -> Self {
         let mut workload = Workload::new();
-        workload.regions = self
+        workload.regions = val
             .regions
             .into_iter()
             .map(|(contig, start, end, config)| {

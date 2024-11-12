@@ -230,7 +230,7 @@ where
             let val = merge.single(val);
 
             if append_to.identical(&current_value, &val) {
-                current_length = current_length.checked_add(&length).unwrap();
+                current_length = current_length.checked_add(length).unwrap();
             } else {
                 append_to.push(current_value, current_length);
 

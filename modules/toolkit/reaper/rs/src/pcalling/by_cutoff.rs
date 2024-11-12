@@ -12,13 +12,19 @@ pub struct ByCutoff<Idx, Cnts> {
     pub cutoff: Cnts,
 }
 
-impl<Idx: PrimInt, Cnts: Float> ByCutoff<Idx, Cnts> {
-    pub fn new() -> Self {
-        ByCutoff {
+impl<Idx: PrimInt, Cnts: Float> Default for ByCutoff<Idx, Cnts> {
+    fn default() -> Self {
+        Self {
             min_length: Idx::zero(),
             merge_within: Idx::zero(),
             cutoff: Cnts::zero(),
         }
+    }
+}
+
+impl<Idx: PrimInt, Cnts: Float> ByCutoff<Idx, Cnts> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn set_min_length(&mut self, min_length: Idx) -> &mut Self {
@@ -68,7 +74,7 @@ impl<Idx: PrimInt, Cnts: Float> ByCutoff<Idx, Cnts> {
                         if peak.1 - peak.0 > self.min_length {
                             saveto.push(Peak::new(peak.0, peak.1, peak.2, peak.3).unwrap());
                         }
-                        Some((start, end, val.clone(), (start + end) / div))
+                        Some((start, end, val, (start + end) / div))
                     }
                 }
             };
@@ -90,7 +96,7 @@ impl<Idx: PrimInt, Cnts: Float> ByCutoff<Idx, Cnts> {
             let start = cursor;
             let end = start + Idx::from(*length).unwrap();
             cursor = end;
-            (start, end, val.clone())
+            (start, end, *val)
         });
 
         let mut result = Vec::new();

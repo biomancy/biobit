@@ -5,11 +5,11 @@ use eyre::{eyre, Result};
 use higher_kinded_types::prelude::*;
 use rayon::ThreadPool;
 
+use biobit_core_rs::source::Source;
 use biobit_core_rs::{
     loc::Contig,
     num::{Float, PrimInt, PrimUInt},
 };
-use biobit_core_rs::source::Source;
 use biobit_io_rs::bam::SegmentedAlignment;
 
 use crate::workload::Workload;

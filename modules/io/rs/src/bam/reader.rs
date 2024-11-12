@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -6,10 +7,10 @@ use ::higher_kinded_types::prelude::*;
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
 use eyre::Result;
-use noodles::{bam, bgzf, sam};
-use noodles::core::{Position, Region};
 use noodles::core::region::Interval;
+use noodles::core::{Position, Region};
 use noodles::csi::BinningIndex;
+use noodles::{bam, bgzf, sam};
 
 use biobit_core_rs::source::{AnyMap, Core, Source};
 
@@ -87,6 +88,7 @@ impl Core for Reader {
 impl Source for Reader {
     type Iter = For!(<'borrow> = Query<'borrow, bgzf::reader::Reader<File>>);
 
+    #[allow(clippy::needless_lifetimes)]
     fn fetch<'borrow, 'args>(
         &'borrow mut self,
         args: <<Self as Core>::Args as ForLt>::Of<'args>,
@@ -108,7 +110,7 @@ impl Source for Reader {
             .index
             .query(reference_sequence_id, region.interval())?;
 
-        let cache = self.cache.get_or_insert_with(|| Cache::default());
+        let cache = self.cache.get_or_insert_with(Cache::default);
 
         Ok(Query::new(
             self.inner.inner.get_mut(),

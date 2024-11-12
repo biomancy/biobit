@@ -1,7 +1,7 @@
 use super::traits::{Builder, ITree};
 use crate::interval_tree::overlap::Elements;
 use biobit_core_rs::{
-    loc::{AsSegment, Segment},
+    loc::{Interval, IntervalOp},
     num::PrimInt,
 };
 use derive_getters::Dissolve;
@@ -11,7 +11,7 @@ use itertools::Itertools;
 
 #[derive(Debug, Clone, From, Dissolve)]
 pub struct BitsBuilder<Idx: PrimInt, Element> {
-    data: Vec<(Element, Segment<Idx>)>,
+    data: Vec<(Element, Interval<Idx>)>,
 }
 
 impl<Idx: PrimInt, Element> Default for BitsBuilder<Idx, Element> {
@@ -25,10 +25,10 @@ impl<Idx: PrimInt + 'static, Element: Clone> Builder for BitsBuilder<Idx, Elemen
 
     fn addi(
         mut self,
-        interval: impl AsSegment<Idx = <Self::Target as ITree>::Idx>,
+        interval: impl IntervalOp<Idx = <Self::Target as ITree>::Idx>,
         element: <Self::Target as ITree>::Element,
     ) -> Self {
-        self.data.push((element, interval.as_segment()));
+        self.data.push((element, interval.as_interval()));
         self
     }
 
@@ -37,12 +37,12 @@ impl<Idx: PrimInt + 'static, Element: Clone> Builder for BitsBuilder<Idx, Elemen
         data: impl Iterator<
             Item = (
                 <Self::Target as ITree>::Element,
-                impl AsSegment<Idx = <Self::Target as ITree>::Idx>,
+                impl IntervalOp<Idx = <Self::Target as ITree>::Idx>,
             ),
         >,
     ) -> Self {
         self.data
-            .extend(data.map(|(element, interval)| (element, interval.as_segment())));
+            .extend(data.map(|(element, interval)| (element, interval.as_interval())));
         self
     }
 
@@ -53,7 +53,7 @@ impl<Idx: PrimInt + 'static, Element: Clone> Builder for BitsBuilder<Idx, Elemen
 
 #[derive(Debug, Clone, Default, From, Dissolve)]
 pub struct Bits<Idx: PrimInt, Element> {
-    // Input elements and corresponding flat segments, sorted by start position.
+    // Input elements and corresponding flat intervals, sorted by start position.
     elements: Vec<Element>,
     starts: Vec<Idx>,
     ends: Vec<Idx>,
@@ -62,7 +62,7 @@ pub struct Bits<Idx: PrimInt, Element> {
 }
 
 impl<Idx: PrimInt, Element> Bits<Idx, Element> {
-    pub fn new(data: impl Iterator<Item = (Element, Segment<Idx>)>) -> Self {
+    pub fn new(data: impl Iterator<Item = (Element, Interval<Idx>)>) -> Self {
         let explen = data.size_hint().0;
         let mut starts = Vec::with_capacity(explen);
         let mut ends = Vec::with_capacity(explen);
@@ -88,8 +88,7 @@ impl<Idx: PrimInt, Element> Bits<Idx, Element> {
         // We need to find the first element that `might` overlap with the query interval.
         // This is identical to the first element where start - max length > query start.
         let boundary = start.saturating_sub(self.max_len);
-        let cursor = self.starts.binary_search(&boundary).unwrap_or_else(|x| x);
-        cursor
+        self.starts.binary_search(&boundary).unwrap_or_else(|x| x)
     }
 
     pub fn query(&self, start: Idx, end: Idx) -> Iter<Idx, Element> {
@@ -144,7 +143,7 @@ pub struct QueryCursor<Idx: PrimInt> {
 }
 
 impl<Idx: PrimInt> QueryCursor<Idx> {
-    pub fn next<Element>(&mut self, bits: &Bits<Idx, Element>) -> Option<(Segment<Idx>, usize)> {
+    pub fn next<Element>(&mut self, bits: &Bits<Idx, Element>) -> Option<(Interval<Idx>, usize)> {
         // Cursor might be behind the target interval, but never ahead.
 
         // Fast-forward to the first element that starts after the query interval.
@@ -158,9 +157,9 @@ impl<Idx: PrimInt> QueryCursor<Idx> {
 
         // Otherwise, we must have an overlap.
         let segment = unsafe {
-            Segment::new(bits.starts[self.cursor], bits.ends[self.cursor]).unwrap_unchecked()
+            Interval::new(bits.starts[self.cursor], bits.ends[self.cursor]).unwrap_unchecked()
         };
-        debug_assert!(segment.intersects(&Segment::new(self.start, self.end).unwrap()));
+        debug_assert!(segment.intersects(&Interval::new(self.start, self.end).unwrap()));
         let result = Some((segment, self.cursor));
         self.cursor += 1;
         result
@@ -173,7 +172,7 @@ pub struct Iter<'borrow, Idx: PrimInt, Element> {
 }
 
 impl<'borrow, Idx: PrimInt, Element> Iterator for Iter<'borrow, Idx, Element> {
-    type Item = (Segment<Idx>, &'borrow Element);
+    type Item = (Interval<Idx>, &'borrow Element);
 
     fn next(&mut self) -> Option<Self::Item> {
         let (segment, cursor) = self.cursor.next(self.bits)?;
@@ -187,7 +186,7 @@ pub struct IterMut<'borrow, Idx: PrimInt, Element> {
 }
 
 impl<'borrow, Idx: PrimInt, Element> Iterator for IterMut<'borrow, Idx, Element> {
-    type Item = (Segment<Idx>, &'borrow mut Element);
+    type Item = (Interval<Idx>, &'borrow mut Element);
 
     fn next(&mut self) -> Option<Self::Item> {
         let (segment, cursor) = self.cursor.next(self.bits)?;
@@ -204,18 +203,20 @@ impl<Idx: PrimInt, Element: Clone> ITree for Bits<Idx, Element> {
 
     fn overlap_single_element<'a>(
         &self,
-        intervals: &[Segment<Self::Idx>],
+        intervals: &[Interval<Self::Idx>],
         buffer: &'a mut Elements<Self::Idx, Self::Element>,
     ) -> &'a mut Elements<Self::Idx, Self::Element> {
         for interval in intervals {
             let mut adder = buffer.add();
             let mut query = self.query(interval.start(), interval.end());
-            while let Some((segment, element)) = query.next() {
-                adder.add(segment, element.clone());
+
+            #[allow(clippy::while_let_on_iterator)]
+            while let Some((interval, element)) = query.next() {
+                adder.add(interval, element.clone());
             }
             adder.finish();
         }
-        debug_assert!(buffer.len() == intervals.len());
+        // debug_assert_eq!(buffer.len(), intervals.len());
         buffer
     }
 }

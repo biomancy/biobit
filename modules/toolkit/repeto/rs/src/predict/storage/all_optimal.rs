@@ -8,7 +8,7 @@ use biobit_alignment_rs::pairwise::{
     sw::algo::{BestOrientationTracer, GapTracer, Tracer},
     sw::storage::{AlignmentSeed, Storage},
 };
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 
 use super::alignment::{CandidatesTracker, MayBeLocallyOptimal};
 use super::filtering::SoftFilter;
@@ -17,12 +17,12 @@ use super::filtering::SoftFilter;
 // DOI: 10.1093/bioinformatics/9.6.729
 
 pub struct ROITracker {
-    intervals: Vec<Segment<usize>>,
+    intervals: Vec<Interval<usize>>,
     pointer: usize,
 }
 
 impl ROITracker {
-    pub fn new(mut intervals: Vec<Segment<usize>>) -> Self {
+    pub fn new(mut intervals: Vec<Interval<usize>>) -> Self {
         intervals.sort();
         Self {
             intervals,
@@ -79,7 +79,7 @@ pub struct AllOptimal<S: scoring::Score, F: SoftFilter<Score = S>> {
 }
 
 impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
-    pub fn new(filter: F, rois: Vec<Segment<usize>>) -> Self {
+    pub fn new(filter: F, rois: Vec<Interval<usize>>) -> Self {
         Self {
             filter,
             rois: ROITracker::new(rois),
@@ -285,14 +285,13 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> Storage for AllOptimal<S, F> {
 
         self.results
             .iter()
-            .map(|map| {
+            .flat_map(|map| {
                 map.values().map(|x| AlignmentSeed {
                     row: x.end.0,
                     col: x.end.1,
                     score: x.score,
                 })
             })
-            .flatten()
             .collect()
     }
 }

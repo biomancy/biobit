@@ -1,7 +1,8 @@
+#![allow(clippy::too_many_arguments)]
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
 
-use biobit_core_rs::loc::{Contig, Orientation, Segment};
+use biobit_core_rs::loc::{Contig, Interval, Orientation};
 use biobit_core_rs::num::{Float, PrimInt};
 
 pub use crate::pcalling::Peak;
@@ -11,15 +12,15 @@ pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     // Region coordinates
     contig: Ctg,
     orientation: Orientation,
-    segment: Segment<Idx>,
+    interval: Interval<Idx>,
     // In global coordinates:
     // * Regions that were covered by at least 1 read in signal/control experiments
     // * Regions that passed modelling thresholds
     // * Raw peaks
     // * NMS peaks
-    signal: Vec<Segment<Idx>>,
-    control: Vec<Segment<Idx>>,
-    modeled: Vec<Segment<Idx>>,
+    signal: Vec<Interval<Idx>>,
+    control: Vec<Interval<Idx>>,
+    modeled: Vec<Interval<Idx>>,
     raw_peaks: Vec<Peak<Idx, Cnts>>,
     filtered_peaks: Vec<Peak<Idx, Cnts>>,
 }

@@ -7,22 +7,22 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PySequence;
 
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
 #[pyclass]
 #[repr(transparent)]
 #[derive(Debug, Into, From, Dissolve)]
-pub struct IntoPySegment(pub Py<PySegment>);
+pub struct IntoPyInterval(pub Py<PyInterval>);
 
-impl<'py> FromPyObject<'py> for IntoPySegment {
+impl<'py> FromPyObject<'py> for IntoPyInterval {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let segment = if obj.is_instance_of::<PySegment>() {
-            obj.downcast::<PySegment>()?.clone().unbind()
+        let interval = if obj.is_instance_of::<PyInterval>() {
+            obj.downcast::<PyInterval>()?.clone().unbind()
         } else {
             let seq = obj
                 .downcast::<PySequence>()
-                .map_err(|err| PyValueError::new_err(format!("Unknown segment: {}", err)))?;
+                .map_err(|err| PyValueError::new_err(format!("Unknown interval: {}", err)))?;
 
             if seq.len()? != 2 {
                 return Err(PyValueError::new_err(format!(
@@ -34,28 +34,28 @@ impl<'py> FromPyObject<'py> for IntoPySegment {
             let start = seq.get_item(0)?.extract::<i64>()?;
             let end = seq.get_item(1)?.extract::<i64>()?;
 
-            Py::new(obj.py(), PySegment::new(start, end)?)?
+            Py::new(obj.py(), PyInterval::new(start, end)?)?
         };
-        Ok(IntoPySegment(segment))
+        Ok(IntoPyInterval(interval))
     }
 }
 
-#[pyclass(name = "Segment")]
+#[pyclass(name = "Interval")]
 #[repr(transparent)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into)]
-pub struct PySegment {
-    pub rs: Segment<i64>,
+pub struct PyInterval {
+    pub rs: Interval<i64>,
 }
 
 #[pymethods]
 #[allow(clippy::len_without_is_empty)]
-impl PySegment {
+impl PyInterval {
     #[new]
     pub fn new(start: i64, end: i64) -> PyResult<Self> {
-        match Segment::new(start, end) {
-            Ok(segment) => Ok(segment.into()),
+        match Interval::new(start, end) {
+            Ok(interval) => Ok(interval.into()),
             Err(_) => Err(PyValueError::new_err(format!(
-                "[{}, {}) is not a valid segment",
+                "[{}, {}) is not a valid interval",
                 start, end
             ))),
         }
@@ -79,11 +79,11 @@ impl PySegment {
         self.rs.contains(pos)
     }
 
-    pub fn intersects(&self, py: Python, other: IntoPySegment) -> bool {
+    pub fn intersects(&self, py: Python, other: IntoPyInterval) -> bool {
         self.rs.intersects(&other.0.borrow(py).rs)
     }
 
-    pub fn touches(&self, py: Python, other: IntoPySegment) -> bool {
+    pub fn touches(&self, py: Python, other: IntoPyInterval) -> bool {
         self.rs.touches(&other.0.borrow(py).rs)
     }
 
@@ -98,14 +98,18 @@ impl PySegment {
         match self.rs.extend(left as u64, right as u64) {
             Some(_) => Ok(()),
             None => Err(PyValueError::new_err(format!(
-                "Failed to extend segment {} by [{}, {}]",
+                "Failed to extend interval {} by [{}, {}]",
                 self.rs, left, right
             ))),
         }
     }
 
     #[pyo3(signature = (left = 0, right = 0))]
-    pub fn extend(mut slf: PyRefMut<PySegment>, left: i64, right: i64) -> PyResult<PyRefMut<Self>> {
+    pub fn extend(
+        mut slf: PyRefMut<PyInterval>,
+        left: i64,
+        right: i64,
+    ) -> PyResult<PyRefMut<Self>> {
         slf._extend(left, right)?;
         Ok(slf)
     }
@@ -118,34 +122,34 @@ impl PySegment {
         Ok(cloned)
     }
 
-    pub fn intersection(&self, py: Python, other: IntoPySegment) -> Option<Self> {
+    pub fn intersection(&self, py: Python, other: IntoPyInterval) -> Option<Self> {
         self.rs.intersection(&other.0.borrow(py).rs).map(Self::from)
     }
 
-    pub fn union(&self, py: Python, other: IntoPySegment) -> Option<Self> {
+    pub fn union(&self, py: Python, other: IntoPyInterval) -> Option<Self> {
         self.rs.union(&other.0.borrow(py).rs).map(Self::from)
     }
 
     #[staticmethod]
-    pub fn merge(py: Python, segments: Vec<IntoPySegment>) -> Vec<Self> {
-        let mut segments = segments.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Segment::merge(&mut segments)
+    pub fn merge(py: Python, intervals: Vec<IntoPyInterval>) -> Vec<Self> {
+        let mut intervals: Vec<_> = intervals.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        Interval::merge(&mut intervals)
             .into_iter()
             .map(Self::from)
             .collect()
     }
 
     #[staticmethod]
-    pub fn merge_within(py: Python, segments: Vec<IntoPySegment>, distance: u64) -> Vec<Self> {
-        let mut segments = segments.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Segment::merge_within(&mut segments, distance as i64)
+    pub fn merge_within(py: Python, intervals: Vec<IntoPyInterval>, distance: u64) -> Vec<Self> {
+        let mut intervals: Vec<_> = intervals.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        Interval::merge_within(&mut intervals, distance as i64)
             .into_iter()
             .map(Self::from)
             .collect()
     }
 
     fn __repr__(&self) -> String {
-        format!("Segment[{}]", self.rs)
+        format!("Interval[{}]", self.rs)
     }
 
     fn __str__(&self) -> String {
@@ -158,7 +162,7 @@ impl PySegment {
         hasher.finish()
     }
 
-    pub fn __richcmp__(&self, py: Python, other: IntoPySegment, op: CompareOp) -> bool {
+    pub fn __richcmp__(&self, py: Python, other: IntoPyInterval, op: CompareOp) -> bool {
         match op {
             CompareOp::Eq => self.rs == other.0.borrow(py).rs,
             CompareOp::Ne => self.rs != other.0.borrow(py).rs,
@@ -174,7 +178,7 @@ impl PySegment {
     }
 }
 
-impl AsSegment for PySegment {
+impl IntervalOp for PyInterval {
     type Idx = i64;
 
     fn start(&self) -> Self::Idx {
@@ -186,13 +190,13 @@ impl AsSegment for PySegment {
     }
 }
 
-impl<Idx: PrimInt + TryInto<i64>> IntoPy<PySegment> for Segment<Idx> {
-    fn into_py(self, _: Python<'_>) -> PySegment {
+impl<Idx: PrimInt + TryInto<i64>> IntoPy<PyInterval> for Interval<Idx> {
+    fn into_py(self, _: Python<'_>) -> PyInterval {
         let converted = self.try_cast();
-        if let Ok(segment) = converted {
-            return segment.into();
+        if let Ok(interval) = converted {
+            interval.into()
         } else {
-            panic!("Failed to convert segment: {:?}", self);
+            panic!("Failed to convert interval: {:?}", self);
         }
     }
 }

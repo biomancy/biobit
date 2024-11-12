@@ -6,7 +6,7 @@ use biobit_core_rs::num::{Float, PrimInt};
 use biobit_io_rs::bam::SegmentedAlignment;
 use itertools::{izip, Itertools};
 
-use biobit_core_rs::loc::AsSegment;
+use biobit_core_rs::loc::IntervalOp;
 
 #[derive(Clone, Debug, Default)]
 pub struct OverlapWeighted<Idx: PrimInt> {
@@ -30,7 +30,7 @@ impl<Idx: PrimInt, Cnts: Float, Elt> Resolution<Idx, Cnts, Elt> for OverlapWeigh
         outcome: &mut ResolutionOutcomes<Cnts>,
     ) {
         for (query, n, overlap) in izip!(
-            alignment.segments.iter(),
+            alignment.intervals.iter(),
             alignment.total_hits.iter(),
             overlap.iter()
         ) {

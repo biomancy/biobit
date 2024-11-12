@@ -6,10 +6,8 @@ use std::string::ToString;
 
 use rayon::ThreadPoolBuilder;
 
-use biobit_core_rs::loc::Segment;
-use biobit_core_rs::source::Source;
-use biobit_core_rs::{loc::Orientation, parallelism};
-use biobit_countit_rs;
+use biobit_core_rs::loc::{Interval, Orientation};
+use biobit_core_rs::{parallelism, source::Source};
 use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
 
 const THREADS: isize = -1;
@@ -78,7 +76,8 @@ const BAM: &[&str] = &[
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-fn read_bed(path: &Path) -> Vec<(String, Vec<(String, Orientation, Vec<Segment<usize>>)>)> {
+#[allow(clippy::type_complexity)]
+fn read_bed(path: &Path) -> Vec<(String, Vec<(String, Orientation, Vec<Interval<usize>>)>)> {
     let reader = File::open(path).unwrap();
     let mut reader = BufReader::new(reader);
     // let mut reader = BufReader::new(MultiGzDecoder::new(reader));
@@ -97,18 +96,18 @@ fn read_bed(path: &Path) -> Vec<(String, Vec<(String, Orientation, Vec<Segment<u
         let start = split[1].parse().expect("Failed to filters string start");
         let end = split[2].parse().expect("Failed to filters string start");
         assert!(end > start, "{}", line);
-        let segment = Segment::new(start, end).expect("Failed to create segment");
+        let interval = Interval::new(start, end).expect("Failed to create interval");
 
         let name = split.get(3).unwrap_or(&"").to_string();
         let orientation = Orientation::try_from(*split.get(5).unwrap()).unwrap();
-        let contig = split.get(0).unwrap().to_string();
+        let contig = split.first().unwrap().to_string();
 
         records
             .entry(name)
             .or_insert_with(HashMap::new)
             .entry((contig, orientation))
             .or_insert_with(Vec::new)
-            .push(segment);
+            .push(interval);
 
         buf.clear();
     }
@@ -118,7 +117,7 @@ fn read_bed(path: &Path) -> Vec<(String, Vec<(String, Orientation, Vec<Segment<u
         .map(|(name, items)| {
             let items = items
                 .into_iter()
-                .map(|((name, orientation), segments)| (name, orientation, segments))
+                .map(|((name, orientation), intervals)| (name, orientation, intervals))
                 .collect();
             (name, items)
         })
@@ -136,11 +135,10 @@ fn main() {
 
     let mut builder = biobit_countit_rs::rigid::Engine::<String, usize, f64, String>::builder();
     builder = builder.set_thread_pool(pool);
-    builder = builder.add_partitions(
-        PARTITIONS
-            .iter()
-            .map(|(contig, start, end)| (contig.to_string(), Segment::new(*start, *end).unwrap())),
-    );
+    builder =
+        builder.add_partitions(PARTITIONS.iter().map(|(contig, start, end)| {
+            (contig.to_string(), Interval::new(*start, *end).unwrap())
+        }));
     builder = builder.add_elements(read_bed(Path::new(BED)).into_iter());
     let mut engine = builder.build::<f64>();
 
@@ -201,7 +199,7 @@ fn main() {
         for p in r.partitions {
             println!(
                 "\t\t{:<3}:{:<25}\t{:.2}\t{:.2}",
-                p.contig, p.segment, p.outcomes.resolved, p.outcomes.discarded
+                p.contig, p.interval, p.outcomes.resolved, p.outcomes.discarded
             )
         }
         println!();

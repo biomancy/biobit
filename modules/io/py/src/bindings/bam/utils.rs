@@ -4,11 +4,11 @@ use ::higher_kinded_types::prelude::*;
 use eyre::{eyre, Result};
 use pyo3::Python;
 
-use biobit_core_py::LendingIterator;
 use biobit_core_py::ngs::{MatesOrientation, PyLayout, Strandedness};
 use biobit_core_py::source::{DynSource, Source};
-use biobit_io_rs::bam::{strdeductor, transform};
+use biobit_core_py::LendingIterator;
 use biobit_io_rs::bam::SegmentedAlignment;
+use biobit_io_rs::bam::{strdeductor, transform};
 
 use super::reader::IntoPyReader;
 
@@ -53,9 +53,9 @@ pub fn to_alignment_segments(
             orientation,
         } => {
             if orientation.0 != MatesOrientation::Inward {
-                return Err(eyre!(
+                Err(eyre!(
                     "Only inward mates orientation is supported by countit"
-                ))?;
+                ))?
             }
 
             let source = source.with_transform(transform::BundleMates::default(), ());

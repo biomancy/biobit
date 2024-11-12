@@ -32,9 +32,9 @@ become evident that a `Bundle` struct is needed, but only time will tell.
 
 ### What are `*Op` traits?
 
-`*Op` traits are defined for operations applicable to structures that behave like `X`. For instance, `SegmentOp`
-specifies operations that can be performed on a `Segment`-like structure. This approach allows the implementation of
-these operations across multiple structures, such as `Segment` and `MySuperSegment`, without code duplication.
+`*Op` traits are defined for operations applicable to structures that behave like `X`. For instance, `IntervalOp`
+specifies operations that can be performed on an `Interval`-like structure. This approach allows the implementation of
+these operations across multiple structures, such as `Interval` and `MySuperInterval`, without code duplication.
 
 ### Why is `Clone` required for generic parameters in certain traits and structures?
 
@@ -74,7 +74,7 @@ The limitation is detailed in [this PyO3 issue](https://github.com/PyO3/pyo3/iss
 Currently, dependencies between Python modules are not well-supported (
 see [this PyO3 issue](https://github.com/PyO3/pyo3/issues/1444)). In this structure, core Python components (like
 `py-core`) would be compiled separately for each module, leading to multiple incompatible versions of certain classes,
-such as `Segment`.
+such as `Interval`.
 
 Additionally, local Python dependencies are poorly supported at present. More details can be found
 in [this StackOverflow discussion](https://stackoverflow.com/questions/75159453/specifying-local-relative-dependency-in-pyproject-toml).
@@ -95,7 +95,7 @@ Exceptions to this rule are clearly marked in the codebase and documentation.
 
 # Random notes:
 
-- Including a `data` field in the `Segment` struct complicates operations like `merge`, as the `data` field must be
+- Including a `data` field in the `Interval` struct complicates operations like `merge`, as the `data` field must be
   updated. It's the reason why there is no `data` field in the `Segment` (and other) structures.
 - All traits and structs should prioritize batch-oriented processing, especially for Python wrappers, where batch
   operations are significantly faster than repeated method invocations. Where possible, batch methods should accept data

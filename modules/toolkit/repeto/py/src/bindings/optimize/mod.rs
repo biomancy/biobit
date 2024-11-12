@@ -1,7 +1,7 @@
 use eyre::Result;
-use pyo3::{Bound, PyAny, PyResult};
 use pyo3::prelude::*;
 use pyo3::prelude::{PyAnyMethods, PyModule, PyModuleMethods};
+use pyo3::{Bound, PyAny, PyResult};
 
 use biobit_repeto_rs::repeats::InvRepeat;
 
@@ -17,7 +17,7 @@ pub fn run(ir: Vec<Py<PyInvRepeat>>, scores: Vec<i64>) -> PyResult<(Vec<Py<PyInv
                     .borrow(py)
                     .segments
                     .iter()
-                    .map(|s| s.borrow(py).rs().clone())
+                    .map(|s| *s.borrow(py).rs())
                     .collect();
                 InvRepeat::new(segments)
             })
@@ -31,7 +31,7 @@ pub fn run(ir: Vec<Py<PyInvRepeat>>, scores: Vec<i64>) -> PyResult<(Vec<Py<PyInv
     let ir = Python::with_gil(|py| solution.into_iter().map(|x| ir[x].clone_ref(py)).collect());
 
     // Return the result
-    return Ok((ir, total_score));
+    Ok((ir, total_score))
 }
 
 pub fn register<'b>(

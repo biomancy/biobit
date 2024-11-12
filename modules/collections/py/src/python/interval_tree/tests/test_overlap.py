@@ -6,7 +6,7 @@ from biobit.collections.interval_tree.overlap import Elements, Steps
 def test_overlap_elements():
     empty = Elements()
     assert len(empty) == 0 and list(empty) == []
-    assert empty.segments == [] and empty.elements == []
+    assert empty.intervals == [] and empty.elements == []
     assert Elements() == empty == Elements.from_existent([], [])
     assert pickle.loads(pickle.dumps(empty)) == empty
 
@@ -15,7 +15,7 @@ def test_overlap_elements():
     non_empty = Elements.from_existent(segments, elements)
 
     assert len(non_empty) == 3 and list(non_empty) == list(zip(segments, elements))
-    assert non_empty.segments == segments and non_empty.elements == elements
+    assert non_empty.intervals == segments and non_empty.elements == elements
     assert non_empty == Elements.from_existent(segments, elements)
     assert pickle.loads(pickle.dumps(non_empty)) == non_empty
 

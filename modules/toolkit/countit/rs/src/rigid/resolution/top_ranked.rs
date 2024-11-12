@@ -47,8 +47,7 @@ where
             // Select the element with the top rank
             let minrank = overlap
                 .annotations()
-                .map(|x| x.iter().map(|elt| (self.ranks[*elt], *elt)))
-                .flatten()
+                .flat_map(|x| x.iter().map(|elt| (self.ranks[*elt], *elt)))
                 .min();
             match minrank {
                 None => {

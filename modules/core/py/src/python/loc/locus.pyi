@@ -1,13 +1,13 @@
 from .orientation import Orientation, IntoOrientation
-from .segment import Segment, IntoSegment
+from .interval import Interval, IntoInterval
 
 
 class Locus:
     contig: str
-    segment: Segment
+    interval: Interval
     orientation: Orientation
 
-    def __init__(self, contig: str, segment: IntoSegment, orientation: IntoOrientation) -> None: ...
+    def __init__(self, contig: str, interval: IntoInterval, orientation: IntoOrientation) -> None: ...
 
     @property
     def start(self) -> int: ...
@@ -54,4 +54,4 @@ class Locus:
     def __ge__(self, other: object) -> bool: ...
 
 
-IntoLocus = Locus | tuple[str, IntoSegment, IntoOrientation]
+IntoLocus = Locus | tuple[str, IntoInterval, IntoOrientation]

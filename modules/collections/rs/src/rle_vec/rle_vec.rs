@@ -102,7 +102,7 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVecBuilder<V, L, I> {
     }
 
     pub fn with_dense_values_inplace(mut self, mut values: Vec<V>) -> Result<Self> {
-        if values.len() == 0 {
+        if values.is_empty() {
             return Ok(self);
         } else if values.len() == 1 {
             self.values = Some(values);
@@ -240,13 +240,13 @@ impl<V, L: PrimUInt, I: Identical<V>> IntoIterator for RleVec<V, L, I> {
     type IntoIter = Zip<IntoIter<V>, IntoIter<L>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter().zip(self.lengths.into_iter())
+        self.values.into_iter().zip(self.lengths)
     }
 }
 
-impl<V, L: PrimUInt, I: Identical<V>> Into<(Vec<V>, Vec<L>)> for RleVec<V, L, I> {
-    fn into(self) -> (Vec<V>, Vec<L>) {
-        (self.values, self.lengths)
+impl<V, L: PrimUInt, I: Identical<V>> From<RleVec<V, L, I>> for (Vec<V>, Vec<L>) {
+    fn from(val: RleVec<V, L, I>) -> Self {
+        (val.values, val.lengths)
     }
 }
 

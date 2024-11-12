@@ -27,19 +27,19 @@ where
 
     #[inline(always)]
     fn gap_row(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.gap_row(row, col, score.clone());
+        self.storage.gap_row(row, col, score);
         self.tracemat.gap_row(row, col, score);
     }
 
     #[inline(always)]
     fn gap_col(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.gap_col(row, col, score.clone());
+        self.storage.gap_col(row, col, score);
         self.tracemat.gap_col(row, col, score);
     }
 
     #[inline(always)]
     fn equivalent(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.equivalent(row, col, score.clone());
+        self.storage.equivalent(row, col, score);
         self.tracemat.equivalent(row, col, score);
     }
 
@@ -60,25 +60,25 @@ where
 
     #[inline(always)]
     fn row_gap_open(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.row_gap_open(row, col, score.clone());
+        self.storage.row_gap_open(row, col, score);
         self.tracemat.row_gap_open(row, col, score);
     }
 
     #[inline(always)]
     fn row_gap_extend(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.row_gap_extend(row, col, score.clone());
+        self.storage.row_gap_extend(row, col, score);
         self.tracemat.row_gap_extend(row, col, score);
     }
 
     #[inline(always)]
     fn col_gap_open(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.col_gap_open(row, col, score.clone());
+        self.storage.col_gap_open(row, col, score);
         self.tracemat.col_gap_open(row, col, score);
     }
 
     #[inline(always)]
     fn col_gap_extend(&mut self, row: usize, col: usize, score: Self::Score) {
-        self.storage.col_gap_extend(row, col, score.clone());
+        self.storage.col_gap_extend(row, col, score);
         self.tracemat.col_gap_extend(row, col, score);
     }
 }

@@ -2,12 +2,12 @@ import pickle
 
 import pytest
 
-from biobit.core.loc import Segment
+from biobit.core.loc import Interval
 
 
 def test_segment_new():
-    segment = Segment(0, 10)
-    assert segment == Segment(0, 10) == (0, 10)
+    segment = Interval(0, 10)
+    assert segment == Interval(0, 10) == (0, 10)
     assert segment.start == 0
     assert segment.end == 10
 
@@ -19,16 +19,16 @@ def test_segment_new():
 
     for start, end in (1, 0), (0, 0):
         with pytest.raises(ValueError):
-            Segment(start, end)
+            Interval(start, end)
 
 
 def test_segment_len():
-    assert Segment(0, 10).len() == 10
-    assert Segment(0, 1).len() == 1
+    assert Interval(0, 10).len() == 10
+    assert Interval(0, 1).len() == 1
 
 
 def test_segment_contains():
-    segment = Segment(1, 10)
+    segment = Interval(1, 10)
     assert segment.contains(0) is False
     assert segment.contains(1) is True
     assert segment.contains(5) is True
@@ -38,7 +38,7 @@ def test_segment_contains():
 
 
 def test_intersects():
-    segment = Segment(1, 10)
+    segment = Interval(1, 10)
 
     for target, expected in [
         ((0, 1), False),
@@ -48,11 +48,11 @@ def test_intersects():
         ((10, 11), False),
     ]:
         assert segment.intersects(target) is expected
-        assert segment.intersects(Segment(*target)) is expected
+        assert segment.intersects(Interval(*target)) is expected
 
 
 def test_touches():
-    segment = Segment(1, 10)
+    segment = Interval(1, 10)
 
     for target, expected in [
         ((0, 1), True),
@@ -62,31 +62,31 @@ def test_touches():
         ((10, 11), True),
     ]:
         assert segment.touches(target) is expected
-        assert segment.touches(Segment(*target)) is expected
+        assert segment.touches(Interval(*target)) is expected
 
 
 def test_extend():
-    segment = Segment(1, 10)
-    assert segment.extend(1, 2) is segment and segment == Segment(0, 12)
-    assert segment.extend(1, 0) is segment and segment == Segment(-1, 12)
+    segment = Interval(1, 10)
+    assert segment.extend(1, 2) is segment and segment == Interval(0, 12)
+    assert segment.extend(1, 0) is segment and segment == Interval(-1, 12)
 
-    assert segment.extend(right=100) is segment and segment == Segment(-1, 112)
-    assert segment.extend(left=100) is segment and segment == Segment(-101, 112)
+    assert segment.extend(right=100) is segment and segment == Interval(-1, 112)
+    assert segment.extend(left=100) is segment and segment == Interval(-101, 112)
 
 
 def test_extended():
-    segment = Segment(1, 10)
-    assert segment.extended(1, 2) == Segment(0, 12)
-    assert segment.extended(1, 0) == Segment(0, 10)
-    assert segment == Segment(1, 10)
+    segment = Interval(1, 10)
+    assert segment.extended(1, 2) == Interval(0, 12)
+    assert segment.extended(1, 0) == Interval(0, 10)
+    assert segment == Interval(1, 10)
 
 
 def test_intersection():
-    segment = Segment(1, 10)
+    segment = Interval(1, 10)
 
     for target in (0, 1), (10, 11):
         assert segment.intersection(target) is None
-        assert segment.intersection(Segment(*target)) is None
+        assert segment.intersection(Interval(*target)) is None
 
     for target, expected in [
         ((0, 2), (1, 2)),
@@ -94,17 +94,17 @@ def test_intersection():
         ((9, 11), (9, 10)),
     ]:
         assert segment.intersection(target) == expected
-        assert segment.intersection(target) == Segment(*expected)
-        assert segment.intersection(Segment(*target)) == expected
-        assert segment.intersection(Segment(*target)) == Segment(*expected)
+        assert segment.intersection(target) == Interval(*expected)
+        assert segment.intersection(Interval(*target)) == expected
+        assert segment.intersection(Interval(*target)) == Interval(*expected)
 
 
 def test_union():
-    segment = Segment(1, 10)
+    segment = Interval(1, 10)
 
     for target in (-1, 0), (11, 12):
         assert segment.union(target) is None
-        assert segment.union(Segment(*target)) is None
+        assert segment.union(Interval(*target)) is None
 
     for target, expected in [
         ((0, 1), (0, 10)),
@@ -113,19 +113,19 @@ def test_union():
         ((9, 11), (1, 11)),
     ]:
         assert segment.union(target) == expected
-        assert segment.union(target) == Segment(*expected)
-        assert segment.union(Segment(*target)) == expected
-        assert segment.union(Segment(*target)) == Segment(*expected)
+        assert segment.union(target) == Interval(*expected)
+        assert segment.union(Interval(*target)) == expected
+        assert segment.union(Interval(*target)) == Interval(*expected)
 
 
 def test_merge():
-    assert Segment.merge([]) == []
+    assert Interval.merge([]) == []
 
-    segments = [Segment(1, 10), (5, 15), Segment(20, 30)]
-    assert Segment.merge(segments) == [Segment(1, 15), Segment(20, 30)]
+    segments = [Interval(1, 10), (5, 15), Interval(20, 30)]
+    assert Interval.merge(segments) == [Interval(1, 15), Interval(20, 30)]
 
 
 def test_pickle_segment():
-    segment = Segment(1, 10)
+    segment = Interval(1, 10)
     assert pickle.loads(pickle.dumps(segment)) == segment
-    assert pickle.loads(pickle.dumps(segment)) == Segment(1, 10)
+    assert pickle.loads(pickle.dumps(segment)) == Interval(1, 10)

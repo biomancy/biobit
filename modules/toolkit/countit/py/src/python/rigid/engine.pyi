@@ -1,6 +1,6 @@
 from typing import Self
 
-from biobit.core.loc import IntoSegment, IntoOrientation
+from biobit.core.loc import IntoInterval, IntoOrientation
 from biobit.core.ngs import Layout
 from biobit.io.bam import IntoReader
 from biobit.toolkit.countit.result import Counts
@@ -13,10 +13,10 @@ class EngineBuilder[E]:
     def set_threads(self, threads: int) -> Self: ...
 
     def add_elements(
-            self, elements: list[tuple[E, list[tuple[str, IntoOrientation, list[IntoSegment]]]]]
+            self, elements: list[tuple[E, list[tuple[str, IntoOrientation, list[IntoInterval]]]]]
     ) -> Self: ...
 
-    def add_partitions(self, partitions: list[tuple[str, IntoSegment]]) -> Self: ...
+    def add_partitions(self, partitions: list[tuple[str, IntoInterval]]) -> Self: ...
 
     def build(self) -> Engine[E]: ...
 

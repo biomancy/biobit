@@ -54,6 +54,7 @@ impl PyNMS {
         Ok(slf)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn __getstate__(
         &self,
     ) -> (
@@ -72,6 +73,7 @@ impl PyNMS {
         )
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn __setstate__(
         &mut self,
         state: (

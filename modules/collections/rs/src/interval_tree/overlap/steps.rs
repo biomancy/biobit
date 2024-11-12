@@ -1,4 +1,4 @@
-use biobit_core_rs::loc::{AsSegment, Segment};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::Dissolve;
 use std::collections::{BTreeSet, HashSet};
@@ -29,7 +29,7 @@ impl<Idx: PrimInt, T: Eq + Hash + Clone> Steps<Idx, T> {
 
     pub fn build<'a>(
         &'a mut self,
-        data: impl Iterator<Item = (&'a Segment<Idx>, (&'a [Segment<Idx>], &'a [T]))>,
+        data: impl Iterator<Item = (&'a Interval<Idx>, (&'a [Interval<Idx>], &'a [T]))>,
     ) {
         // boundaries are of length N + 1
         // annotation is of length N
@@ -169,7 +169,7 @@ mod tests {
         add_overlaps(&mut overlap, &vec![vec![]]);
 
         let mut steps = Steps::empty();
-        steps.build([Segment::new(2, 8).unwrap()].iter().zip(overlap.iter()));
+        steps.build([Interval::new(2, 8).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[vec![(2, 8, vec![])]]);
     }
     #[test]
@@ -195,19 +195,19 @@ mod tests {
             (9, 10, vec![]),
         ]];
 
-        // Option 1 - Query interval covers all segments completely
-        steps.build([Segment::new(0, 10).unwrap()].iter().zip(overlap.iter()));
+        // Option 1 - Query interval covers all intervals completely
+        steps.build([Interval::new(0, 10).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &expected[..]);
 
-        // Option 2 - Query interval envelops all segments
-        steps.build([Segment::new(1, 9).unwrap()].iter().zip(overlap.iter()));
+        // Option 2 - Query interval envelops all intervals
+        steps.build([Interval::new(1, 9).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][1..6].to_vec()]);
 
-        // Option 3 - Query interval intersects all segments **somehow**
-        steps.build([Segment::new(1, 7).unwrap()].iter().zip(overlap.iter()));
+        // Option 3 - Query interval intersects all intervals **somehow**
+        steps.build([Interval::new(1, 7).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][1..5].to_vec()]);
 
-        steps.build([Segment::new(2, 8).unwrap()].iter().zip(overlap.iter()));
+        steps.build([Interval::new(2, 8).unwrap()].iter().zip(overlap.iter()));
         assert_steps(
             &steps,
             &[vec![
@@ -244,16 +244,16 @@ mod tests {
             (10, 12, vec![]),
         ]];
 
-        // Option 1 - Query interval covers all segments completely
-        steps.build([Segment::new(0, 10).unwrap()].iter().zip(overlap.iter()));
+        // Option 1 - Query interval covers all intervals completely
+        steps.build([Interval::new(0, 10).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][..5].to_vec()]);
 
-        // Option 2 - Query interval envelops all segments
-        steps.build([Segment::new(0, 12).unwrap()].iter().zip(overlap.iter()));
+        // Option 2 - Query interval envelops all intervals
+        steps.build([Interval::new(0, 12).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &expected);
 
-        // Option 3 - Query interval intersects all segments **somehow**
-        steps.build([Segment::new(1, 9).unwrap()].iter().zip(overlap.iter()));
+        // Option 3 - Query interval intersects all intervals **somehow**
+        steps.build([Interval::new(1, 9).unwrap()].iter().zip(overlap.iter()));
         assert_steps(
             &steps,
             &[vec![
@@ -289,19 +289,19 @@ mod tests {
             (9, 13, vec![]),
         ]];
 
-        // Option 1 - Query interval covers all segments completely
-        steps.build([Segment::new(0, 13).unwrap()].iter().zip(overlap.iter()));
+        // Option 1 - Query interval covers all intervals completely
+        steps.build([Interval::new(0, 13).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &expected);
 
-        steps.build([Segment::new(1, 13).unwrap()].iter().zip(overlap.iter()));
+        steps.build([Interval::new(1, 13).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][1..].to_vec()]);
 
-        // Option 2 - Query interval envelops all segments
-        steps.build([Segment::new(1, 9).unwrap()].iter().zip(overlap.iter()));
+        // Option 2 - Query interval envelops all intervals
+        steps.build([Interval::new(1, 9).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][1..6].to_vec()]);
 
-        // Option 3 - Query interval intersects all segments **somehow**
-        steps.build([Segment::new(2, 8).unwrap()].iter().zip(overlap.iter()));
+        // Option 3 - Query interval intersects all intervals **somehow**
+        steps.build([Interval::new(2, 8).unwrap()].iter().zip(overlap.iter()));
         assert_steps(
             &steps,
             &[vec![
@@ -311,10 +311,10 @@ mod tests {
             ]],
         );
 
-        steps.build([Segment::new(5, 6).unwrap()].iter().zip(overlap.iter()));
+        steps.build([Interval::new(5, 6).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[vec![(5, 6, vec!["a", "b", "c"])]]);
 
-        steps.build([Segment::new(5, 8).unwrap()].iter().zip(overlap.iter()));
+        steps.build([Interval::new(5, 8).unwrap()].iter().zip(overlap.iter()));
         assert_steps(
             &steps,
             &[vec![(5, 7, vec!["a", "b", "c"]), (7, 8, vec!["a", "b"])]],
@@ -344,19 +344,19 @@ mod tests {
             (9, 13, vec![]),
         ]];
 
-        // Option 1 - Query interval covers all segments completely
-        steps.build([Segment::new(0, 13).unwrap()].iter().zip(overlap.iter()));
+        // Option 1 - Query interval covers all intervals completely
+        steps.build([Interval::new(0, 13).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &expected);
 
-        steps.build([Segment::new(1, 13).unwrap()].iter().zip(overlap.iter()));
+        steps.build([Interval::new(1, 13).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][1..].to_vec()]);
 
-        // Option 2 - Query interval envelops all segments
-        steps.build([Segment::new(1, 9).unwrap()].iter().zip(overlap.iter()));
+        // Option 2 - Query interval envelops all intervals
+        steps.build([Interval::new(1, 9).unwrap()].iter().zip(overlap.iter()));
         assert_steps(&steps, &[expected[0][1..6].to_vec()]);
 
-        // Option 3 - Query interval intersects all segments **somehow**
-        steps.build([Segment::new(2, 8).unwrap()].iter().zip(overlap.iter()));
+        // Option 3 - Query interval intersects all intervals **somehow**
+        steps.build([Interval::new(2, 8).unwrap()].iter().zip(overlap.iter()));
         assert_steps(
             &steps,
             &[vec![
@@ -434,16 +434,16 @@ mod tests {
             vec![(100, 101, vec![])],
         ];
 
-        // Option 1 - Query interval covers all segments completely
+        // Option 1 - Query interval covers all intervals completely
         steps.build(
             [
-                Segment::new(0, 10).unwrap(),
-                Segment::new(0, 13).unwrap(),
-                Segment::new(1, 2).unwrap(),
-                Segment::new(65, 80).unwrap(),
-                Segment::new(0, 10).unwrap(),
-                Segment::new(0, 15).unwrap(),
-                Segment::new(100, 101).unwrap(),
+                Interval::new(0, 10).unwrap(),
+                Interval::new(0, 13).unwrap(),
+                Interval::new(1, 2).unwrap(),
+                Interval::new(65, 80).unwrap(),
+                Interval::new(0, 10).unwrap(),
+                Interval::new(0, 15).unwrap(),
+                Interval::new(100, 101).unwrap(),
             ]
             .iter()
             .zip(overlap.iter()),

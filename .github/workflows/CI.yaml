@@ -48,16 +48,16 @@
 #      - name: Python code style & linting
 #        uses: chartboost/ruff-action@v1
 #        with:
-#          src: "./modules/py/python"
+#          src: "./biobit/py/python"
 #          version: 0.2.1
 #          args: "check"
 #      - name: Install dependencies
 #        run: |
 #          # Install the package and all the relevant dependencies
-#          python -m pip install './modules/py[dev]'
+#          python -m pip install './biobit/py[dev]'
 #      - name: Mypy type checks
 #        run: |
-#          mypy --config-file modules/py/pyproject.toml modules/py/python
+#          mypy --config-file biobit/py/pyproject.toml biobit/py/src/biobit
 #      - name: Tests
 #        run: |
-#          pytest modules/py
+#          pytest biobit/py

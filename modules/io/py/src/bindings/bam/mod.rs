@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
 pub use biobit_io_rs::bam::{
-    AlignmentSegments, Reader, ReaderBuilder, SegmentedAlignment, strdeductor, transform,
+    strdeductor, transform, AlignmentSegments, Reader, ReaderBuilder, SegmentedAlignment,
 };
 pub use reader::{IntoPyReader, PyReader};
 

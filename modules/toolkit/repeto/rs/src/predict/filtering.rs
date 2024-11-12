@@ -1,7 +1,7 @@
 use derive_getters::{Dissolve, Getters};
 
 use biobit_alignment_rs::pairwise::scoring;
-use biobit_core_rs::loc::Segment;
+use biobit_core_rs::loc::Interval;
 
 use super::storage::filtering::{EquivRunStats, Length, SoftFilter};
 
@@ -9,7 +9,7 @@ use super::storage::filtering::{EquivRunStats, Length, SoftFilter};
 pub struct Filter<S: scoring::Score> {
     min_score: S,
     stats: EquivRunStats,
-    rois: Vec<Segment<usize>>,
+    rois: Vec<Interval<usize>>,
 }
 
 impl<S: scoring::Score> Filter<S> {
@@ -18,8 +18,8 @@ impl<S: scoring::Score> Filter<S> {
         self
     }
 
-    pub fn set_rois(&mut self, mut rois: Vec<Segment<usize>>) -> &mut Self {
-        self.rois = Segment::merge(&mut rois);
+    pub fn set_rois(&mut self, mut rois: Vec<Interval<usize>>) -> &mut Self {
+        self.rois = Interval::merge(&mut rois);
         self
     }
 

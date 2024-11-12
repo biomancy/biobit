@@ -2,11 +2,11 @@ use std::io;
 
 use ::higher_kinded_types::prelude::*;
 use derive_more::{From, Into};
+use noodles::sam::alignment::Record;
 use noodles::{
     bam, bam::io::Reader, bgzf, core::region::Interval, csi,
     csi::binning_index::index::reference_sequence::bin::Chunk,
 };
-use noodles::sam::alignment::Record;
 
 use biobit_core_rs::LendingIterator;
 
@@ -31,6 +31,7 @@ impl<'a, R> Query<'a, R>
 where
     R: bgzf::io::BufRead + bgzf::io::Seek,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         reader: &'a mut R,
         chunks: Vec<Chunk>,
@@ -88,7 +89,7 @@ where
 
             // Check if the record intersects with the target region => move to the next record
             if self.is_record_ok(&self.cache.buffer)? {
-                let record = std::mem::replace(&mut self.cache.buffer, bam::Record::default());
+                let record = std::mem::take(&mut self.cache.buffer);
                 self.cache.batch.push(record);
             }
         }

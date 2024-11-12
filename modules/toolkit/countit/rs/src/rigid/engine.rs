@@ -8,17 +8,14 @@ use biobit_io_rs::bam::SegmentedAlignment;
 use higher_kinded_types::extra_arities::For;
 use rayon::ThreadPool;
 use std::borrow::BorrowMut;
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use thread_local::ThreadLocal;
 
 use ahash::HashMap;
 use derive_more::Constructor;
 use eyre::eyre;
-use itertools::izip;
 use std::io;
-use std::iter::zip;
 use std::sync::atomic::AtomicBool;
-use std::sync::Mutex;
 
 #[derive(Constructor)]
 pub struct Engine<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> {
@@ -36,6 +33,7 @@ where
         EngineBuilder::default()
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn run<SrcTag, Src>(
         &mut self,
         sources: impl Iterator<Item = (SrcTag, Src)>,

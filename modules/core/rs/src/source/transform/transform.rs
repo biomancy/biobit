@@ -25,6 +25,7 @@ where
 
     fn with_batch_size(&mut self, batch_size: usize);
 
+    #[allow(clippy::needless_lifetimes)]
     fn transform<'borrow, 'args>(
         &'borrow mut self,
         iterator: InIter::Of<'borrow>,

@@ -60,6 +60,7 @@ where
 {
     type Iter = T::OutIter;
 
+    #[allow(clippy::needless_lifetimes)]
     fn fetch<'borrow, 'args>(
         &'borrow mut self,
         args: <<Self as Core>::Args as ForLt>::Of<'args>,

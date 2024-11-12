@@ -1,4 +1,4 @@
-use biobit_core_py::loc::{AsSegment, IntoPyOrientation, IntoPySegment, Segment};
+use biobit_core_py::loc::{Interval, IntervalOp, IntoPyInterval, IntoPyOrientation};
 use biobit_core_py::parallelism;
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
@@ -12,14 +12,14 @@ pub use biobit_countit_rs::rigid::EngineBuilder;
 
 #[pyclass(name = "EngineBuilder")]
 #[repr(transparent)]
-#[derive(Dissolve, From, Into)]
+#[derive(Default, Dissolve, From, Into)]
 pub struct PyEngineBuilder(pub EngineBuilder<String, usize, PyObject>);
 
 #[pymethods]
 impl PyEngineBuilder {
     #[new]
     pub fn new() -> Self {
-        Self(EngineBuilder::default())
+        Self::default()
     }
 
     pub fn set_threads(mut slf: PyRefMut<Self>, threads: isize) -> PyResult<PyRefMut<Self>> {
@@ -32,11 +32,12 @@ impl PyEngineBuilder {
         Ok(slf)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn add_elements(
         mut slf: PyRefMut<Self>,
         elements: Vec<(
             PyObject,
-            Vec<(String, IntoPyOrientation, Vec<IntoPySegment>)>,
+            Vec<(String, IntoPyOrientation, Vec<IntoPyInterval>)>,
         )>,
     ) -> PyRefMut<Self> {
         let py = slf.py();
@@ -46,9 +47,10 @@ impl PyEngineBuilder {
                 .map(|(contig, orientation, segments)| {
                     let segments = segments
                         .into_iter()
-                        .map(|segment| {
-                            let segment = segment.0.borrow(py).rs;
-                            Segment::new(segment.start() as usize, segment.end() as usize).unwrap()
+                        .map(|intervals| {
+                            let interval = intervals.0.borrow(py).rs;
+                            Interval::new(interval.start() as usize, interval.end() as usize)
+                                .unwrap()
                         })
                         .collect();
                     (contig, orientation.0 .0, segments)
@@ -62,14 +64,14 @@ impl PyEngineBuilder {
 
     pub fn add_partitions(
         mut slf: PyRefMut<Self>,
-        partitions: Vec<(String, IntoPySegment)>,
+        partitions: Vec<(String, IntoPyInterval)>,
     ) -> PyRefMut<Self> {
         let py = slf.py();
         let partitions = partitions.into_iter().map(|(contig, segment)| {
             let segment = segment.0.borrow(py).rs;
             (
                 contig,
-                Segment::new(segment.start() as usize, segment.end() as usize).unwrap(),
+                Interval::new(segment.start() as usize, segment.end() as usize).unwrap(),
             )
         });
         slf.0 = std::mem::take(&mut slf.0).add_partitions(partitions);

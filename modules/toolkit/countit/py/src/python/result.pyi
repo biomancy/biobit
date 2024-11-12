@@ -1,6 +1,6 @@
 from typing import Any
 
-from biobit.core.loc import Segment
+from biobit.core.loc import Interval
 
 
 class ResolutionOutcome:
@@ -10,7 +10,7 @@ class ResolutionOutcome:
 
 class PartitionMetrics:
     contig: str
-    segment: Segment
+    interval: Interval
     time_s: float
     outcomes: ResolutionOutcome
 

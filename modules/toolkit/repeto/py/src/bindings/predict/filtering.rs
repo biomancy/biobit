@@ -1,7 +1,7 @@
 use derive_more::{From, Into};
 use pyo3::prelude::*;
 
-use biobit_core_py::loc::{IntoPySegment, PySegment};
+use biobit_core_py::loc::{IntoPyInterval, PyInterval};
 use biobit_repeto_rs::predict::Filter;
 
 #[pyclass(eq, ord, name = "Filter")]
@@ -26,14 +26,14 @@ impl PyFilter {
 
     pub fn set_rois<'a>(
         mut slf: PyRefMut<'a, Self>,
-        rois: Vec<IntoPySegment>,
+        rois: Vec<IntoPyInterval>,
         py: Python,
     ) -> PyResult<PyRefMut<'a, Self>> {
-        let segments = rois
+        let intervals = rois
             .into_iter()
             .map(|x| x.0.borrow(py).rs.try_cast::<usize>())
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        slf.rs.set_rois(segments);
+            .collect::<Result<Vec<_>, _>>()?;
+        slf.rs.set_rois(intervals);
         Ok(slf)
     }
 
@@ -55,7 +55,7 @@ impl PyFilter {
         slf
     }
 
-    pub fn __getstate__(&self, py: Python) -> (i32, (usize, usize, usize, usize), Vec<PySegment>) {
+    pub fn __getstate__(&self, py: Python) -> (i32, (usize, usize, usize, usize), Vec<PyInterval>) {
         let stats = self.rs.stats();
         let stats = (
             stats.in_roi.total_len,
@@ -75,7 +75,7 @@ impl PyFilter {
 
     pub fn __setstate__(
         mut slf: PyRefMut<Self>,
-        state: (i32, (usize, usize, usize, usize), Vec<PySegment>),
+        state: (i32, (usize, usize, usize, usize), Vec<PyInterval>),
     ) -> PyRefMut<Self> {
         slf.rs.set_min_score(state.0);
         slf.rs.set_min_roi_overlap(state.1 .0, state.1 .1);

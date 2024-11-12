@@ -4,43 +4,43 @@ use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
 use dyn_clone::DynClone;
 use noodles::bam::record::Record;
-use noodles::sam::alignment::record::cigar::Op;
 use noodles::sam::alignment::record::cigar::op::Kind;
+use noodles::sam::alignment::record::cigar::Op;
 use noodles::sam::alignment::record::data::field::{Tag, Value};
 
-use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::{Orientation, Segment};
+use biobit_core_rs::loc::{Interval, Orientation};
 use biobit_core_rs::num::PrimInt;
 use biobit_core_rs::source::{AnyMap, Transform};
+use biobit_core_rs::LendingIterator;
 
 use crate::bam::{alignment_segments::AlignmentSegments, strdeductor::StrDeductor};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Dissolve)]
 pub struct SegmentedAlignment<Idx: PrimInt> {
-    pub segments: AlignmentSegments<Idx>,
+    pub intervals: AlignmentSegments<Idx>,
     pub orientation: Vec<Orientation>,
     pub total_hits: Vec<i8>,
 }
 
 impl<Idx: PrimInt> SegmentedAlignment<Idx> {
     pub fn clear(&mut self) {
-        self.segments.clear();
+        self.intervals.clear();
         self.orientation.clear();
         self.total_hits.clear();
     }
 
-    pub fn push(&mut self, segments: &[Segment<Idx>], orientation: Orientation, total_hits: i8) {
+    pub fn push(&mut self, segments: &[Interval<Idx>], orientation: Orientation, total_hits: i8) {
         if segments.is_empty() {
             return;
         }
 
-        self.segments.push(segments);
+        self.intervals.push(segments);
         self.orientation.push(orientation);
         self.total_hits.push(total_hits);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&[Segment<Idx>], Orientation, i8)> {
-        self.segments
+    pub fn iter(&self) -> impl Iterator<Item = (&[Interval<Idx>], Orientation, i8)> {
+        self.intervals
             .iter()
             .zip(&self.orientation)
             .zip(&self.total_hits)
@@ -48,17 +48,17 @@ impl<Idx: PrimInt> SegmentedAlignment<Idx> {
     }
 
     pub fn len(&self) -> usize {
-        self.segments.len()
+        self.intervals.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.segments.is_empty()
+        self.intervals.is_empty()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Dissolve)]
 pub struct Cache {
-    segments: Vec<Segment<usize>>,
+    segments: Vec<Interval<usize>>,
     batch: SegmentedAlignment<usize>,
 }
 
@@ -76,14 +76,14 @@ impl Cache {
 
             match cigar.kind() {
                 Kind::Match | Kind::SequenceMatch | Kind::SequenceMismatch => {
-                    let segment = Segment::new(start, start + len).map_err(|_| {
+                    let interval = Interval::new(start, start + len).map_err(|_| {
                         io::Error::new(
                             io::ErrorKind::InvalidData,
                             format!("Invalid CIGAR operation {:?}", cigar),
                         )
                     })?;
 
-                    self.segments.push(segment);
+                    self.segments.push(interval);
                     start += len;
                 }
                 Kind::Deletion | Kind::Skip => {
@@ -162,12 +162,13 @@ where
         Self::with_batch_size(self, batch_size)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn transform<'borrow, 'args>(
         &'borrow mut self,
         iterator: InIter::Of<'borrow>,
         _: &'args Self::Args,
     ) -> <Self::OutIter as ForLt>::Of<'borrow> {
-        let cache = self.cache.get_or_insert_with(|| Cache::default());
+        let cache = self.cache.get_or_insert_with(Cache::default);
         AlnSegmentsIterator {
             iterator,
             deductor: &mut self.deductor,
@@ -257,12 +258,13 @@ where
         self.inner.with_batch_size(batch_size)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn transform<'borrow, 'args>(
         &'borrow mut self,
         iterator: InIter::Of<'borrow>,
         _: &'args Self::Args,
     ) -> <Self::OutIter as ForLt>::Of<'borrow> {
-        let cache = self.inner.cache.get_or_insert_with(|| Cache::default());
+        let cache = self.inner.cache.get_or_insert_with(Cache::default);
         PairedAlnSegmentsIterator {
             iterator,
             cache,
@@ -316,7 +318,7 @@ where
                             rmate.cigar().iter(),
                         )
                         .ok()?;
-                    self.cache.segments = Segment::merge(&mut self.cache.segments);
+                    self.cache.segments = Interval::merge(&mut self.cache.segments);
 
                     let lhits = extract_aln_hit_count(lmate).unwrap();
                     debug_assert!(lhits > 0);
@@ -347,11 +349,9 @@ pub fn extract_aln_hit_count(record: &Record) -> io::Result<i8> {
     };
     match total_hits {
         Value::Int8(tag) => Ok(tag),
-        _ => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "TOTAL_HIT_COUNT tag must be an Int32",
-            ))
-        }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "TOTAL_HIT_COUNT tag must be an Int32",
+        )),
     }
 }

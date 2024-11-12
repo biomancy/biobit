@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from biobit.core.loc import Segment, Orientation, IntoOrientation
+from biobit.core.loc import Interval, Orientation, IntoOrientation
 from .result import Counts
 
 
@@ -26,7 +26,7 @@ def result_to_pandas[S, E](cnts: list[Counts[S, E]]) -> tuple[pd.DataFrame, pd.D
 
         for metric in r.partitions:
             record = {
-                "contig": metric.contig, "segment": metric.segment, "time_s": metric.time_s, "source": r.source,
+                "contig": metric.contig, "segment": metric.interval, "time_s": metric.time_s, "source": r.source,
                 "resolved": metric.outcomes.resolved, "discarded": metric.outcomes.discarded
             }
             allstats.append(record)
@@ -34,24 +34,24 @@ def result_to_pandas[S, E](cnts: list[Counts[S, E]]) -> tuple[pd.DataFrame, pd.D
 
 
 def resolve_annotation(
-        annotation: dict[Any, dict[tuple[str, IntoOrientation], list[Segment]]],
+        annotation: dict[Any, dict[tuple[str, IntoOrientation], list[Interval]]],
         resolution: Callable[[str, Orientation, int, int, set[Any]], Iterable[Any]]
-) -> dict[Any, dict[tuple[str, Orientation], list[Segment]]]:
+) -> dict[Any, dict[tuple[str, Orientation], list[Interval]]]:
     """
     Statically resolve overlapping annotation regions.
 
     Args:
         annotation: A dictionary where the key is an annotation key, and the value is another dictionary.
-                    The inner dictionary maps a tuple of (contig, orientation) to a list of Segment objects.
+                    The inner dictionary maps a tuple of (contig, orientation) to a list of Interval objects.
         resolution: A callable that accepts the coordinates of a region (contig, orientation, start, end, keys) and
                     all annotation keys inside the region. It should return an iterable of resolved keys.
 
     Returns:
         A dictionary where the key is a resolved annotation key, and the value is another dictionary.
-        The inner dictionary maps a tuple of (contig, orientation) to a list of resolved Segment objects.
+        The inner dictionary maps a tuple of (contig, orientation) to a list of resolved Interval objects.
     """
     # Group all annotation items per contig and strand
-    groups: dict[tuple[str, Orientation], list[tuple[Segment, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, Orientation], list[tuple[Interval, Any]]] = defaultdict(list)
     for key, anno in annotation.items():
         for (contig, orientation), regions in anno.items():
             orientation = Orientation(orientation)
@@ -59,7 +59,7 @@ def resolve_annotation(
                 groups[(contig, orientation)].append((region, key))
 
     # Resolve each group
-    resolved: dict[Any, dict[tuple[str, Orientation], list[Segment]]] = defaultdict(lambda: defaultdict(list))
+    resolved: dict[Any, dict[tuple[str, Orientation], list[Interval]]] = defaultdict(lambda: defaultdict(list))
     for (contig, orientation), reggroup in groups.items():
         reggroup = sorted(reggroup, key=lambda x: x[0].start)
 
@@ -86,7 +86,7 @@ def resolve_annotation(
                 assert cursor.start >= end
 
                 for r in resolution(contig, orientation, start, end, {x[1] for x in cache}):
-                    resolved[r][(contig, orientation)].append(Segment(start, end))
+                    resolved[r][(contig, orientation)].append(Interval(start, end))
                 cache = [x for x in cache if x[0].end > end]
 
                 if cache:
@@ -102,7 +102,7 @@ def resolve_annotation(
         # Resolve the leftover cache
         while cache:
             for r in resolution(contig, orientation, start, end, {x[1] for x in cache}):
-                resolved[r][(contig, orientation)].append(Segment(start, end))
+                resolved[r][(contig, orientation)].append(Interval(start, end))
             cache = [x for x in cache if x[0].end > end]
 
             if cache:

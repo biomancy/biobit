@@ -9,7 +9,7 @@ use itertools::{chain, Itertools};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-use biobit_core_py::loc::{AsSegment, IntoPySegment, PySegment};
+use biobit_core_py::loc::{IntervalOp, IntoPyInterval, PyInterval};
 use biobit_core_py::num::PrimInt;
 use biobit_repeto_rs::repeats::{InvRepeat, InvSegment};
 
@@ -24,7 +24,7 @@ pub struct PyInvSegment {
 #[pymethods]
 impl PyInvSegment {
     #[new]
-    pub fn new(py: Python, left: IntoPySegment, right: IntoPySegment) -> PyResult<Self> {
+    pub fn new(py: Python, left: IntoPyInterval, right: IntoPyInterval) -> PyResult<Self> {
         {
             let left = left.0.borrow(py).rs;
             let right = right.0.borrow(py).rs;
@@ -35,16 +35,16 @@ impl PyInvSegment {
     }
 
     #[getter]
-    pub fn left(&self, py: Python) -> PySegment {
+    pub fn left(&self, py: Python) -> PyInterval {
         self.rs.left().into_py(py)
     }
 
     #[getter]
-    pub fn right(&self, py: Python) -> PySegment {
+    pub fn right(&self, py: Python) -> PyInterval {
         self.rs.right().into_py(py)
     }
 
-    pub fn brange(&self, py: Python) -> PySegment {
+    pub fn brange(&self, py: Python) -> PyInterval {
         self.rs.brange().into_py(py)
     }
 
@@ -69,7 +69,7 @@ impl PyInvSegment {
         self.rs.len() as usize
     }
 
-    pub fn __getnewargs__(&self, py: Python) -> PyResult<(PySegment, PySegment)> {
+    pub fn __getnewargs__(&self, py: Python) -> PyResult<(PyInterval, PyInterval)> {
         Ok((self.rs.left().into_py(py), self.rs.right().into_py(py)))
     }
 
@@ -132,19 +132,19 @@ impl PyInvRepeat {
         self.segments.last().unwrap().borrow(py).rs.inner_gap()
     }
 
-    pub fn left_brange(&self, py: Python) -> PySegment {
+    pub fn left_brange(&self, py: Python) -> PyInterval {
         let start = self.segments[0].borrow(py).rs.left().start();
         let end = self.segments.last().unwrap().borrow(py).rs.left().end();
-        PySegment::new(start, end).unwrap()
+        PyInterval::new(start, end).unwrap()
     }
 
-    pub fn right_brange(&self, py: Python) -> PySegment {
+    pub fn right_brange(&self, py: Python) -> PyInterval {
         let start = self.segments.last().unwrap().borrow(py).rs.right().start();
         let end = self.segments[0].borrow(py).rs.right().end();
-        PySegment::new(start, end).unwrap()
+        PyInterval::new(start, end).unwrap()
     }
 
-    pub fn brange(&self, py: Python) -> PySegment {
+    pub fn brange(&self, py: Python) -> PyInterval {
         self.segments[0].borrow(py).rs.brange().into_py(py)
     }
 
@@ -155,7 +155,7 @@ impl PyInvRepeat {
         slf
     }
 
-    pub fn seqranges(&self, py: Python) -> Vec<PySegment> {
+    pub fn seqranges(&self, py: Python) -> Vec<PyInterval> {
         chain(
             self.segments
                 .iter()
@@ -168,6 +168,7 @@ impl PyInvRepeat {
         .collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(
         signature = (contig, *args, name = ".", score = 0, strand = ".", color = "0,0,0"),
         text_signature = None
@@ -182,7 +183,7 @@ impl PyInvRepeat {
         strand: &str,
         color: &str,
     ) -> PyResult<String> {
-        if args.len() > 0 {
+        if !args.is_empty() {
             return Err(eyre!(
                 "to_bed12 doesn't support positional arguments except 'contig'"
             ))?;
@@ -234,7 +235,7 @@ impl PyInvRepeat {
                 break;
             }
         }
-        return alleq;
+        alleq
     }
 
     pub fn __getnewargs__(&self, py: Python) -> PyObject {
