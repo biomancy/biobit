@@ -158,7 +158,7 @@ fn main() {
                         vec![256, 512, 1024],
                     )
                     .unwrap();
-                    seqmodel.add_modeling(orientation, control);
+                    seqmodel.add_control_model(orientation, control);
 
                     // let nms = reaper::postfilter::NMSRegions::new(chains, false).unwrap();
                     let nms = reaper::postfilter::NMSRegions::new(chains, true).unwrap();

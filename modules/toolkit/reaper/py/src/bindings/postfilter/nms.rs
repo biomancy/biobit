@@ -77,6 +77,7 @@ impl PyNMS {
         f32,
         usize,
         f32,
+        f32,
         (usize, usize),
         (
             Vec<(bool, Vec<PyChainInterval>)>,
@@ -105,6 +106,7 @@ impl PyNMS {
             *self.rs.fecutoff(),
             *self.rs.group_within(),
             *self.rs.slopfrac(),
+            *self.rs.sensitivity(),
             *self.rs.sloplim(),
             rois,
         )
@@ -117,6 +119,7 @@ impl PyNMS {
             f32,
             usize,
             f32,
+            f32,
             (usize, usize),
             (
                 Vec<(bool, Vec<PyChainInterval>)>,
@@ -128,12 +131,13 @@ impl PyNMS {
         self.rs.set_fecutoff(state.0).unwrap();
         self.rs.set_group_within(state.1).unwrap();
         self.rs.set_slopfrac(state.2).unwrap();
-        self.rs.set_sloplim(state.3 .0, state.3 .1).unwrap();
+        self.rs.set_sensitivity(state.3).unwrap();
+        self.rs.set_sloplim(state.4 .0, state.4 .1).unwrap();
 
         for (orientation, regions) in [
-            (Orientation::Forward, state.4 .0),
-            (Orientation::Reverse, state.4 .1),
-            (Orientation::Dual, state.4 .2),
+            (Orientation::Forward, state.5 .0),
+            (Orientation::Reverse, state.5 .1),
+            (Orientation::Dual, state.5 .2),
         ] {
             for (uniform, chains) in regions {
                 let chains: Option<Vec<_>> =

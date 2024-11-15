@@ -12,7 +12,7 @@ use derive_more::Into;
 use eyre::{eyre, OptionExt, Report, Result};
 use higher_kinded_types::prelude::*;
 
-#[derive(Clone, PartialEq, Eq, Debug, Into, Getters)]
+#[derive(Clone, PartialEq, Eq, Debug, Into, Getters, Dissolve)]
 pub struct ControlModel<Idx: PrimInt> {
     regions: Vec<ChainInterval<Idx>>,
     uniform_baseline: bool,
@@ -183,7 +183,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         self
     }
 
-    pub fn add_modeling(
+    pub fn add_control_model(
         &mut self,
         orientation: Orientation,
         model: ControlModel<Idx>,
