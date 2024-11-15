@@ -7,7 +7,7 @@ use biobit_reaper_rs::model::RNAPileup;
 #[pyclass(eq, name = "RNAPileup")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
 pub struct PyRNAPileup {
-    rs: RNAPileup<f32>,
+    rs: RNAPileup<usize, f32>,
 }
 
 #[pymethods]

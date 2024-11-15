@@ -1,5 +1,5 @@
 use ::dyn_clone::DynClone;
-use ::higher_kinded_types::ForLt;
+use higher_kinded_types::ForLt;
 
 use crate::LendingIterator;
 

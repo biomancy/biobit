@@ -42,7 +42,7 @@ class InvSegment:
 
     def shift(self, shift: int):
         """
-        Shift the entire segment by the given value(in place). Useful for mapping coordinates.
+        Shift the entire segment by the given value(in place). Useful for map coordinates.
         """
         pass
 
@@ -107,7 +107,7 @@ class InvRepeat:
 
     def shift(self, offset: int) -> 'InvRepeat':
         """
-        Shift the entire repeat by the given value(in place). Useful for mapping coordinates.
+        Shift the entire repeat by the given value(in place). Useful for map coordinates.
         """
         pass
 

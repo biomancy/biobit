@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use ::anymap3::Map;
-use ::higher_kinded_types::prelude::*;
+use higher_kinded_types::prelude::*;
 use impl_tools::autoimpl;
 
 pub type AnyMap = Map<dyn Any + Send + Sync>;

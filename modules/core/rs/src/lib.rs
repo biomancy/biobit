@@ -1,3 +1,5 @@
+extern crate core;
+
 pub use lending_iterator::{IntoLendingIterator, LendingIterator};
 
 mod lending_iterator;

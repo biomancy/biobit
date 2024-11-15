@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::PyTypeInfo;
 
-use crate::loc::chain_interval::PyChainInterval;
+pub use crate::loc::chain_interval::{IntoPyChainInterval, PyChainInterval};
 pub use biobit_core_rs::loc::{
     ChainInterval, Contig, Interval, IntervalOp, Locus, Orientation, Strand,
 };

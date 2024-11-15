@@ -1,21 +1,41 @@
-use derive_getters::{Dissolve, Getters};
-use eyre::Result;
-
-use biobit_core_rs::loc::{IntervalOp, Orientation, PerOrientation};
-use biobit_core_rs::num::{Float, PrimInt};
-
-use crate::cmp::Scaling;
 use crate::pcalling::ByCutoff;
 use crate::result::Peak;
+use biobit_core_rs::loc::mapping::{ChainMap, Mapping};
+use biobit_core_rs::loc::{ChainInterval, Interval, IntervalOp, Orientation, PerOrientation};
+use biobit_core_rs::num::{Float, PrimInt};
+use derive_getters::Getters;
+use derive_more::Into;
+use eyre::Result;
+use std::ops::Range;
 
-#[derive(Clone, PartialEq, PartialOrd, Debug, Dissolve, Getters)]
-pub struct NMS<Idx, Cnts> {
+#[derive(Clone, PartialEq, Into, Debug)]
+pub struct NMSRegions<Idx: PrimInt> {
+    pub regions: Vec<ChainInterval<Idx>>,
+    pub uniform_baseline: bool,
+}
+
+impl<Idx: PrimInt> NMSRegions<Idx> {
+    pub fn new(mut regions: Vec<ChainInterval<Idx>>, uniform_baseline: bool) -> Result<Self> {
+        if regions.is_empty() {
+            return Err(eyre::eyre!("NMS regions must not be empty"));
+        }
+        regions.sort();
+
+        Ok(Self {
+            regions,
+            uniform_baseline,
+        })
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Into, Getters)]
+pub struct NMS<Idx: PrimInt, Cnts> {
     fecutoff: Cnts,
     group_within: Idx,
     slopfrac: f32,
     sloplim: (Idx, Idx),
-    // Boundaries are in the region coordinates
-    boundaries: PerOrientation<Vec<Idx>>,
+    sensitivity: Cnts,
+    roi: PerOrientation<Vec<NMSRegions<Idx>>>,
 }
 
 impl<Idx: PrimInt, Cnts: Float> Default for NMS<Idx, Cnts> {
@@ -25,7 +45,8 @@ impl<Idx: PrimInt, Cnts: Float> Default for NMS<Idx, Cnts> {
             group_within: Idx::zero(),
             slopfrac: 1.0,
             sloplim: (Idx::min_value(), Idx::max_value()),
-            boundaries: PerOrientation::default(),
+            sensitivity: Cnts::epsilon(),
+            roi: PerOrientation::default(),
         }
     }
 }
@@ -73,223 +94,293 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         Ok(self)
     }
 
-    pub fn set_boundaries(
-        &mut self,
-        orientation: Orientation,
-        mut boundaries: Vec<Idx>,
-    ) -> &mut Self {
-        boundaries.sort();
-        boundaries.dedup();
+    pub fn set_sensitivity(&mut self, sensitivity: Cnts) -> Result<&mut Self> {
+        if sensitivity <= Cnts::zero() {
+            return Err(eyre::eyre!("Sensitivity must be greater than 0"));
+        }
 
-        *self.boundaries.get_mut(orientation) = boundaries;
+        self.sensitivity = sensitivity;
+        Ok(self)
+    }
+
+    pub fn add_regions(&mut self, orientation: Orientation, regions: NMSRegions<Idx>) -> &mut Self {
+        self.roi.get_mut(orientation).push(regions);
         self
     }
 
-    pub fn set_boundaries_trusted(
-        &mut self,
-        orientation: Orientation,
-        boundaries: Vec<Idx>,
-    ) -> &mut Self {
-        *self.boundaries.get_mut(orientation) = boundaries;
-        self
-    }
-
-    pub fn run(
+    fn nmsit_uniform(
         &self,
-        orientation: Orientation,
-        peaks: &mut [Peak<Idx, Cnts>],
+        nms: &[Interval<Idx>],
         sigcnts: &[Cnts],
         cntcnts: &[Cnts],
-        scaling: &Scaling<Cnts>,
-        sensitivity: Cnts,
-    ) -> Result<Vec<Peak<Idx, Cnts>>> {
-        if peaks.is_empty() {
-            return Ok(Vec::new());
-        }
-        peaks.sort_by_key(|x| x.interval().start());
+        peaks: &[Peak<Idx, Cnts>],
+        saveto: &mut Vec<Peak<Idx, Cnts>>,
+    ) -> Result<()> {
+        debug_assert!(!peaks.is_empty());
+        debug_assert!(!nms.is_empty());
 
-        // Group peaks within X bases
-        let mut groups = vec![];
-
-        let mut peaks_iter = peaks.iter();
-        let mut last = peaks_iter.next().unwrap();
-        let mut cache = vec![];
-
-        for p in peaks_iter {
-            debug_assert!(p.interval().start() > last.interval().end());
-
-            if p.interval().start() - last.interval().end() > self.group_within {
-                cache.push(last);
-                groups.push(cache);
-
-                last = p;
-                cache = vec![];
-            } else {
-                cache.push(last);
-                last = p;
-            }
-        }
-        cache.push(last);
-        groups.push(cache);
-
-        let boundaries = self.boundaries.get(orientation);
-        let mut nms_peaks = Vec::new();
-        for group in groups.into_iter() {
-            // Group limits
-            let (start, end) = (
-                group.first().unwrap().interval().start(),
-                group.last().unwrap().interval().end(),
-            );
-
-            // Slop size
-            let slop = Idx::from((end - start).to_f32().unwrap() * self.slopfrac)
-                .map(|x| x.clamp(self.sloplim.0, self.sloplim.1))
-                .unwrap_or(self.sloplim.1);
-
-            // Coordinates of the slopped region
-            let slop_start = left_slop(boundaries, start, slop).to_usize().unwrap();
-            let slop_end = right_slop(boundaries, end, slop)
-                .min(end)
-                .to_usize()
-                .unwrap();
-
-            assert!(
-                slop_start < slop_end,
-                "Slop start must be less than slop end: {} vs {}",
-                slop_start,
-                slop_end
-            );
-
-            // Calculate the mean signal in the slopped region
-            let mut covered = 0;
-            let total: f64 = (slop_start..slop_end)
-                .filter_map(|x| {
-                    if sigcnts[x] <= sensitivity && cntcnts[x] <= sensitivity {
-                        None
-                    } else {
-                        covered += 1;
-                        Some(
-                            (sigcnts[x] * scaling.signal - cntcnts[x] * scaling.control)
-                                .max(Cnts::zero())
-                                .to_f64()
-                                .unwrap(),
-                        )
-                    }
-                })
-                .sum();
-            if covered == 0 {
+        // Collect peaks that are within the NMS region
+        let mut overlapping = Vec::with_capacity(peaks.len());
+        for peak in peaks {
+            if peak.interval().start() >= nms.last().unwrap().end() {
+                break;
+            } else if peak.interval().end() <= nms.first().unwrap().start() {
                 continue;
             }
-            let baseline = total / (covered as f64 + 1e-6);
+
+            for nms in nms.iter() {
+                if nms.start() >= peak.interval().end() {
+                    break;
+                } else if nms.end() <= peak.interval().start() {
+                    continue;
+                }
+
+                if let Some(x) = peak.interval().intersection(nms) {
+                    overlapping.push(x);
+                }
+            }
+        }
+        if overlapping.is_empty() {
+            return Ok(());
+        }
+
+        // Calculate the baseline for the whole NMS region
+        let iter = nms
+            .iter()
+            .flat_map(|x| Range::from(x.cast::<usize>().unwrap()));
+
+        let (mut baseline, mut minval, mut length) = (0.0f64, f64::INFINITY, 0usize);
+        for pos in iter {
+            if sigcnts[pos] >= self.sensitivity || cntcnts[pos] >= self.sensitivity {
+                let value = (sigcnts[pos] - cntcnts[pos]).to_f64().unwrap();
+                minval = minval.min(value);
+                baseline += value;
+                length += 1;
+            }
+        }
+
+        let baseline = Cnts::from((baseline / length as f64) - minval).unwrap();
+        let minval = Cnts::from(minval).unwrap();
+
+        if baseline <= self.sensitivity {
+            return Ok(());
+        }
+
+        // Subdivided the original peak into smaller sub-peaks passing the NMS filter
+        let bycutoff = ByCutoff {
+            min_length: Idx::one(),
+            merge_within: Idx::zero(),
+            cutoff: baseline * self.fecutoff,
+        };
+
+        for peak in overlapping {
+            let iter = Range::from(peak.cast::<usize>().unwrap()).map(|x| {
+                (
+                    Idx::from(x).unwrap(),
+                    Idx::from(x + 1).unwrap(),
+                    (sigcnts[x] - cntcnts[x]) - minval,
+                )
+            });
+            bycutoff.run_from_iter(iter, saveto);
+        }
+
+        Ok(())
+    }
+
+    fn nmsit_slop(
+        &self,
+        nms: &[Interval<Idx>],
+        sigcnts: &[Cnts],
+        cntcnts: &[Cnts],
+        peaks: &[Peak<Idx, Cnts>],
+        saveto: &mut Vec<Peak<Idx, Cnts>>,
+    ) -> Result<()> {
+        debug_assert!(!peaks.is_empty());
+        debug_assert!(!nms.is_empty());
+
+        // Create a mapping from the NMS region to the input peaks
+        let mapping = ChainMap::new(ChainInterval::try_from_iter(nms.iter().cloned()).unwrap());
+
+        // Map input peaks to the NMS region
+        let mut mapped = Vec::new();
+        for peak in peaks {
+            if peak.interval().start() >= nms.last().unwrap().end() {
+                break;
+            } else if peak.interval().end() <= nms.first().unwrap().start() {
+                continue;
+            }
+            match mapping.map_interval(peak.interval()) {
+                Mapping::Complete(x) | Mapping::Truncated(x) => mapped.push(x),
+                Mapping::None => continue,
+            }
+        }
+        if mapped.is_empty() {
+            return Ok(());
+        }
+
+        // Group peaks within X bases
+        let groups = group_within(&mapped, self.group_within);
+
+        // NMS each region
+        let mut buffer = ChainInterval::default();
+        for group in groups {
+            // Group limits
+            let (start, end) = (group.first().unwrap().start(), group.last().unwrap().end());
+
+            // Slop size
+            let slop = Idx::from((end - start).to_f32().unwrap() * self.slopfrac).unwrap();
+            let slop = slop.clamp(self.sloplim.0, self.sloplim.1);
+
+            // Backmap the slopped region to the global coordinates
+            let query = Interval::new(start.saturating_sub(slop), end + slop)?;
+            let chain = match mapping.invmap_interval(&query, std::mem::take(&mut buffer)) {
+                Mapping::Complete(x) | Mapping::Truncated(x) => x,
+                Mapping::None => {
+                    debug_assert!(false, "Region must be mapped");
+                    continue;
+                }
+            };
+
+            // Calculate the baseline
+            let iter = chain
+                .links()
+                .iter()
+                .flat_map(|x| Range::from(x.cast::<usize>().unwrap()));
+
+            let (mut baseline, mut minval) = (0.0f64, f64::INFINITY);
+            for pos in iter {
+                if sigcnts[pos] >= self.sensitivity || cntcnts[pos] >= self.sensitivity {
+                    let value = (sigcnts[pos] - cntcnts[pos]).to_f64().unwrap();
+                    minval = minval.min(value);
+                    baseline += value;
+                }
+            }
+            buffer = chain;
+
+            let length = (end - start).to_f64().unwrap();
+            let baseline = Cnts::from((baseline / length) - minval).unwrap();
+            let minval = Cnts::from(minval).unwrap();
+
+            if baseline <= self.sensitivity {
+                continue;
+            }
 
             // Subdivided the original peak into smaller sub-peaks passing the NMS filter
             let bycutoff = ByCutoff {
                 min_length: Idx::one(),
                 merge_within: Idx::zero(),
-                cutoff: Cnts::from(baseline).unwrap() * self.fecutoff,
+                cutoff: baseline * self.fecutoff,
             };
 
             for peak in group {
-                let start = peak.interval().start().to_usize().unwrap();
-                let end = peak.interval().end().to_usize().unwrap();
+                // Map the peak to the global coordinates
+                let chain = match mapping.invmap_interval(peak, std::mem::take(&mut buffer)) {
+                    Mapping::Complete(x) | Mapping::Truncated(x) => x,
+                    Mapping::None => {
+                        debug_assert!(false, "Peak must be mapped");
+                        continue;
+                    }
+                };
 
-                let iterator = (start..end).map(|ind| {
-                    (
-                        Idx::from(ind).unwrap(),
-                        Idx::from(ind + 1).unwrap(),
-                        (sigcnts[ind] * scaling.signal - cntcnts[ind] * scaling.control)
-                            .max(Cnts::zero()),
-                    )
-                });
+                let iter = chain
+                    .links()
+                    .iter()
+                    .flat_map(|x| Range::from(x.cast::<usize>().unwrap()))
+                    .map(|ind| {
+                        (
+                            Idx::from(ind).unwrap(),
+                            Idx::from(ind + 1).unwrap(),
+                            (sigcnts[ind] - cntcnts[ind]) - minval,
+                        )
+                    });
+                bycutoff.run_from_iter(iter, saveto);
+                buffer = chain;
+            }
+        }
+        Ok(())
+    }
 
-                bycutoff.run_from_iter(iterator, &mut nms_peaks);
+    pub fn run(
+        &self,
+        orientation: Orientation,
+        region: (Idx, Idx),
+        peaks: &[Peak<Idx, Cnts>],
+        sigcnts: &[Cnts],
+        cntcnts: &[Cnts],
+    ) -> Result<Vec<Peak<Idx, Cnts>>> {
+        if peaks.is_empty() {
+            return Ok(Vec::new());
+        }
+        debug_assert!(peaks.is_sorted_by_key(|x| x.interval().start()));
+
+        let region = Interval::new(region.0, region.1)?;
+        debug_assert!(region.len().to_usize().unwrap() == sigcnts.len());
+        debug_assert!(region.len().to_usize().unwrap() == cntcnts.len());
+
+        // Apply NMS filters
+        let mut allowed = Vec::with_capacity(peaks.len());
+
+        for config in self.roi.get(orientation) {
+            for nms in &config.regions {
+                // Map the NMS region to the region coordinates
+                let nms = nms
+                    .links()
+                    .iter()
+                    .filter_map(|x| x.clamped(&region))
+                    .map(|x| x << region.start())
+                    .collect::<Vec<_>>();
+                if nms.is_empty() {
+                    continue;
+                }
+
+                // Find the peaks slice that overlaps with the region
+                let start =
+                    match peaks.binary_search_by_key(&nms[0].start(), |x| x.interval().start()) {
+                        Ok(x) => x,
+                        Err(0) => 0,
+                        Err(x) => x - 1,
+                    };
+
+                // Apply the filter
+                if config.uniform_baseline {
+                    self.nmsit_uniform(&nms, sigcnts, cntcnts, &peaks[start..], &mut allowed)?
+                } else {
+                    self.nmsit_slop(&nms, sigcnts, cntcnts, &peaks[start..], &mut allowed)?
+                }
             }
         }
 
-        Ok(nms_peaks)
+        Ok(allowed)
     }
 }
 
-fn left_slop<Idx: PrimInt>(boundaries: &[Idx], pos: Idx, maxdist: Idx) -> Idx {
-    match boundaries.binary_search(&pos) {
-        // Pos exists in the boundaries index, can't move to the left
-        Ok(_) => pos,
-        // Pos is to the left of the first boundary, slop up to 0
-        Err(0) => pos - maxdist.min(pos),
-        // Pos is somewhere between boundaries, slop towards i-1-th boundary
-        Err(ind) => {
-            let slopped = pos - maxdist.min(pos);
-            boundaries[ind - 1].max(slopped)
+fn group_within<Idx: PrimInt>(
+    intervals: &[Interval<Idx>],
+    group_within: Idx,
+) -> Vec<Vec<&Interval<Idx>>> {
+    // Group peaks within X bases
+    let mut groups = vec![];
+
+    let mut peaks_iter = intervals.iter();
+    let mut last = peaks_iter.next().unwrap();
+    let mut cache = vec![];
+
+    for p in peaks_iter {
+        debug_assert!(p.start() >= last.end());
+
+        if p.start() - last.end() > group_within {
+            cache.push(last);
+            groups.push(cache);
+
+            last = p;
+            cache = vec![];
+        } else {
+            cache.push(last);
+            last = p;
         }
     }
-}
+    cache.push(last);
+    groups.push(cache);
 
-fn right_slop<Idx: PrimInt>(boundaries: &[Idx], pos: Idx, maxdist: Idx) -> Idx {
-    match boundaries.binary_search(&pos) {
-        // Pos exists in the boundaries index, can't move to the right
-        Ok(_) => pos,
-        // Pos is to the right of the last boundary, slop freely
-        Err(ind) if ind == boundaries.len() => pos + maxdist,
-        // Pos is somewhere between boundaries, slop towards i-th boundary
-        Err(ind) => boundaries[ind].min(pos + maxdist),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_left_slop() {
-        let arr: Vec<u8> = vec![10, 20, 30, 40];
-        // Before the first boundary
-        assert_eq!(left_slop(&arr, 0, 5), 0);
-        assert_eq!(left_slop(&arr, 5, 10), 0);
-        assert_eq!(left_slop(&arr, 8, 5), 3);
-        // On the boundary
-        assert_eq!(left_slop(&arr, 10, 5), 10);
-        assert_eq!(left_slop(&arr, 20, 100), 20);
-        assert_eq!(left_slop(&arr, 40, 3), 40);
-        // Between boundaries
-        assert_eq!(left_slop(&arr, 15, 10), 10);
-        assert_eq!(left_slop(&arr, 25, 6), 20);
-        assert_eq!(left_slop(&arr, 25, 3), 22);
-        assert_eq!(left_slop(&arr, 25, 0), 25);
-        // After the last boundary
-        assert_eq!(left_slop(&arr, 50, 5), 45);
-        assert_eq!(left_slop(&arr, 50, 100), 40);
-
-        // Empty boundaries
-        let arr: Vec<u8> = vec![];
-        assert_eq!(left_slop(&arr, 0, 5), 0);
-        assert_eq!(left_slop(&arr, 5, 10), 0);
-        assert_eq!(left_slop(&arr, 10, 5), 5);
-    }
-
-    #[test]
-    fn test_right_slop() {
-        let arr: Vec<u8> = vec![10, 20, 30, 40];
-        // Before the first boundary
-        assert_eq!(right_slop(&arr, 0, 5), 5);
-        assert_eq!(right_slop(&arr, 5, 10), 10);
-        assert_eq!(right_slop(&arr, 8, 5), 10);
-        // On the boundary
-        assert_eq!(right_slop(&arr, 10, 5), 10);
-        assert_eq!(right_slop(&arr, 20, 100), 20);
-        assert_eq!(right_slop(&arr, 40, 3), 40);
-        // Between boundaries
-        assert_eq!(right_slop(&arr, 15, 10), 20);
-        assert_eq!(right_slop(&arr, 25, 3), 28);
-        assert_eq!(right_slop(&arr, 25, 5), 30);
-        assert_eq!(right_slop(&arr, 25, 0), 25);
-        // After the last boundary
-        assert_eq!(right_slop(&arr, 50, 5), 55);
-        assert_eq!(right_slop(&arr, 50, 100), 150);
-
-        // Empty boundaries
-        let arr: Vec<u8> = vec![];
-        assert_eq!(right_slop(&arr, 0, 5), 5);
-        assert_eq!(right_slop(&arr, 5, 10), 15);
-        assert_eq!(right_slop(&arr, 10, 5), 15);
-    }
+    groups
 }

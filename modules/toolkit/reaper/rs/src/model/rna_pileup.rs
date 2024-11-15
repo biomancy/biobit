@@ -1,35 +1,168 @@
-use ::higher_kinded_types::prelude::*;
-use derive_getters::{Dissolve, Getters};
-use eyre::{Report, Result};
-
+use crate::worker::RleIdentical;
 use biobit_collections_rs::rle_vec::RleVec;
-use biobit_core_rs::loc::IntervalOp;
-use biobit_core_rs::loc::{Contig, Interval, PerOrientation};
+use biobit_core_rs::loc::{
+    ChainInterval, Contig, Interval, IntervalOp, Orientation, PerOrientation,
+};
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_core_rs::source::{AnyMap, Source};
 use biobit_core_rs::LendingIterator;
 use biobit_io_rs::bam::SegmentedAlignment;
+use derive_getters::{Dissolve, Getters};
+use derive_more::Into;
+use eyre::{eyre, OptionExt, Report, Result};
+use higher_kinded_types::prelude::*;
 
-use crate::worker::RleIdentical;
-
-#[derive(Clone, PartialEq, Eq, Debug, Dissolve, Getters)]
-pub struct RNAPileup<Cnts: Float> {
-    sensitivity: Cnts,
-    control_baseline: Cnts,
-    min_signal: Cnts,
+#[derive(Clone, PartialEq, Eq, Debug, Into, Getters)]
+pub struct ControlModel<Idx: PrimInt> {
+    regions: Vec<ChainInterval<Idx>>,
+    uniform_baseline: bool,
+    winsizes: Vec<usize>,
+    bufsize: usize,
 }
 
-impl<Cnts: Float> Default for RNAPileup<Cnts> {
+impl<Idx: PrimInt> ControlModel<Idx> {
+    pub fn new(
+        mut regions: Vec<ChainInterval<Idx>>,
+        uniform_baseline: bool,
+        winsizes: Vec<usize>,
+    ) -> Result<Self> {
+        let bufsize = regions
+            .iter()
+            .map(|x| x.links().iter().fold(Idx::zero(), |acc, l| acc + l.len()))
+            .max()
+            .ok_or_eyre("Control model must have at least one region")?
+            .to_usize()
+            .ok_or_eyre("Size of the largest chain exceeds usize")?;
+
+        for s in &winsizes {
+            if *s <= 1 {
+                return Err(eyre!("Smoothing window size must be greater than one"));
+            }
+        }
+        regions.sort();
+
+        Ok(Self {
+            regions,
+            uniform_baseline,
+            winsizes,
+            bufsize,
+        })
+    }
+
+    pub fn apply<Cnts: Float>(
+        &self,
+        start: Idx,
+        end: Idx,
+        epsilon: Cnts,
+        source: &[Cnts],
+        saveto: &mut [Cnts],
+    ) -> Result<()> {
+        // Prepare the buffer
+        let mut buffer = Vec::with_capacity(self.bufsize);
+        buffer.clear();
+
+        // Prepare the ROI coordinates and length
+        let roi = Interval::new(start, end).unwrap();
+        let length = roi.len();
+        debug_assert_eq!(length.to_usize().unwrap(), saveto.len());
+
+        // Each chain is processed independently
+        let mut links = Vec::new();
+        let mut backmap = Vec::new();
+        for chain in &self.regions {
+            // Remap chain links to local coordinates
+            links.extend(
+                chain
+                    .links()
+                    .iter()
+                    .filter_map(|x| (x << start).clamped(&roi)),
+            );
+            if links.is_empty() {
+                continue;
+            }
+
+            // Populate the buffer with the data from the source array and establish backlinks
+            for link in &links {
+                let link = link.start().to_usize().unwrap()..link.end().to_usize().unwrap();
+                backmap.push(link.clone());
+                buffer.extend_from_slice(&source[link]);
+            }
+
+            // If the total signal is below the threshold, skip the chain
+            let sumval = buffer.iter().fold(Cnts::zero(), |acc, x| acc + *x);
+            if sumval < epsilon {
+                links.clear();
+                backmap.clear();
+                buffer.clear();
+                continue;
+            }
+
+            // Calculate the smoothed signal for the chain using each window size
+            for &winsize in &self.winsizes {
+                if winsize >= buffer.len() {
+                    continue;
+                }
+
+                // Initialize the filter
+                let mut sum = buffer
+                    .iter()
+                    .take(winsize)
+                    .fold(Cnts::zero(), |acc, x| acc + *x);
+
+                // Backtracking utilities
+                let offset = winsize / 2;
+                let backpos = backmap.iter().flat_map(|x| x.clone()).skip(offset);
+                let bufpos = offset..buffer.len() - offset;
+
+                // Run the calculations
+                for (bufpos, backpos) in bufpos.zip(backpos) {
+                    saveto[backpos] = saveto[backpos].max(sum / Cnts::from(winsize).unwrap());
+                    sum = sum + buffer[bufpos + offset] - buffer[bufpos - offset];
+                }
+            }
+
+            // Apply the uniform baseline if necessary
+            if self.uniform_baseline {
+                let baseline = sumval / Cnts::from(length).unwrap();
+                for link in &links {
+                    let rng = link.start().to_usize().unwrap()..link.end().to_usize().unwrap();
+                    for val in saveto[rng].iter_mut() {
+                        *val = val.max(baseline);
+                    }
+                }
+            }
+
+            // Clear the buffer
+            links.clear();
+            backmap.clear();
+            buffer.clear();
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Dissolve, Getters)]
+pub struct RNAPileup<Idx: PrimInt, Cnts: Float> {
+    sensitivity: Cnts,
+    min_signal: Cnts,
+    control_baseline: Cnts,
+    buffer: Vec<Cnts>,
+    modeling: PerOrientation<Vec<ControlModel<Idx>>>,
+}
+
+impl<Idx: PrimInt, Cnts: Float> Default for RNAPileup<Idx, Cnts> {
     fn default() -> Self {
         RNAPileup {
             sensitivity: Cnts::from(Self::DEFAULT_SENSITIVITY).unwrap(),
             control_baseline: Cnts::zero(),
             min_signal: Cnts::zero(),
+            buffer: Vec::new(),
+            modeling: PerOrientation::default(),
         }
     }
 }
 
-impl<Cnts: Float> RNAPileup<Cnts> {
+impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
     pub const DEFAULT_SENSITIVITY: f64 = 1e-6;
     pub fn new() -> Self {
         Self::default()
@@ -50,22 +183,27 @@ impl<Cnts: Float> RNAPileup<Cnts> {
         self
     }
 
+    pub fn add_modeling(
+        &mut self,
+        orientation: Orientation,
+        model: ControlModel<Idx>,
+    ) -> &mut Self {
+        self.modeling.get_mut(orientation).push(model);
+        self
+    }
+
     pub fn identical(&self) -> RleIdentical<Cnts> {
         RleIdentical::new(self.sensitivity)
     }
 
     #[allow(clippy::type_complexity)]
-    fn pileup<Ctg, Idx, Src>(
+    fn pileup<Ctg, Src>(
         &self,
         query: (&Ctg, Idx, Idx),
         sources: &mut [Src],
         caches: &mut AnyMap,
         mut counts: PerOrientation<Vec<Cnts>>,
-        rle: PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
-    ) -> Result<(
-        PerOrientation<Vec<Cnts>>,
-        PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
-    )>
+    ) -> Result<PerOrientation<Vec<Cnts>>>
     where
         Idx: PrimInt,
         Ctg: Contig,
@@ -110,8 +248,15 @@ impl<Cnts: Float> RNAPileup<Cnts> {
             }
             src.release_caches(caches);
         }
+        Ok(counts)
+    }
 
-        let rle = rle.try_map::<_, Report>(|o, rle| {
+    fn rlencode(
+        &self,
+        counts: &PerOrientation<Vec<Cnts>>,
+        cache: PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
+    ) -> Result<PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>> {
+        cache.try_map::<_, Report>(|o, rle| {
             let cnts = counts.get(o);
             let rle = rle
                 .rebuild()
@@ -120,13 +265,11 @@ impl<Cnts: Float> RNAPileup<Cnts> {
                 .build();
 
             Ok(rle)
-        })?;
-
-        Ok((counts, rle))
+        })
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn model_signal<Ctg, Idx, Src>(
+    pub fn model_signal<Ctg, Src>(
         &self,
         query: (&Ctg, Idx, Idx),
         sources: &mut [Src],
@@ -147,7 +290,9 @@ impl<Cnts: Float> RNAPileup<Cnts> {
             Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
     {
-        let (counts, mut rle) = self.pileup(query, sources, caches, counts, rle)?;
+        let counts = self.pileup(query, sources, caches, counts)?;
+        let mut rle = self.rlencode(&counts, rle)?;
+
         let mut covered: PerOrientation<Vec<_>> = PerOrientation::default();
         let mut modeled: PerOrientation<Vec<_>> = PerOrientation::default();
 
@@ -213,12 +358,13 @@ impl<Cnts: Float> RNAPileup<Cnts> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn model_control<Ctg, Idx, Src>(
+    pub fn model_control<Ctg, Src>(
         &self,
         query: (&Ctg, Idx, Idx),
         sources: &mut [Src],
         caches: &mut AnyMap,
         counts: PerOrientation<Vec<Cnts>>,
+        model: &mut PerOrientation<Vec<Cnts>>,
         rle: PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
     ) -> Result<(
         PerOrientation<Vec<Cnts>>,
@@ -233,7 +379,20 @@ impl<Cnts: Float> RNAPileup<Cnts> {
             Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
         >,
     {
-        let (counts, mut rle) = self.pileup(query, sources, caches, counts, rle)?;
+        let counts = self.pileup(query, sources, caches, counts)?;
+        // Build the control model
+        model.try_apply(|o, x| {
+            x.clear();
+            x.extend_from_slice(counts.get(o));
+
+            for m in self.modeling.get(o) {
+                m.apply(query.1, query.2, self.sensitivity, counts.get(o), x)?;
+            }
+            Ok::<(), Report>(())
+        })?;
+
+        // Run-length encode the control model
+        let mut rle = self.rlencode(model, rle)?;
         let mut covered: PerOrientation<Vec<_>> = PerOrientation::default();
 
         // Turn signal below the minimum signal into zeros

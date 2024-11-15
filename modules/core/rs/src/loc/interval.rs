@@ -1,14 +1,13 @@
 use std::fmt::{Debug, Display};
-use std::ops::Range;
+use std::ops::{Range, Shl, Shr};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::num::PrimInt;
 use derive_getters::Dissolve;
 use eyre::{eyre, Report, Result};
 use impl_tools::autoimpl;
 use num::{NumCast, Unsigned};
-
-use crate::num::PrimInt;
 
 /// Interval is a half-open genomic region [start, end).
 /// It's not represented as a Rust-native Range for a couple of reasons:
@@ -210,26 +209,15 @@ impl<Idx: PrimInt> Interval<Idx> {
         self
     }
 
-    pub fn cast<T: PrimInt>(&self) -> Interval<T>
-    where
-        Idx: Into<T>,
-    {
-        Interval {
-            start: self.start.into(),
-            end: self.end.into(),
-        }
+    pub fn clamped(self, inside: &Self) -> Option<Self> {
+        self.intersection(inside)
     }
 
-    pub fn try_cast<T: PrimInt>(
-        &self,
-    ) -> std::result::Result<Interval<T>, <Idx as TryInto<T>>::Error>
-    where
-        Idx: TryInto<T>,
-    {
-        Ok(Interval {
-            start: self.start.try_into()?,
-            end: self.end.try_into()?,
-        })
+    pub fn cast<T: PrimInt>(&self) -> Option<Interval<T>> {
+        match (T::from(self.start), T::from(self.end)) {
+            (Some(start), Some(end)) => Some(Interval { start, end }),
+            _ => None,
+        }
     }
 }
 
@@ -256,6 +244,12 @@ impl<Idx: PrimInt> TryFrom<(Idx, Idx)> for Interval<Idx> {
     }
 }
 
+impl<Idx: PrimInt> From<Interval<Idx>> for (Idx, Idx) {
+    fn from(interval: Interval<Idx>) -> Self {
+        (interval.start, interval.end)
+    }
+}
+
 impl<Idx: PrimInt> TryFrom<Range<Idx>> for Interval<Idx> {
     type Error = Report;
 
@@ -276,6 +270,12 @@ impl<Idx: PrimInt> From<&Interval<Idx>> for Range<Idx> {
     }
 }
 
+impl<Idx: PrimInt> PartialEq<(Idx, Idx)> for Interval<Idx> {
+    fn eq(&self, other: &(Idx, Idx)) -> bool {
+        self.start == other.0 && self.end == other.1
+    }
+}
+
 impl<Idx: PrimInt> PartialEq<Range<Idx>> for Interval<Idx> {
     fn eq(&self, other: &Range<Idx>) -> bool {
         self.start == other.start && self.end == other.end
@@ -285,6 +285,68 @@ impl<Idx: PrimInt> PartialEq<Range<Idx>> for Interval<Idx> {
 impl<Idx: PrimInt> PartialEq<Interval<Idx>> for Range<Idx> {
     fn eq(&self, other: &Interval<Idx>) -> bool {
         self.start == other.start && self.end == other.end
+    }
+}
+
+impl<Idx: PrimInt> Shl<Idx> for Interval<Idx> {
+    type Output = Self;
+
+    fn shl(mut self, shift: Idx) -> Self::Output {
+        self.start = self.start - shift;
+        self.end = self.end - shift;
+        self
+    }
+}
+
+impl<Idx: PrimInt> Shl<Idx> for &Interval<Idx> {
+    type Output = Interval<Idx>;
+
+    fn shl(self, shift: Idx) -> Self::Output {
+        Interval {
+            start: self.start - shift,
+            end: self.end - shift,
+        }
+    }
+}
+
+impl<Idx: PrimInt> Shl<Idx> for &mut Interval<Idx> {
+    type Output = Self;
+
+    fn shl(self, shift: Idx) -> Self::Output {
+        self.start = self.start - shift;
+        self.end = self.end - shift;
+        self
+    }
+}
+
+impl<Idx: PrimInt> Shr<Idx> for Interval<Idx> {
+    type Output = Self;
+
+    fn shr(mut self, shift: Idx) -> Self::Output {
+        self.start = self.start + shift;
+        self.end = self.end + shift;
+        self
+    }
+}
+
+impl<Idx: PrimInt> Shr<Idx> for &Interval<Idx> {
+    type Output = Interval<Idx>;
+
+    fn shr(self, shift: Idx) -> Self::Output {
+        Interval {
+            start: self.start + shift,
+            end: self.end + shift,
+        }
+    }
+}
+
+impl<Idx: PrimInt> Shr<Idx> for &mut Interval<Idx> {
+    type Output = Self;
+
+    fn shr(self, shift: Idx) -> Self::Output {
+        self.start = self.start + shift;
+        self.end = self.end + shift;
+        self
     }
 }
 
@@ -306,6 +368,14 @@ mod tests {
     fn test_len() {
         assert_eq!(Interval::new(0, 10).unwrap().len(), 10);
         assert_eq!(Interval::new(0, 1).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_shift() {
+        let interval = Interval::new(1, 10).unwrap();
+        assert_eq!(interval >> 10, (11, 20));
+        assert_eq!(interval << 1, (0, 9));
+        assert_eq!((interval >> 10) << 10, interval);
     }
 
     #[test]

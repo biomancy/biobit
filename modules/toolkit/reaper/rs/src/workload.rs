@@ -11,7 +11,7 @@ use crate::postfilter::NMS;
 
 #[derive(Clone, PartialEq, Debug, Dissolve, Constructor)]
 pub struct Config<Idx: PrimInt, Cnts: Float> {
-    pub model: RNAPileup<Cnts>,
+    pub model: RNAPileup<Idx, Cnts>,
     pub cmp: Enrichment<Cnts>,
     pub pcalling: ByCutoff<Idx, Cnts>,
     pub postfilter: NMS<Idx, Cnts>,

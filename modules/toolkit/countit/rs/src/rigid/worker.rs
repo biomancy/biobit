@@ -1,7 +1,7 @@
-use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 pub use eyre::Result;
+use higher_kinded_types::prelude::*;
 use std::collections::hash_map::Entry;
 
 use crate::result::{PartitionMetrics, ResolutionOutcomes};

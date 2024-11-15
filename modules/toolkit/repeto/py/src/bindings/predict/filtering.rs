@@ -1,4 +1,5 @@
 use derive_more::{From, Into};
+use eyre::OptionExt;
 use pyo3::prelude::*;
 
 use biobit_core_py::loc::{IntoPyInterval, PyInterval};
@@ -31,8 +32,9 @@ impl PyFilter {
     ) -> PyResult<PyRefMut<'a, Self>> {
         let intervals = rois
             .into_iter()
-            .map(|x| x.0.borrow(py).rs.try_cast::<usize>())
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|x| x.0.borrow(py).rs.cast::<usize>())
+            .collect::<Option<Vec<_>>>()
+            .ok_or_eyre("Failed to cast intervals to usize")?;
         slf.rs.set_rois(intervals);
         Ok(slf)
     }
@@ -83,8 +85,8 @@ impl PyFilter {
         let rois = state
             .2
             .into_iter()
-            .map(|x| x.rs.try_cast::<usize>())
-            .collect::<Result<Vec<_>, _>>()
+            .map(|x| x.rs.cast::<usize>())
+            .collect::<Option<Vec<_>>>()
             .unwrap();
         slf.rs.set_rois(rois);
         slf

@@ -11,6 +11,7 @@ mod chain_interval;
 mod contig;
 mod interval;
 mod locus;
+pub mod mapping;
 mod orientation;
 mod per_orientation;
 mod per_strand;

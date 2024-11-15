@@ -5,11 +5,11 @@ from biobit.toolkit import countit
 
 def test_countit():
     engine = countit.rigid.Engine.builder().set_threads(-1).add_elements([
-        ("A", [("1", "+", [(1, 10), (11, 20)]), ("2", "-", [(10, 20), (10, 20)])]),
-        (123, [("2", Orientation.Forward, [(0, 10)]), ("2", "=", [])])
+        ("A", [("chr1", "+", [(1, 10), (11, 20)]), ("chr2", "-", [(10, 20), (10, 20)])]),
+        (123, [("chr2", Orientation.Forward, [(0, 10)]), ("chr2", "=", [])])
     ]).add_partitions([
-        ("1", (0, 248956422)),
-        ("MT", (0, 16569)),
+        ("chr1", (0, 248956422)),
+        ("chrM", (0, 16569)),
     ]).build()
 
     resolutions = [
@@ -22,7 +22,7 @@ def test_countit():
         results = engine.run(
             [
                 (
-                    "Bam 1", "/home/alnfedorov/projects/biobit/resources/bam/A1+THP-1_mock_no-RNase_2.bam",
+                    "Bam 1", "/home/alnfedorov/projects/biobit/resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam",
                     Layout.Paired(Strandedness.Reverse, MatesOrientation.Inward)
                 )
             ],

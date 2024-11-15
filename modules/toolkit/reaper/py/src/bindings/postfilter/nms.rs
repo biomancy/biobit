@@ -1,7 +1,9 @@
-use biobit_core_py::loc::{IntoPyOrientation, Orientation};
-use biobit_reaper_rs::postfilter::NMS;
+use biobit_core_py::loc::{IntoPyChainInterval, IntoPyOrientation, Orientation, PyChainInterval};
+use biobit_reaper_rs::postfilter::{NMSRegions, NMS};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
+use eyre::OptionExt;
+use itertools::Itertools;
 use pyo3::prelude::*;
 
 #[pyclass(eq, name = "NMS")]
@@ -44,13 +46,27 @@ impl PyNMS {
         Ok(slf)
     }
 
-    pub fn set_boundaries(
+    pub fn set_sensitivity(mut slf: PyRefMut<Self>, sensitivity: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_sensitivity(sensitivity)?;
+        Ok(slf)
+    }
+
+    pub fn add_regions(
         mut slf: PyRefMut<Self>,
         orientation: IntoPyOrientation,
-        boundaries: Vec<usize>,
+        uniform_baseline: bool,
+        regions: Vec<IntoPyChainInterval>,
     ) -> PyResult<PyRefMut<Self>> {
-        slf.rs
-            .set_boundaries(orientation.0 .0, boundaries.into_iter().collect());
+        let regions: Option<_> = regions
+            .into_iter()
+            .map(|x| x.py.rs.cast::<usize>())
+            .collect();
+        let regions = NMSRegions::new(
+            regions.ok_or_eyre("Failed to cast ChainInterval to usize")?,
+            uniform_baseline,
+        )?;
+
+        slf.rs.add_regions(orientation.0 .0, regions);
         Ok(slf)
     }
 
@@ -62,14 +78,35 @@ impl PyNMS {
         usize,
         f32,
         (usize, usize),
-        (Vec<usize>, Vec<usize>, Vec<usize>),
+        (
+            Vec<(bool, Vec<PyChainInterval>)>,
+            Vec<(bool, Vec<PyChainInterval>)>,
+            Vec<(bool, Vec<PyChainInterval>)>,
+        ),
     ) {
+        let rois = self.rs.roi().clone();
+        let rois = rois
+            .map(|_, y| {
+                y.into_iter()
+                    .map(|x| {
+                        (
+                            x.uniform_baseline,
+                            x.regions
+                                .into_iter()
+                                .map(|x| PyChainInterval::from(x.cast::<i64>().unwrap()))
+                                .collect_vec(),
+                        )
+                    })
+                    .collect_vec()
+            })
+            .dissolve();
+
         (
             *self.rs.fecutoff(),
             *self.rs.group_within(),
             *self.rs.slopfrac(),
             *self.rs.sloplim(),
-            self.rs.boundaries().clone().dissolve(),
+            rois,
         )
     }
 
@@ -81,19 +118,33 @@ impl PyNMS {
             usize,
             f32,
             (usize, usize),
-            (Vec<usize>, Vec<usize>, Vec<usize>),
+            (
+                Vec<(bool, Vec<PyChainInterval>)>,
+                Vec<(bool, Vec<PyChainInterval>)>,
+                Vec<(bool, Vec<PyChainInterval>)>,
+            ),
         ),
-    ) {
+    ) -> PyResult<()> {
         self.rs.set_fecutoff(state.0).unwrap();
         self.rs.set_group_within(state.1).unwrap();
         self.rs.set_slopfrac(state.2).unwrap();
         self.rs.set_sloplim(state.3 .0, state.3 .1).unwrap();
 
-        self.rs
-            .set_boundaries_trusted(Orientation::Forward, state.4 .0);
-        self.rs
-            .set_boundaries_trusted(Orientation::Reverse, state.4 .1);
-        self.rs
-            .set_boundaries_trusted(Orientation::Dual, state.4 .2);
+        for (orientation, regions) in [
+            (Orientation::Forward, state.4 .0),
+            (Orientation::Reverse, state.4 .1),
+            (Orientation::Dual, state.4 .2),
+        ] {
+            for (uniform, chains) in regions {
+                let chains: Option<Vec<_>> =
+                    chains.into_iter().map(|x| x.rs.cast::<usize>()).collect();
+                let regions = NMSRegions::new(
+                    chains.ok_or_eyre("Failed to cast ChainInterval to usize")?,
+                    uniform,
+                )?;
+                self.rs.add_regions(orientation, regions);
+            }
+        }
+        Ok(())
     }
 }

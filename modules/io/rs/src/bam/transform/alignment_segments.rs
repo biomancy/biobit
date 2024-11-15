@@ -1,8 +1,8 @@
 use std::io;
 
-use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
 use dyn_clone::DynClone;
+use higher_kinded_types::prelude::*;
 use noodles::bam::record::Record;
 use noodles::sam::alignment::record::cigar::op::Kind;
 use noodles::sam::alignment::record::cigar::Op;
@@ -349,9 +349,10 @@ pub fn extract_aln_hit_count(record: &Record) -> io::Result<i8> {
     };
     match total_hits {
         Value::Int8(tag) => Ok(tag),
+        Value::UInt8(tag) => Ok(tag as i8),
         _ => Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "TOTAL_HIT_COUNT tag must be an Int32",
+            "TOTAL_HIT_COUNT tag must be an int8 or uint8",
         )),
     }
 }

@@ -22,13 +22,13 @@ def test_ripper():
     config = rp.Config(rp.model.RNAPileup(), rp.cmp.Enrichment(), rp.pcalling.ByCutoff().set_cutoff(1.0),
                        rp.postfilter.NMS())
     workload = rp.Workload() \
-        .add_region("1", 0, 100, config) \
-        .add_regions([("2", 0, 10)], config)
+        .add_region("chr1", 0, 100, config) \
+        .add_regions([("chr2", 0, 10)], config)
 
-    bam_1 = FILE.parent / "../../../../../../../resources/bam/A1+THP-1_mock_no-RNase_2.bam"
+    bam_1 = FILE.parent / "../../../../../../../resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam"
     assert bam_1.exists()
 
-    bam_2 = FILE.parent / "../../../../../../../resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam"
+    bam_2 = FILE.parent / "../../../../../../../resources/bam/F1+THP-1_EMCV_RNase_3.markdup.sorted.bam"
     assert bam_2.exists()
 
     layout = Layout.Single(Strandedness.Reverse)

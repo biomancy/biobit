@@ -1,7 +1,7 @@
 use std::io;
 
-use ::higher_kinded_types::prelude::*;
 use eyre::{eyre, Result};
+use higher_kinded_types::prelude::*;
 use pyo3::Python;
 
 use biobit_core_py::ngs::{MatesOrientation, PyLayout, Strandedness};

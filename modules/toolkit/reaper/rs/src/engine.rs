@@ -2,11 +2,11 @@ use std::cell::RefCell;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 
-use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
 use eyre::{eyre, Result};
+use higher_kinded_types::prelude::*;
 use rayon::ThreadPool;
 use thread_local::ThreadLocal;
 

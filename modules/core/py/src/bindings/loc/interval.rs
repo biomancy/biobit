@@ -192,8 +192,8 @@ impl IntervalOp for PyInterval {
 
 impl<Idx: PrimInt + TryInto<i64>> IntoPy<PyInterval> for Interval<Idx> {
     fn into_py(self, _: Python<'_>) -> PyInterval {
-        let converted = self.try_cast();
-        if let Ok(interval) = converted {
+        let converted = self.cast();
+        if let Some(interval) = converted {
             interval.into()
         } else {
             panic!("Failed to convert interval: {:?}", self);

@@ -1,6 +1,6 @@
-use ::higher_kinded_types::prelude::*;
 use dyn_clone::DynClone;
 use eyre::Result;
+use higher_kinded_types::prelude::*;
 use impl_tools::autoimpl;
 
 use crate::LendingIterator;

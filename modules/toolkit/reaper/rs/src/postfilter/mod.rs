@@ -1,3 +1,3 @@
-pub use nms::NMS;
+pub use nms::{NMSRegions, NMS};
 
 mod nms;

@@ -1,7 +1,7 @@
 use std::io;
 
-use ::higher_kinded_types::prelude::*;
 use derive_getters::Dissolve;
+use higher_kinded_types::prelude::*;
 use noodles::bam;
 
 use biobit_core_rs::source::{AnyMap, Transform};

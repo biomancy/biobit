@@ -1,9 +1,9 @@
-use ::higher_kinded_types::prelude::*;
 use ahash::HashMap;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
 use eyre::Report;
 pub use eyre::Result;
+use higher_kinded_types::prelude::*;
 
 use biobit_collections_rs::rle_vec;
 use biobit_core_rs::loc::{Interval, PerOrientation};
@@ -80,11 +80,13 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         );
 
         // 1. Calculate pileup for the signal & control sources
+        let mut cntmodel = self.cnts_cache.pop().unwrap_or_default();
         let (ccnts, control, mut cntcov) = config.model.model_control(
             query,
             control,
             &mut self.sources_cache,
             self.cnts_cache.pop().unwrap_or_default(),
+            &mut cntmodel,
             self.rle_cache.pop().unwrap_or_default(),
         )?;
 
@@ -92,7 +94,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             query,
             signal,
             &mut self.sources_cache,
-            self.cnts_cache.pop().unwrap_or_default(),
+            cntmodel,
             self.rle_cache.pop().unwrap_or_default(),
         )?;
 
@@ -121,11 +123,10 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             let mut _peaks = config.pcalling.run(enrichment);
             let _nms = config.postfilter.run(
                 orientation,
-                &mut _peaks,
+                (query.1, query.2),
+                &_peaks,
                 sigcnts.get(orientation),
                 ccnts.get(orientation),
-                &config.cmp.scaling,
-                *config.model.sensitivity(),
             )?;
 
             *peaks.get_mut(orientation) = _peaks;

@@ -3,12 +3,19 @@ use crate::num::PrimInt;
 use derive_getters::Dissolve;
 use eyre::{eyre, Report, Result};
 use std::fmt::{Debug, Display};
-use std::ops::Range;
 
 /// ChainInterval is an ordered sequence of non-overlapping and non-touching half-open genomic intervals.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve)]
 pub struct ChainInterval<Idx: PrimInt> {
     links: Vec<Interval<Idx>>,
+}
+
+impl<Idx: PrimInt> Default for ChainInterval<Idx> {
+    fn default() -> Self {
+        Self {
+            links: vec![Interval::default()],
+        }
+    }
 }
 
 impl<Idx: PrimInt> ChainInterval<Idx> {
@@ -31,6 +38,27 @@ impl<Idx: PrimInt> ChainInterval<Idx> {
 
     pub fn links(&self) -> &[Interval<Idx>] {
         &self.links
+    }
+
+    pub fn start(&self) -> Idx {
+        // Safe to unwrap because ChainInterval can't be empty
+        unsafe { self.links.first().unwrap_unchecked().start() }
+    }
+
+    pub fn end(&self) -> Idx {
+        // Safe to unwrap because ChainInterval can't be empty
+        unsafe { self.links.last().unwrap_unchecked().end() }
+    }
+
+    pub fn cast<T: PrimInt>(&self) -> Option<ChainInterval<T>> {
+        let mut links = Vec::with_capacity(self.links.len());
+        for link in &self.links {
+            match link.cast() {
+                Some(link) => links.push(link),
+                None => return None,
+            }
+        }
+        Some(ChainInterval { links })
     }
 }
 
@@ -59,37 +87,41 @@ where
     }
 }
 
+// impl<T, R: PartialEq<T>> PartialEq<Mapping<T>> for Mapping<R> {
+//     fn eq(&self, other: &Mapping<T>) -> bool {
+//         match (self, other) {
+//             (Mapping::Complete(x), Mapping::Complete(y)) => x == y,
+//             (Mapping::Truncated(x), Mapping::Truncated(y)) => x == y,
+//             (Mapping::None, Mapping::None) => true,
+//             _ => false,
+//         }
+//     }
+// }
+
 impl<Idx: PrimInt> From<ChainInterval<Idx>> for Vec<Interval<Idx>> {
     fn from(chain: ChainInterval<Idx>) -> Self {
         chain.links
     }
 }
 
-impl<Idx: PrimInt> PartialEq<Vec<Interval<Idx>>> for ChainInterval<Idx> {
-    fn eq(&self, other: &Vec<Interval<Idx>>) -> bool {
+impl<Idx: PrimInt, T> PartialEq<[T]> for ChainInterval<Idx>
+where
+    Interval<Idx>: PartialEq<T>,
+{
+    fn eq(&self, other: &[T]) -> bool {
         self.links == *other
     }
 }
 
-impl<Idx: PrimInt> PartialEq<[Interval<Idx>]> for ChainInterval<Idx> {
-    fn eq(&self, other: &[Interval<Idx>]) -> bool {
+impl<Idx: PrimInt, T> PartialEq<Vec<T>> for ChainInterval<Idx>
+where
+    Interval<Idx>: PartialEq<T>,
+{
+    fn eq(&self, other: &Vec<T>) -> bool {
         self.links == *other
     }
 }
 
-impl<Idx: PrimInt> PartialEq<[Range<Idx>]> for ChainInterval<Idx> {
-    fn eq(&self, other: &[Range<Idx>]) -> bool {
-        if self.links.len() != other.len() {
-            return false;
-        }
-        for (link, range) in self.links.iter().zip(other.iter()) {
-            if link != range {
-                return false;
-            }
-        }
-        true
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;

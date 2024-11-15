@@ -49,10 +49,11 @@ impl TryInto<CachedRecord> for Record {
             };
             match hit_index {
                 Value::Int8(tag) => tag,
+                Value::UInt8(tag) => tag as i8,
                 _ => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
-                        "HIT_INDEX tag must be an Int32",
+                        "HIT_INDEX tag must be an int8 or uint8",
                     ))
                 }
             }
@@ -81,6 +82,7 @@ impl Bundler {
         let is_lmate = record.flags().is_first_segment();
 
         // Try to look up the mate in the cache
+        let rname = record.name().map(|x| x.to_owned());
         let record: CachedRecord = record.try_into()?;
         let entry = if is_lmate {
             self.rmate.take(&record)
@@ -103,6 +105,12 @@ impl Bundler {
         } else {
             self.rmate.insert(record)
         };
+
+        // If the record is already in the cache, log an error
+        if !inserted {
+            log::error!("Double insert in the cache detected, check that read names and HIT_INDEX tags are unique");
+            println!("{:?}", rname);
+        }
         debug_assert!(inserted);
 
         Ok(None)

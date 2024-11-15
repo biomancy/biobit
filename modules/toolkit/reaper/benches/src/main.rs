@@ -1,77 +1,55 @@
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::string::ToString;
 
-use biobit_core_rs::loc::Orientation;
+use biobit_core_rs::loc::{ChainInterval, Interval, Orientation};
 use biobit_core_rs::parallelism;
 use biobit_core_rs::source::Source;
 use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
 use biobit_reaper_rs as reaper;
 use rayon::ThreadPoolBuilder;
 
-const THREADS: isize = -1;
+const THREADS: isize = 0;
 const QUERY: &[(&str, usize, usize)] = &[
-    // GRCh38
-    ("1", 0, 248956422),
-    ("2", 0, 242193529),
-    ("3", 0, 198295559),
-    ("4", 0, 190214555),
-    ("5", 0, 181538259),
-    ("6", 0, 170805979),
-    ("7", 0, 159345973),
-    ("8", 0, 145138636),
-    ("9", 0, 138394717),
-    ("10", 0, 133797422),
-    ("11", 0, 135086622),
-    ("12", 0, 133275309),
-    ("13", 0, 114364328),
-    ("14", 0, 107043718),
-    ("15", 0, 101991189),
-    ("16", 0, 90338345),
-    ("17", 0, 83257441),
-    ("18", 0, 80373285),
-    ("19", 0, 58617616),
-    ("20", 0, 64444167),
-    ("21", 0, 46709983),
-    ("22", 0, 50818468),
-    ("MT", 0, 16569),
-    ("X", 0, 156040895),
-    ("Y", 0, 57227415),
-    // GRCm39
-    // ("1", 0, 195154279),
-    // ("2", 0, 181755017),
-    // ("3", 0, 159745316),
-    // ("4", 0, 156860686),
-    // ("5", 0, 151758149),
-    // ("6", 0, 149588044),
-    // ("7", 0, 144995196),
-    // ("8", 0, 130127694),
-    // ("9", 0, 124359700),
-    // ("10", 0, 130530862),
-    // ("11", 0, 121973369),
-    // ("12", 0, 120092757),
-    // ("13", 0, 120883175),
-    // ("14", 0, 125139656),
-    // ("15", 0, 104073951),
-    // ("16", 0, 98008968),
-    // ("17", 0, 95294699),
-    // ("18", 0, 90720763),
-    // ("19", 0, 61420004),
-    // ("MT", 0, 16299),
-    // ("X", 0, 169476592),
-    // ("Y", 0, 91455967),
+    // CHM13v2
+    ("chr1", 0, 248387328),
+    ("chr2", 0, 242696752),
+    ("chr3", 0, 201105948),
+    ("chr4", 0, 193574945),
+    ("chr5", 0, 182045439),
+    ("chr6", 0, 172126628),
+    ("chr7", 0, 160567428),
+    ("chr8", 0, 146259331),
+    ("chr9", 0, 150617247),
+    ("chr10", 0, 134758134),
+    // ("chr11", 0, 135127769),
+    // ("chr12", 0, 133324548),
+    // ("chr13", 0, 113566686),
+    // ("chr14", 0, 101161492),
+    // ("chr15", 0, 99753195),
+    // ("chr16", 0, 96330374),
+    // ("chr17", 0, 84276897),
+    // ("chr18", 0, 80542538),
+    // ("chr19", 0, 61707364),
+    // ("chr20", 0, 66210255),
+    // ("chr21", 0, 45090682),
+    // ("chr22", 0, 51324926),
+    // ("chrX", 0, 154259566),
+    // ("chrY", 0, 62460029),
+    // ("chrM", 0, 16569),
 ];
 
+const TRANSCRIPTOME_MODEL: &str =
+    "/home/alnfedorov/projects/biobit/resources/bed/CHM13v2_models.bed";
+
 const SOURCES: &[(&str, &[&str])] = &[
-    (
-        "RNase",
-        &[
-            "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.bam",
-            "/home/alnfedorov/projects/biobit/resources/bam/G2+Calu-3_SARS-CoV-2_RNase_3.bam",
-        ],
-    ),
-    (
-        "Input",
-        &["/home/alnfedorov/projects/biobit/resources/bam/A1+THP-1_mock_no-RNase_2.bam"],
-    ),
+    ("RNase", &[
+        "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.markdup.sorted.bam",
+    ]),
+    ("Input", &[
+        "/home/alnfedorov/projects/biobit/resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam"
+    ]),
 ];
 
 const COMPARISONS: &[(&str, &str, &str)] = &[("RNase vs Input", "RNase", "Input")];
@@ -113,6 +91,33 @@ fn main() {
         }
     }
 
+    // Transcriptome model
+    let mut trmodel = HashMap::new();
+    for line in BufReader::new(File::open(TRANSCRIPTOME_MODEL).unwrap()).lines() {
+        let line = line.unwrap();
+        let fields: Vec<&str> = line.split('\t').collect();
+        let contig = fields[0];
+        let allstart = fields[1].parse::<usize>().unwrap();
+        let orientation = Orientation::try_from(fields[5].parse::<char>().unwrap()).unwrap();
+
+        // Parse the rest of BED12 fields here
+        let sizes = fields[10].split(',').collect::<Vec<&str>>();
+        let starts = fields[11].split(',').collect::<Vec<&str>>();
+        let mut intervals = Vec::new();
+        for (size, start) in sizes.iter().zip(starts.iter()) {
+            let size = size.parse::<usize>().unwrap();
+            let start = start.parse::<usize>().unwrap();
+            intervals.push(Interval::new(allstart + start, allstart + start + size).unwrap());
+        }
+
+        let chain = ChainInterval::try_from_iter(intervals.into_iter()).unwrap();
+
+        trmodel
+            .entry((contig.to_string(), orientation))
+            .or_insert_with(Vec::new)
+            .push(chain);
+    }
+
     // Comparisons
     for (name, signal, control) in COMPARISONS {
         let mut model = reaper::model::RNAPileup::new();
@@ -136,18 +141,35 @@ fn main() {
             .set_fecutoff(2.0)
             .unwrap()
             .set_group_within(1_000)
-            .unwrap()
-            .set_boundaries(
-                Orientation::Forward,
-                vec![1_000, 10_000, 100_000, 1_000_000, 10_000_000],
-            );
+            .unwrap();
 
-        let config = reaper::Config::new(model, enrichment, pcalling, nms);
+        // Workload
         let mut workload = reaper::Workload::new();
+        for (seqid, start, end) in QUERY {
+            // Attach the transcriptome model
+            let mut seqmodel = model.clone();
+            let mut seqnms = nms.clone();
 
-        // Queries
-        for (contig, start, end) in QUERY {
-            workload.add_region(contig.to_string(), *start, *end, config.clone());
+            for orientation in [Orientation::Forward, Orientation::Reverse] {
+                if let Some(chains) = trmodel.remove(&(seqid.to_string(), orientation)) {
+                    let control = reaper::model::ControlModel::new(
+                        chains.clone(),
+                        false,
+                        vec![256, 512, 1024],
+                    )
+                    .unwrap();
+                    seqmodel.add_modeling(orientation, control);
+
+                    // let nms = reaper::postfilter::NMSRegions::new(chains, false).unwrap();
+                    let nms = reaper::postfilter::NMSRegions::new(chains, true).unwrap();
+                    seqnms.add_regions(orientation, nms);
+                }
+            }
+
+            let config =
+                reaper::Config::new(seqmodel, enrichment.clone(), pcalling.clone(), seqnms);
+
+            workload.add_region(seqid.to_string(), *start, *end, config);
         }
 
         rp.add_comparison(

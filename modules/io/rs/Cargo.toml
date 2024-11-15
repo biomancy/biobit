@@ -24,3 +24,4 @@ eyre = { workspace = true }
 ahash = { workspace = true }
 gxhash = { workspace = true }
 anymap3 = { workspace = true }
+log = { workspace = true }

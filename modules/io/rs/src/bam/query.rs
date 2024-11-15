@@ -1,7 +1,7 @@
 use std::io;
 
-use ::higher_kinded_types::prelude::*;
 use derive_more::{From, Into};
+use higher_kinded_types::prelude::*;
 use noodles::sam::alignment::Record;
 use noodles::{
     bam, bam::io::Reader, bgzf, core::region::Interval, csi,

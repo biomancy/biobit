@@ -1,3 +1,3 @@
-pub use rna_pileup::RNAPileup;
+pub use rna_pileup::{ControlModel, RNAPileup};
 
 mod rna_pileup;

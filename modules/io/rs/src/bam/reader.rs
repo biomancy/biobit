@@ -3,10 +3,10 @@ use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
-use ::higher_kinded_types::prelude::*;
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
 use eyre::Result;
+use higher_kinded_types::prelude::*;
 use noodles::core::region::Interval;
 use noodles::core::{Position, Region};
 use noodles::csi::BinningIndex;

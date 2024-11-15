@@ -1,4 +1,4 @@
-from biobit.core.loc import IntoOrientation
+from biobit.core.loc import IntoOrientation, IntoChainInterval
 
 
 class NMS:
@@ -12,4 +12,8 @@ class NMS:
 
     def set_sloplim(self, minslop: int, maxslop: int) -> NMS: ...
 
-    def set_boundaries(self, orientation: IntoOrientation, boundaries: list[int]) -> NMS: ...
+    def set_sensitivity(self, sensitivity: float) -> NMS: ...
+
+    def add_regions(
+            self, orientation: IntoOrientation, uniform_baseline: bool, regions: list[IntoChainInterval]
+    ) -> NMS: ...

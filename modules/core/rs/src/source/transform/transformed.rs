@@ -1,7 +1,7 @@
-use ::higher_kinded_types::ForLt;
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
 use eyre::Result;
+use higher_kinded_types::ForLt;
 
 use super::super::{
     core::{AnyMap, Core},
