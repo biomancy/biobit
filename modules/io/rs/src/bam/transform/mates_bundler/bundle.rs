@@ -82,7 +82,7 @@ impl Bundler {
         let is_lmate = record.flags().is_first_segment();
 
         // Try to look up the mate in the cache
-        let rname = record.name().map(|x| x.to_owned());
+        // let rname = record.name().map(|x| x.to_owned());
         let record: CachedRecord = record.try_into()?;
         let entry = if is_lmate {
             self.rmate.take(&record)
@@ -109,7 +109,7 @@ impl Bundler {
         // If the record is already in the cache, log an error
         if !inserted {
             log::error!("Double insert in the cache detected, check that read names and HIT_INDEX tags are unique");
-            println!("{:?}", rname);
+            // println!("{:?}", rname);
         }
         debug_assert!(inserted);
 
