@@ -11,6 +11,8 @@ use super::interval::IntoPyInterval;
 use crate::loc::PyInterval;
 use biobit_core_rs::loc::ChainInterval;
 
+use bitcode::{Decode, Encode};
+
 #[pyclass]
 #[repr(transparent)]
 #[derive(Debug, Into, From)]
@@ -41,7 +43,9 @@ impl<'py> FromPyObject<'py> for IntoPyChainInterval {
 
 #[pyclass(name = "ChainInterval")]
 #[repr(transparent)]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into)]
+#[derive(
+    Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into,
+)]
 pub struct PyChainInterval {
     pub rs: ChainInterval<i64>,
 }

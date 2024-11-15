@@ -4,7 +4,11 @@ use eyre::{eyre, Result};
 use biobit_core_rs::loc::Interval;
 use biobit_core_rs::num::{Float, PrimInt};
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Dissolve, Getters)]
+use bitcode::{Decode, Encode};
+
+#[derive(
+    Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Dissolve, Getters,
+)]
 pub struct Peak<Idx: PrimInt, V> {
     interval: Interval<Idx>,
     signal: V,

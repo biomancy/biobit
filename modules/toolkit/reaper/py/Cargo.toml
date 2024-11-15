@@ -27,3 +27,4 @@ higher-kinded-types = { workspace = true }
 noodles = { workspace = true }
 eyre = { workspace = true }
 itertools = { workspace = true }
+bitcode = { workspace = true }

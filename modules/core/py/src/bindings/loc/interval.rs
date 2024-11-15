@@ -10,6 +10,8 @@ use pyo3::types::PySequence;
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
+use bitcode::{Decode, Encode};
+
 #[pyclass]
 #[repr(transparent)]
 #[derive(Debug, Into, From, Dissolve)]
@@ -42,7 +44,9 @@ impl<'py> FromPyObject<'py> for IntoPyInterval {
 
 #[pyclass(name = "Interval")]
 #[repr(transparent)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into)]
+#[derive(
+    Decode, Encode, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into,
+)]
 pub struct PyInterval {
     pub rs: Interval<i64>,
 }

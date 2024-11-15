@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::num::PrimInt;
+use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use eyre::{eyre, Report, Result};
 use impl_tools::autoimpl;
@@ -13,7 +14,7 @@ use num::{NumCast, Unsigned};
 /// It's not represented as a Rust-native Range for a couple of reasons:
 /// - Prohibit 'empty' intervals (start == end) or intervals with negative length (start > end)
 /// - Implement custom traits (e.g. Dissolve) and methods (e.g. contains, intersects, touches).
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve)]
 pub struct Interval<Idx: PrimInt> {
     start: Idx,
     end: Idx,

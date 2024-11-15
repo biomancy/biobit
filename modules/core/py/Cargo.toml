@@ -19,3 +19,4 @@ pyo3 = { workspace = true }
 biobit-core-rs = { path = "../rs" }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
+bitcode = { workspace = true }

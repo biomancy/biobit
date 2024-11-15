@@ -1,3 +1,4 @@
+use bitcode::{Decode, Encode};
 use derive_getters::{Dissolve, Getters};
 
 use biobit_collections_rs::rle_vec::{Identical, RleVec};
@@ -5,7 +6,7 @@ use biobit_core_rs::num::{Float, PrimInt, PrimUInt};
 
 use super::peak::Peak;
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, Getters)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, Getters)]
 pub struct ByCutoff<Idx, Cnts> {
     pub min_length: Idx,
     pub merge_within: Idx,

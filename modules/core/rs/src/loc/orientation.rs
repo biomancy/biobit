@@ -2,8 +2,10 @@ use std::fmt::Display;
 
 use super::strand::Strand;
 
+use bitcode::{Decode, Encode};
+
 /// A type representing the orientation of an object in the genome
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Orientation {
     /// Object is located on the forward strand, also known as the positive strand or Watson strand.

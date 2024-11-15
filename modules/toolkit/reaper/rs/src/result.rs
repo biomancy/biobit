@@ -7,7 +7,9 @@ use biobit_core_rs::num::{Float, PrimInt};
 
 pub use crate::pcalling::Peak;
 
-#[derive(Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]
+use bitcode::{Decode, Encode};
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]
 pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     // Region coordinates
     contig: Ctg,
@@ -25,7 +27,7 @@ pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     filtered_peaks: Vec<Peak<Idx, Cnts>>,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]
 pub struct Harvest<Ctg: Contig, Idx: PrimInt, Cnts: Float, Tag> {
     comparison: Tag,
     regions: Vec<HarvestRegion<Ctg, Idx, Cnts>>,

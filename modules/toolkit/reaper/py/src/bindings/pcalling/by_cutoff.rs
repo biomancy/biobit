@@ -1,11 +1,12 @@
+use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
-use pyo3::{pyclass, pymethods, PyRefMut};
+use pyo3::{pyclass, pymethods, PyErr, PyRefMut, PyResult};
 
 use biobit_reaper_rs::pcalling::ByCutoff;
 
 #[pyclass(eq, name = "ByCutoff")]
-#[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
 pub struct PyByCutoff {
     rs: ByCutoff<usize, f32>,
 }
@@ -32,17 +33,13 @@ impl PyByCutoff {
         slf
     }
 
-    fn __getstate__(&self) -> (usize, usize, f32) {
-        (
-            *self.rs.min_length(),
-            *self.rs.merge_within(),
-            *self.rs.cutoff(),
-        )
+    fn __getstate__(&self) -> Vec<u8> {
+        bitcode::encode(&self.rs)
     }
 
-    fn __setstate__(&mut self, state: (usize, usize, f32)) {
-        self.rs.set_min_length(state.0);
-        self.rs.set_merge_within(state.1);
-        self.rs.set_cutoff(state.2);
+    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+        bitcode::decode(&state)
+            .map(|rs| self.rs = rs)
+            .map_err(|x| PyErr::from(eyre::Report::from(x)))
     }
 }

@@ -4,8 +4,10 @@ use derive_getters::Dissolve;
 use eyre::{eyre, Report, Result};
 use std::fmt::{Debug, Display};
 
+use bitcode::{Decode, Encode};
+
 /// ChainInterval is an ordered sequence of non-overlapping and non-touching half-open genomic intervals.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve)]
 pub struct ChainInterval<Idx: PrimInt> {
     links: Vec<Interval<Idx>>,
 }

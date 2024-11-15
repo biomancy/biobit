@@ -11,6 +11,8 @@ use biobit_core_rs::loc::{Orientation, Strand};
 
 use super::orientation::PyOrientation;
 
+use bitcode::{Decode, Encode};
+
 #[derive(Debug, Dissolve, Into, From)]
 pub struct IntoPyStrand(PyStrand);
 
@@ -40,7 +42,9 @@ impl<'py> FromPyObject<'py> for IntoPyStrand {
 
 #[pyclass(frozen, name = "Strand")]
 #[repr(transparent)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Display)]
+#[derive(
+    Encode, Decode, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Display,
+)]
 pub struct PyStrand(pub Strand);
 
 #[pymethods]

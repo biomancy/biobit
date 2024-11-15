@@ -1,9 +1,8 @@
-use biobit_core_py::loc::{IntoPyChainInterval, IntoPyOrientation, Orientation, PyChainInterval};
+use biobit_core_py::loc::{IntoPyChainInterval, IntoPyOrientation};
 use biobit_reaper_rs::postfilter::{NMSRegions, NMS};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use eyre::OptionExt;
-use itertools::Itertools;
 use pyo3::prelude::*;
 
 #[pyclass(eq, name = "NMS")]
@@ -70,85 +69,13 @@ impl PyNMS {
         Ok(slf)
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn __getstate__(
-        &self,
-    ) -> (
-        f32,
-        usize,
-        f32,
-        f32,
-        (usize, usize),
-        (
-            Vec<(bool, Vec<PyChainInterval>)>,
-            Vec<(bool, Vec<PyChainInterval>)>,
-            Vec<(bool, Vec<PyChainInterval>)>,
-        ),
-    ) {
-        let rois = self.rs.roi().clone();
-        let rois = rois
-            .map(|_, y| {
-                y.into_iter()
-                    .map(|x| {
-                        (
-                            x.uniform_baseline,
-                            x.regions
-                                .into_iter()
-                                .map(|x| PyChainInterval::from(x.cast::<i64>().unwrap()))
-                                .collect_vec(),
-                        )
-                    })
-                    .collect_vec()
-            })
-            .dissolve();
-
-        (
-            *self.rs.fecutoff(),
-            *self.rs.group_within(),
-            *self.rs.slopfrac(),
-            *self.rs.sensitivity(),
-            *self.rs.sloplim(),
-            rois,
-        )
+    fn __getstate__(&self) -> Vec<u8> {
+        bitcode::encode(&self.rs)
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn __setstate__(
-        &mut self,
-        state: (
-            f32,
-            usize,
-            f32,
-            f32,
-            (usize, usize),
-            (
-                Vec<(bool, Vec<PyChainInterval>)>,
-                Vec<(bool, Vec<PyChainInterval>)>,
-                Vec<(bool, Vec<PyChainInterval>)>,
-            ),
-        ),
-    ) -> PyResult<()> {
-        self.rs.set_fecutoff(state.0).unwrap();
-        self.rs.set_group_within(state.1).unwrap();
-        self.rs.set_slopfrac(state.2).unwrap();
-        self.rs.set_sensitivity(state.3).unwrap();
-        self.rs.set_sloplim(state.4 .0, state.4 .1).unwrap();
-
-        for (orientation, regions) in [
-            (Orientation::Forward, state.5 .0),
-            (Orientation::Reverse, state.5 .1),
-            (Orientation::Dual, state.5 .2),
-        ] {
-            for (uniform, chains) in regions {
-                let chains: Option<Vec<_>> =
-                    chains.into_iter().map(|x| x.rs.cast::<usize>()).collect();
-                let regions = NMSRegions::new(
-                    chains.ok_or_eyre("Failed to cast ChainInterval to usize")?,
-                    uniform,
-                )?;
-                self.rs.add_regions(orientation, regions);
-            }
-        }
-        Ok(())
+    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+        bitcode::decode(&state)
+            .map(|rs| self.rs = rs)
+            .map_err(|x| PyErr::from(eyre::Report::from(x)))
     }
 }

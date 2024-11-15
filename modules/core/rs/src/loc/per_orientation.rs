@@ -3,9 +3,23 @@ use derive_more::{Constructor, From};
 
 use super::orientation::Orientation;
 
+use bitcode::{Decode, Encode};
 /// A struct that holds data for each orientation.
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, From, Dissolve, Constructor,
+    Encode,
+    Decode,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Debug,
+    Default,
+    From,
+    Dissolve,
+    Constructor,
 )]
 pub struct PerOrientation<T> {
     pub forward: T,
