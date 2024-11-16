@@ -44,7 +44,7 @@ impl<Cnts: Float> Enrichment<Cnts> {
         let result = rle_vec::merge2(signal, control)
             .with_identical(identical)
             .with_merge2(rle_vec::Merge2Fn::new(
-                |_| unreachable!("This should never be called"),
+                |_| panic!("This should never be called"),
                 move |&signal, &control| {
                     if signal == Cnts::zero() {
                         signal

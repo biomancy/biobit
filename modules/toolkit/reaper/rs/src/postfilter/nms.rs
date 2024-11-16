@@ -155,7 +155,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
 
         let (mut baseline, mut minval, mut length) = (0.0f64, f64::INFINITY, 0usize);
         for pos in iter {
-            if sigcnts[pos] >= self.sensitivity && cntcnts[pos] >= self.sensitivity {
+            if sigcnts[pos] >= self.sensitivity || cntcnts[pos] >= self.sensitivity {
                 let value = (sigcnts[pos] - cntcnts[pos]).to_f64().unwrap();
                 minval = minval.min(value);
                 baseline += value;
@@ -253,7 +253,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
 
             let (mut baseline, mut minval) = (0.0f64, f64::INFINITY);
             for pos in iter {
-                if sigcnts[pos] >= self.sensitivity && cntcnts[pos] >= self.sensitivity {
+                if sigcnts[pos] >= self.sensitivity || cntcnts[pos] >= self.sensitivity {
                     let value = (sigcnts[pos] - cntcnts[pos]).to_f64().unwrap();
                     minval = minval.min(value);
                     baseline += value;
