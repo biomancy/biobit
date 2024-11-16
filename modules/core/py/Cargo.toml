@@ -20,3 +20,4 @@ biobit-core-rs = { path = "../rs", features = ["bitcode"] }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
 bitcode = { workspace = true }
+eyre = { workspace = true }

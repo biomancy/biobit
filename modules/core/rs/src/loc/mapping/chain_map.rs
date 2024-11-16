@@ -3,6 +3,9 @@ use crate::num::PrimInt;
 use derive_getters::Getters;
 use derive_more::{From, Into};
 
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
+
 #[derive(Debug, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Mapping<T> {
     Complete(T),
@@ -21,7 +24,8 @@ impl<T, R: PartialEq<T>> PartialEq<Mapping<T>> for Mapping<R> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Getters, From, Into)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Getters, From, Into)]
 pub struct ChainMap<Idx: PrimInt> {
     fwdlinks: Vec<Interval<Idx>>,
     bwdlinks: Vec<Interval<Idx>>,
@@ -163,6 +167,18 @@ impl<Idx: PrimInt> ChainMap<Idx> {
         } else {
             Mapping::Truncated(Interval::new(start, end).unwrap())
         }
+    }
+}
+
+impl<Idx: PrimInt> From<ChainInterval<Idx>> for ChainMap<Idx> {
+    fn from(chain: ChainInterval<Idx>) -> Self {
+        Self::new(chain)
+    }
+}
+
+impl<Idx: PrimInt> From<ChainMap<Idx>> for ChainInterval<Idx> {
+    fn from(map: ChainMap<Idx>) -> Self {
+        ChainInterval::try_from_iter(map.fwdlinks.into_iter()).unwrap()
     }
 }
 

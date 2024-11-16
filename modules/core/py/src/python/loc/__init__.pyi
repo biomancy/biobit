@@ -1,3 +1,4 @@
+from . import mapping as mapping
 from .chain_interval import ChainInterval as ChainInterval, IntoChainInterval as IntoChainInterval
 from .interval import Interval as Interval, IntoInterval as IntoInterval
 from .locus import Locus as Locus, IntoLocus as IntoLocus

@@ -68,6 +68,7 @@ def test_inverted_repeat(segments):
                sorted([x.left for x in segments] + [x.right for x in segments], key=lambda x: x.start)
         assert repeat.segments == segments
         assert repeat == repeat == repeats.InvRepeat(segments)
+        assert pickle.loads(pickle.dumps(repeat)) == repeat
 
     repeat, segments = _make_ir(segments)
     dotest(repeat, segments)

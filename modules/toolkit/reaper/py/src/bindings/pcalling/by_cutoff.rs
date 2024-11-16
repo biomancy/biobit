@@ -1,9 +1,9 @@
+use biobit_core_py::pickle;
+use biobit_reaper_rs::pcalling::ByCutoff;
 use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
-use pyo3::{pyclass, pymethods, PyErr, PyRefMut, PyResult};
-
-use biobit_reaper_rs::pcalling::ByCutoff;
+use pyo3::{pyclass, pymethods, PyRefMut, PyResult};
 
 #[pyclass(eq, name = "ByCutoff")]
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
@@ -34,12 +34,10 @@ impl PyByCutoff {
     }
 
     fn __getstate__(&self) -> Vec<u8> {
-        bitcode::encode(&self.rs)
+        pickle::to_bytes(&self.rs)
     }
 
     fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
-        bitcode::decode(&state)
-            .map(|rs| self.rs = rs)
-            .map_err(|x| PyErr::from(eyre::Report::from(x)))
+        pickle::from_bytes(&state).map(|rs| self.rs = rs)
     }
 }

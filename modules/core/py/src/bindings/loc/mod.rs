@@ -15,6 +15,7 @@ pub use strand::{IntoPyStrand, PyStrand};
 mod chain_interval;
 mod interval;
 mod locus;
+pub mod mapping;
 mod orientation;
 mod per_orientation;
 mod per_strand;
@@ -46,6 +47,8 @@ pub fn register<'b>(
     ] {
         typbj.setattr("__module__", &name)?
     }
+
+    mapping::register(&module, sysmod)?;
 
     parent.add_submodule(&module)?;
     sysmod.set_item(module.name()?, &module)?;

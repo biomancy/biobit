@@ -5,6 +5,7 @@ pub use biobit_core_rs::{num, parallelism, source, LendingIterator};
 pub mod fallible_py_runtime;
 pub mod loc;
 pub mod ngs;
+pub mod pickle;
 
 pub fn register<'b>(
     parent: &Bound<'b, PyModule>,

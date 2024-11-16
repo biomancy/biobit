@@ -1,4 +1,5 @@
 use biobit_core_py::loc::{IntoPyChainInterval, IntoPyOrientation};
+use biobit_core_py::pickle;
 use biobit_reaper_rs::postfilter::{NMSRegions, NMS};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
@@ -70,12 +71,10 @@ impl PyNMS {
     }
 
     fn __getstate__(&self) -> Vec<u8> {
-        bitcode::encode(&self.rs)
+        pickle::to_bytes(&self.rs)
     }
 
     fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
-        bitcode::decode(&state)
-            .map(|rs| self.rs = rs)
-            .map_err(|x| PyErr::from(eyre::Report::from(x)))
+        pickle::from_bytes(&state).map(|rs| self.rs = rs)
     }
 }

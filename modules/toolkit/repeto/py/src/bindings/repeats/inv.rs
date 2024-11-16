@@ -224,8 +224,8 @@ impl PyInvRepeat {
         alleq
     }
 
-    pub fn __getnewargs__(&self, py: Python) -> Vec<Py<PyInvSegment>> {
-        self.segments.iter().map(|x| x.clone_ref(py)).collect()
+    pub fn __getnewargs__(&self, py: Python) -> (Vec<Py<PyInvSegment>>,) {
+        (self.segments.iter().map(|x| x.clone_ref(py)).collect(),)
     }
 
     pub fn __hash__(&self, py: Python) -> PyResult<u64> {
