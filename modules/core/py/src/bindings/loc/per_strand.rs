@@ -58,25 +58,25 @@ impl PyPerStrand {
     }
 
     pub fn __hash__(&self, py: Python) -> PyResult<isize> {
-        PyTuple::new_bound(
+        PyTuple::new(
             py,
             &[self.internal.forward.clone(), self.internal.reverse.clone()],
-        )
+        )?
         .hash()
     }
 
     pub fn __richcmp__(&self, py: Python, other: &PyPerStrand, op: CompareOp) -> PyResult<bool> {
-        let slf = PyTuple::new_bound(
+        let slf = PyTuple::new(
             py,
             &[self.internal.forward.clone(), self.internal.reverse.clone()],
-        );
-        let other = PyTuple::new_bound(
+        )?;
+        let other = PyTuple::new(
             py,
             &[
                 other.internal.forward.clone(),
                 other.internal.reverse.clone(),
             ],
-        );
+        )?;
 
         slf.rich_compare(other, op)?.extract()
     }

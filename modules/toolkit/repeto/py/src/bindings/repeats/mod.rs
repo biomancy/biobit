@@ -10,14 +10,14 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.repeats", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyInvRepeat>()?;
     module.add_class::<PyInvSegment>()?;
 
     for typbj in [
-        PyInvRepeat::type_object_bound(parent.py()),
-        PyInvSegment::type_object_bound(parent.py()),
+        PyInvRepeat::type_object(parent.py()),
+        PyInvSegment::type_object(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?
     }

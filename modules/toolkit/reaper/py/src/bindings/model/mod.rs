@@ -10,10 +10,10 @@ pub fn register<'a>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'a, PyModule>> {
     let name = format!("{}.model", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyRNAPileup>()?;
-    PyRNAPileup::type_object_bound(parent.py()).setattr("__module__", &name)?;
+    PyRNAPileup::type_object(parent.py()).setattr("__module__", &name)?;
 
     parent.add_submodule(&module)?;
     sysmod.set_item(module.name()?, &module)?;

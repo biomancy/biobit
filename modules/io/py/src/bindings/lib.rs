@@ -7,7 +7,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.io", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     bam::register(&module, sysmod)?;
 

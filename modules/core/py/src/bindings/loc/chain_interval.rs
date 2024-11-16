@@ -30,7 +30,7 @@ impl<'py> FromPyObject<'py> for IntoPyChainInterval {
             })?;
 
             let mut links = Vec::with_capacity(seq.len()?);
-            for it in seq.iter()? {
+            for it in seq.try_iter()? {
                 let link = IntoPyInterval::extract_bound(&it?)?;
                 links.push(link.0.borrow(obj.py()).rs);
             }
@@ -67,14 +67,10 @@ impl PyChainInterval {
     }
 
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
-        let links = self
-            .rs
-            .links()
-            .iter()
-            .map(|x| PyInterval::from(*x).into_py(py));
+        let links = self.rs.links().iter().map(|x| PyInterval::from(*x));
 
-        let result = PyList::new_bound(py, links);
-        PyIterator::from_bound_object(result.as_any())
+        let result = PyList::new(py, links)?;
+        PyIterator::from_object(result.as_any())
     }
 
     pub fn __hash__(&self) -> u64 {

@@ -17,7 +17,7 @@ path = "src/bindings/lib.rs"
 [dependencies]
 pyo3 = { workspace = true }
 biobit-collections-rs = { path = "../../../collections/rs" }
-biobit-reaper-rs = { path = "../rs" }
+biobit-reaper-rs = { path = "../rs", features = ["bitcode"] }
 biobit-core-py = { path = "../../../core/py" }
 biobit-io-py = { path = "../../../io/py" }
 derive_more = { workspace = true }

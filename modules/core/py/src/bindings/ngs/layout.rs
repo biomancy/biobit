@@ -32,22 +32,27 @@ impl PyLayout {
 
         let name = module.name()?;
         for typbj in [
-            PyLayout_Single::type_object_bound(py),
-            PyLayout_Paired::type_object_bound(py),
+            PyLayout_Single::type_object(py),
+            PyLayout_Paired::type_object(py),
         ] {
             typbj.setattr("__module__", &name)?
         }
         Ok(())
     }
 
-    fn __getnewargs__(&self, py: Python) -> PyObject {
-        match self {
-            PyLayout::Single { strandedness } => (*strandedness,).into_py(py),
+    fn __getnewargs__(&self, py: Python) -> PyResult<PyObject> {
+        Ok(match self {
+            PyLayout::Single { strandedness } => {
+                (*strandedness,).into_pyobject(py)?.unbind().into()
+            }
             PyLayout::Paired {
                 strandedness,
                 orientation,
-            } => (*strandedness, *orientation).into_py(py),
-        }
+            } => (*strandedness, *orientation)
+                .into_pyobject(py)?
+                .unbind()
+                .into(),
+        })
     }
 }
 

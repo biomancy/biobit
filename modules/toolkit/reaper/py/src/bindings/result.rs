@@ -26,8 +26,9 @@ pub struct PyPeak {
 impl<Idx: PrimInt + TryInto<i64>, Cnts: Float> IntoPy<PyPeak> for Peak<Idx, Cnts> {
     fn into_py(self, py: Python<'_>) -> PyPeak {
         let (interval, value, summit) = self.dissolve();
+        let interval = interval.cast::<i64>().unwrap();
         PyPeak::new(
-            Py::new(py, interval.into_py(py)).unwrap(),
+            Py::new(py, PyInterval::from(interval)).unwrap(),
             value.to_f64().unwrap(),
             summit.to_i64().unwrap(),
         )
@@ -57,14 +58,15 @@ where
         let (contig, orientation, interval, signal, control, model, peaks, nms) = self.dissolve();
 
         let contig = contig.into();
-        let orientation = orientation.into_py(py);
-        let interval = interval.into_py(py);
+        let orientation = orientation.into();
+        let interval = interval.cast::<i64>().unwrap().into();
 
         let (signal, control, model) = [signal, control, model]
             .into_iter()
             .map(|x| {
                 x.into_iter()
-                    .map(|x| Py::new(py, x.into_py(py)))
+                    .map(|x| x.cast::<i64>().unwrap())
+                    .map(|x| Py::new(py, PyInterval::from(x)))
                     .collect::<PyResult<Vec<_>>>()
                     .expect("Failed to allocate Python memory for the reaper:Interval")
             })

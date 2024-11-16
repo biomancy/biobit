@@ -10,7 +10,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.seqproj", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     PyLayout::__biobit_initialize_complex_enum__(parent.py(), &module)?;
 

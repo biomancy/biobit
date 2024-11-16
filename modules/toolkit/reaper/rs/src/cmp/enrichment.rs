@@ -1,3 +1,4 @@
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::Constructor;
@@ -7,13 +8,15 @@ use biobit_collections_rs::rle_vec;
 use biobit_collections_rs::rle_vec::{Identical, RleVec};
 use biobit_core_rs::num::{Float, PrimInt, PrimUInt};
 
-#[derive(Encode, Decode, Clone, PartialEq, Default, Debug, Constructor, Dissolve)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Default, Debug, Constructor, Dissolve)]
 pub struct Scaling<Cnts: Float> {
     pub signal: Cnts,
     pub control: Cnts,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Dissolve)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Debug, Default, Dissolve)]
 pub struct Enrichment<Cnts: Float> {
     // Scaling is left here intentionally.
     // In the future I might want to do per-step ops with a higher precision and then

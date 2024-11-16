@@ -3,7 +3,7 @@ use derive_more::{From, Into};
 use biobit_core_rs::loc::{Contig, Interval};
 use biobit_core_rs::num::{Float, PrimInt};
 
-#[derive(Clone, PartialEq, Debug, Default, From, Into)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Default, From, Into)]
 pub struct ResolutionOutcomes<Cnts: Float> {
     pub resolved: Cnts,
     pub discarded: Cnts,

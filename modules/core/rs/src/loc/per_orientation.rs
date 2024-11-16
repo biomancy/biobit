@@ -3,23 +3,12 @@ use derive_more::{Constructor, From};
 
 use super::orientation::Orientation;
 
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 /// A struct that holds data for each orientation.
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(
-    Encode,
-    Decode,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Debug,
-    Default,
-    From,
-    Dissolve,
-    Constructor,
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, From, Dissolve, Constructor,
 )]
 pub struct PerOrientation<T> {
     pub forward: T,

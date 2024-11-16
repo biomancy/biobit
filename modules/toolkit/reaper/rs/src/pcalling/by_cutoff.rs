@@ -1,3 +1,4 @@
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use derive_getters::{Dissolve, Getters};
 
@@ -6,7 +7,8 @@ use biobit_core_rs::num::{Float, PrimInt, PrimUInt};
 
 use super::peak::Peak;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, Getters)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, Getters)]
 pub struct ByCutoff<Idx, Cnts> {
     pub min_length: Idx,
     pub merge_within: Idx,

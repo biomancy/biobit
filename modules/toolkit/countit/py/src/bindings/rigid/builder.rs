@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use biobit_core_py::loc::{Interval, IntervalOp, IntoPyInterval, IntoPyOrientation};
 use biobit_core_py::parallelism;
 use derive_getters::Dissolve;
@@ -84,12 +85,12 @@ impl PyEngineBuilder {
 
     #[classmethod]
     pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
-        let locals = PyDict::new_bound(py);
+        let locals = PyDict::new(py);
         locals.set_item("cls", cls)?;
         locals.set_item("args", args)?;
 
-        py.run_bound(
-            r#"import types;result = types.GenericAlias(cls, args);"#,
+        py.run(
+            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
             None,
             Some(&locals),
         )?;

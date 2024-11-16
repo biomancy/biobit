@@ -10,8 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
 use biobit_core_py::loc::{IntervalOp, IntoPyInterval, PyInterval};
-use biobit_core_py::num::PrimInt;
-use biobit_repeto_rs::repeats::{InvRepeat, InvSegment};
+use biobit_repeto_rs::repeats::InvSegment;
 
 #[pyclass(eq, ord, name = "InvSegment")]
 #[derive(
@@ -35,17 +34,17 @@ impl PyInvSegment {
     }
 
     #[getter]
-    pub fn left(&self, py: Python) -> PyInterval {
-        self.rs.left().into_py(py)
+    pub fn left(&self) -> PyInterval {
+        (*self.rs.left()).into()
     }
 
     #[getter]
-    pub fn right(&self, py: Python) -> PyInterval {
-        self.rs.right().into_py(py)
+    pub fn right(&self) -> PyInterval {
+        (*self.rs.right()).into()
     }
 
-    pub fn brange(&self, py: Python) -> PyInterval {
-        self.rs.brange().into_py(py)
+    pub fn brange(&self) -> PyInterval {
+        self.rs.brange().into()
     }
 
     pub fn inner_gap(&self) -> i64 {
@@ -69,27 +68,14 @@ impl PyInvSegment {
         self.rs.len() as usize
     }
 
-    pub fn __getnewargs__(&self, py: Python) -> PyResult<(PyInterval, PyInterval)> {
-        Ok((self.rs.left().into_py(py), self.rs.right().into_py(py)))
+    pub fn __getnewargs__(&self) -> PyResult<(PyInterval, PyInterval)> {
+        Ok(((*self.rs.left()).into(), (*self.rs.right()).into()))
     }
 
     pub fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
-    }
-}
-
-impl<T> IntoPy<PyInvSegment> for InvSegment<T>
-where
-    T: PrimInt + TryInto<i64>,
-{
-    fn into_py(self, py: Python) -> PyInvSegment {
-        let left = self.left().into_py(py).rs;
-        let right = self.right().into_py(py).rs;
-        let rs = InvSegment::new(left, right).unwrap();
-
-        PyInvSegment { rs }
     }
 }
 
@@ -145,7 +131,7 @@ impl PyInvRepeat {
     }
 
     pub fn brange(&self, py: Python) -> PyInterval {
-        self.segments[0].borrow(py).rs.brange().into_py(py)
+        self.segments[0].borrow(py).rs.brange().into()
     }
 
     pub fn shift<'a>(mut slf: PyRefMut<'a, Self>, py: Python, shift: i64) -> PyRefMut<'a, Self> {
@@ -159,11 +145,11 @@ impl PyInvRepeat {
         chain(
             self.segments
                 .iter()
-                .map(|x| x.borrow(py).rs.left().into_py(py)),
+                .map(|x| (*x.borrow(py).rs.left()).into()),
             self.segments
                 .iter()
                 .rev()
-                .map(|x| x.borrow(py).rs.right().into_py(py)),
+                .map(|x| (*x.borrow(py).rs.right()).into()),
         )
         .collect()
     }
@@ -177,7 +163,7 @@ impl PyInvRepeat {
         &self,
         py: Python,
         contig: &str,
-        args: &PyTuple,
+        args: Bound<PyTuple>,
         name: &str,
         score: u16,
         strand: &str,
@@ -238,9 +224,8 @@ impl PyInvRepeat {
         alleq
     }
 
-    pub fn __getnewargs__(&self, py: Python) -> PyObject {
-        let segments: Vec<_> = self.segments.iter().map(|x| x.into_py(py)).collect();
-        (segments,).into_py(py)
+    pub fn __getnewargs__(&self, py: Python) -> Vec<Py<PyInvSegment>> {
+        self.segments.iter().map(|x| x.clone_ref(py)).collect()
     }
 
     pub fn __hash__(&self, py: Python) -> PyResult<u64> {
@@ -249,19 +234,5 @@ impl PyInvRepeat {
             s.borrow(py).hash(&mut hasher);
         }
         Ok(hasher.finish())
-    }
-}
-
-impl<T> IntoPy<PyInvRepeat> for InvRepeat<T>
-where
-    T: PrimInt + TryInto<i64>,
-{
-    fn into_py(self, py: Python) -> PyInvRepeat {
-        let segments = self
-            .segments()
-            .iter()
-            .map(|x| Py::new(py, x.into_py(py)).unwrap())
-            .collect();
-        PyInvRepeat { segments }
     }
 }

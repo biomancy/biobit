@@ -50,6 +50,13 @@ impl<Idx: PrimInt> InvSegment<Idx> {
         self.left.shift(shift);
         self.right.shift(shift);
     }
+
+    pub fn cast<T: PrimInt>(&self) -> Option<InvSegment<T>> {
+        match (self.left.cast::<T>(), self.right.cast::<T>()) {
+            (Some(left), Some(right)) => Some(InvSegment { left, right }),
+            _ => None,
+        }
+    }
 }
 
 impl<Idx: PrimInt> Debug for InvSegment<Idx> {

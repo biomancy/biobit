@@ -12,9 +12,11 @@ use derive_more::Into;
 use eyre::{eyre, OptionExt, Report, Result};
 use higher_kinded_types::prelude::*;
 
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Into, Getters, Dissolve)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Eq, Debug, Into, Getters, Dissolve)]
 pub struct ControlModel<Idx: PrimInt> {
     regions: Vec<ChainInterval<Idx>>,
     uniform_baseline: bool,
@@ -143,7 +145,8 @@ impl<Idx: PrimInt> ControlModel<Idx> {
     }
 }
 
-#[derive(Decode, Encode, Clone, PartialEq, Eq, Debug, Dissolve, Getters)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Eq, Debug, Dissolve, Getters)]
 pub struct RNAPileup<Idx: PrimInt, Cnts: Float> {
     sensitivity: Cnts,
     min_signal: Cnts,

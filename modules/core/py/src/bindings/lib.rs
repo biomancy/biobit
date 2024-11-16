@@ -11,7 +11,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.core", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     loc::register(&module, sysmod)?;
     ngs::register(&module, sysmod)?;

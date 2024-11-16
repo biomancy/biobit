@@ -12,7 +12,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.countit", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyResolutionOutcome>()?;
     module.add_class::<PyCounts>()?;

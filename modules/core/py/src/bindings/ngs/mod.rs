@@ -15,14 +15,14 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.ngs", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyStrandedness>()?;
     module.add_class::<PyMatesOrientation>()?;
 
     for typbj in [
-        PyStrandedness::type_object_bound(parent.py()),
-        PyMatesOrientation::type_object_bound(parent.py()),
+        PyStrandedness::type_object(parent.py()),
+        PyMatesOrientation::type_object(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?
     }

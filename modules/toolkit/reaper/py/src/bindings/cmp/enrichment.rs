@@ -1,4 +1,3 @@
-use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use pyo3::{pyclass, pymethods, PyErr, PyRefMut, PyResult};
@@ -6,7 +5,7 @@ use pyo3::{pyclass, pymethods, PyErr, PyRefMut, PyResult};
 use biobit_reaper_rs::cmp::Enrichment;
 
 #[pyclass(eq, name = "Enrichment")]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Constructor, Dissolve, From, Into)]
+#[derive(Clone, Debug, PartialEq, Constructor, Dissolve, From, Into)]
 pub struct PyEnrichment {
     rs: Enrichment<f32>,
 }

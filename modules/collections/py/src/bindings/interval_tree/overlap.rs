@@ -53,22 +53,22 @@ impl PyElements {
 
     #[getter]
     pub fn intervals<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let result = PyList::empty_bound(py);
+        let result = PyList::empty(py);
 
         for x in self.0.intervals() {
-            let inner = PyList::new_bound(py, x.iter().map(|y| PyInterval::from(*y).into_py(py)));
-            result.append(inner)?;
+            let inner = PyList::new(py, x.iter().map(|y| PyInterval::from(*y)));
+            result.append(inner?)?;
         }
         Ok(result)
     }
 
     #[getter]
     pub fn elements<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let result = PyList::empty_bound(py);
+        let result = PyList::empty(py);
 
         for x in self.0.annotations() {
-            let inner = PyList::new_bound(py, x.iter().map(|y| y.clone_ref(py)));
-            result.append(inner)?;
+            let inner = PyList::new(py, x.iter().map(|y| y.clone_ref(py)));
+            result.append(inner?)?;
         }
         Ok(result)
     }
@@ -78,15 +78,15 @@ impl PyElements {
     }
 
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
-        let result = PyList::empty_bound(py);
+        let result = PyList::empty(py);
         for x in self.0.iter() {
             let intervals =
-                PyList::new_bound(py, x.0.iter().map(|y| PyInterval::from(*y).into_py(py)));
-            let annotations = PyList::new_bound(py, x.1.iter().map(|y| y.clone_ref(py)));
-            result.append((intervals, annotations))?
+                PyList::new(py, x.0.iter().map(|y| PyInterval::from(*y)));
+            let annotations = PyList::new(py, x.1.iter().map(|y| y.clone_ref(py)));
+            result.append((intervals?, annotations?))?
         }
 
-        PyIterator::from_bound_object(result.as_any())
+        PyIterator::from_object(result.as_any())
     }
 
     pub fn __eq__(&self, py: Python, other: &PyElements) -> PyResult<bool> {
@@ -112,10 +112,10 @@ impl PyElements {
         self.0.len()
     }
 
-    pub fn __getstate__(&self, py: Python) -> PyResult<(PyObject, PyObject)> {
+    pub fn __getstate__(&self, py: Python) -> PyResult<(Py<PyList>, Py<PyList>)> {
         Ok((
-            self.intervals(py)?.to_object(py),
-            self.elements(py)?.to_object(py),
+            self.intervals(py)?.unbind(),
+            self.elements(py)?.unbind(),
         ))
     }
 
@@ -184,7 +184,7 @@ impl PySteps {
                 let interval = PyInterval::new(x.0, x.1)?;
                 let objects =
                     x.2.iter()
-                        .map(|y: &FallibleBorrowed| (*y.0).clone().unbind().to_object(py))
+                        .map(|y: &FallibleBorrowed| (*y.0).clone().unbind())
                         .collect();
                 hits.push((interval, objects));
             }
@@ -203,16 +203,16 @@ impl PySteps {
     }
 
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
-        let result = PyList::empty_bound(py);
+        let result = PyList::empty(py);
         for sample in self.0.iter() {
-            let inner = PyList::empty_bound(py);
+            let inner = PyList::empty(py);
             for (interval, objects) in sample.iter() {
-                let pyset = PySet::new_bound(py, objects)?;
-                inner.append((interval.into_py(py), pyset))?;
+                let pyset = PySet::new(py, objects)?;
+                inner.append((*interval, pyset))?;
             }
             result.append(inner)?;
         }
-        PyIterator::from_bound_object(result.as_any())
+        PyIterator::from_object(result.as_any())
     }
 
     pub fn __eq__(&self, py: Python, other: &PySteps) -> PyResult<bool> {
@@ -255,14 +255,14 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.overlap", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyElements>()?;
     module.add_class::<PySteps>()?;
 
     for typbj in [
-        PyElements::type_object_bound(parent.py()),
-        PySteps::type_object_bound(parent.py()),
+        PyElements::type_object(parent.py()),
+        PySteps::type_object(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?
     }

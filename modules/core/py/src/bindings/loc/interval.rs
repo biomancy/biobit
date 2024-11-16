@@ -8,7 +8,6 @@ use pyo3::prelude::*;
 use pyo3::types::PySequence;
 
 use biobit_core_rs::loc::{Interval, IntervalOp};
-use biobit_core_rs::num::PrimInt;
 
 use bitcode::{Decode, Encode};
 
@@ -191,16 +190,5 @@ impl IntervalOp for PyInterval {
 
     fn end(&self) -> Self::Idx {
         self.end()
-    }
-}
-
-impl<Idx: PrimInt + TryInto<i64>> IntoPy<PyInterval> for Interval<Idx> {
-    fn into_py(self, _: Python<'_>) -> PyInterval {
-        let converted = self.cast();
-        if let Some(interval) = converted {
-            interval.into()
-        } else {
-            panic!("Failed to convert interval: {:?}", self);
-        }
     }
 }

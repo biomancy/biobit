@@ -4,7 +4,7 @@ pub const __VERSION__: &str = env!("CARGO_PKG_VERSION");
 
 #[pymodule]
 pub fn _biobit(py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let sysmod = py.import_bound("sys")?.getattr("modules")?;
+    let sysmod = py.import("sys")?.getattr("modules")?;
 
     // Core modules
     biobit_core_py::register(module, &sysmod)?;
@@ -14,7 +14,7 @@ pub fn _biobit(py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Toolkit
     {
         let toolkit = format!("{}.toolkit", module.name()?);
-        let toolkit = PyModule::new_bound(py, &toolkit)?;
+        let toolkit = PyModule::new(py, &toolkit)?;
 
         ::biobit_countit_py::register(&toolkit, &sysmod)?;
         ::biobit_reaper_py::register(&toolkit, &sysmod)?;

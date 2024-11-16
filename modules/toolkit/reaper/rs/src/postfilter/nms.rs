@@ -3,13 +3,15 @@ use crate::result::Peak;
 use biobit_core_rs::loc::mapping::{ChainMap, Mapping};
 use biobit_core_rs::loc::{ChainInterval, Interval, IntervalOp, Orientation, PerOrientation};
 use biobit_core_rs::num::{Float, PrimInt};
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use derive_getters::Getters;
 use derive_more::Into;
 use eyre::Result;
 use std::ops::Range;
 
-#[derive(Encode, Decode, Clone, PartialEq, Into, Debug)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Into, Debug)]
 pub struct NMSRegions<Idx: PrimInt> {
     pub regions: Vec<ChainInterval<Idx>>,
     pub uniform_baseline: bool,
@@ -29,7 +31,8 @@ impl<Idx: PrimInt> NMSRegions<Idx> {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Into, Getters)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Debug, Into, Getters)]
 pub struct NMS<Idx: PrimInt, Cnts> {
     fecutoff: Cnts,
     group_within: Idx,

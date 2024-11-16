@@ -57,7 +57,7 @@ impl PyFilter {
         slf
     }
 
-    pub fn __getstate__(&self, py: Python) -> (i32, (usize, usize, usize, usize), Vec<PyInterval>) {
+    pub fn __getstate__(&self) -> (i32, (usize, usize, usize, usize), Vec<PyInterval>) {
         let stats = self.rs.stats();
         let stats = (
             stats.in_roi.total_len,
@@ -69,7 +69,7 @@ impl PyFilter {
             .rs
             .rois()
             .iter()
-            .map(|x| x.into_py(py))
+            .map(|x| x.cast().map(PyInterval::from).unwrap())
             .collect::<Vec<_>>();
 
         (*self.rs.min_score(), stats, rois)

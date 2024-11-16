@@ -3,28 +3,33 @@ pub use biobit_countit_rs::{Counts, PartitionMetrics, ResolutionOutcomes};
 use derive_more::{From, Into};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
+use std::ffi::CString;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-#[pyclass(frozen, eq, hash, get_all, name = "ResolutionOutcome")]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, From, Into)]
+#[pyclass(frozen, eq, hash, name = "ResolutionOutcome")]
+#[derive(Clone, Debug, PartialEq, PartialOrd, From, Into)]
+#[repr(transparent)]
 pub struct PyResolutionOutcome {
-    resolved: f64,
-    discarded: f64,
+    rs: ResolutionOutcomes<f64>,
 }
 
 impl Hash for PyResolutionOutcome {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.resolved.to_bits().hash(state);
-        self.discarded.to_bits().hash(state);
+        self.rs.resolved.to_bits().hash(state);
+        self.rs.discarded.to_bits().hash(state);
     }
 }
 
-impl IntoPy<PyResolutionOutcome> for ResolutionOutcomes<f64> {
-    fn into_py(self, _py: Python<'_>) -> PyResolutionOutcome {
-        PyResolutionOutcome {
-            resolved: self.resolved,
-            discarded: self.discarded,
-        }
+#[pymethods]
+impl PyResolutionOutcome {
+    #[getter]
+    pub fn resolved(&self) -> f64 {
+        self.rs.resolved
+    }
+
+    #[getter]
+    pub fn discarded(&self) -> f64 {
+        self.rs.discarded
     }
 }
 
@@ -42,10 +47,7 @@ impl IntoPy<PyPartitionMetrics> for PartitionMetrics<String, usize, f64> {
         let (contig, interval, time_s, alignments) = self.into();
         let interval: PyInterval = PyInterval::new(interval.start() as i64, interval.end() as i64)
             .expect("Failed to convert interval");
-        let alignments: PyResolutionOutcome = PyResolutionOutcome {
-            resolved: alignments.resolved,
-            discarded: alignments.discarded,
-        };
+        let alignments: PyResolutionOutcome = alignments.into();
 
         PyPartitionMetrics {
             contig,
@@ -107,12 +109,12 @@ impl<'a> IntoPy<PyCounts> for Counts<'a, String, usize, f64, PyObject, PyObject>
 impl PyCounts {
     #[classmethod]
     pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
-        let locals = PyDict::new_bound(py);
+        let locals = PyDict::new(py);
         locals.set_item("cls", cls)?;
         locals.set_item("args", args)?;
 
-        py.run_bound(
-            r#"import types;result = types.GenericAlias(cls, args);"#,
+        py.run(
+            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
             None,
             Some(&locals),
         )?;

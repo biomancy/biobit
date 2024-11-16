@@ -10,7 +10,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.collections", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     interval_tree::register(&module, sysmod)?;
 
@@ -18,8 +18,8 @@ pub fn register<'b>(
     // module.add_class::<PyScoring>()?;
 
     // for typbj in [
-    //     PyFilter::type_object_bound(parent.py()),
-    //     PyScoring::type_object_bound(parent.py()),
+    //     PyFilter::type_object(parent.py()),
+    //     PyScoring::type_object(parent.py()),
     // ] {
     //     typbj.setattr("__module__", &name)?
     // }

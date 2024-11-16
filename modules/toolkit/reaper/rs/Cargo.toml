@@ -29,4 +29,7 @@ ahash = { workspace = true }
 anymap3 = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
-bitcode = { workspace = true }
+bitcode = { workspace = true, optional = true }
+
+[features]
+bitcode = ["dep:bitcode"]

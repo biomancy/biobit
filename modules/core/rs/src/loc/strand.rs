@@ -2,8 +2,10 @@ use std::fmt::Display;
 
 use super::orientation::Orientation;
 
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Strand {
     /// The forward strand, also known as the positive strand or Watson strand.

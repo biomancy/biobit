@@ -11,7 +11,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.interval_tree", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     overlap::register(&module, sysmod)?;
 
@@ -19,8 +19,8 @@ pub fn register<'b>(
     module.add_class::<PyBitsBuilder>()?;
 
     for typbj in [
-        PyBits::type_object_bound(parent.py()),
-        PyBitsBuilder::type_object_bound(parent.py()),
+        PyBits::type_object(parent.py()),
+        PyBitsBuilder::type_object(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?
     }

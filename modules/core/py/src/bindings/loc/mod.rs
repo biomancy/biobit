@@ -25,7 +25,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.loc", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyStrand>()?;
     module.add_class::<PyOrientation>()?;
@@ -36,13 +36,13 @@ pub fn register<'b>(
     module.add_class::<PyLocus>()?;
 
     for typbj in [
-        PyStrand::type_object_bound(parent.py()),
-        PyOrientation::type_object_bound(parent.py()),
-        PyPerOrientation::type_object_bound(parent.py()),
-        PyPerStrand::type_object_bound(parent.py()),
-        PyInterval::type_object_bound(parent.py()),
-        PyChainInterval::type_object_bound(parent.py()),
-        PyLocus::type_object_bound(parent.py()),
+        PyStrand::type_object(parent.py()),
+        PyOrientation::type_object(parent.py()),
+        PyPerOrientation::type_object(parent.py()),
+        PyPerStrand::type_object(parent.py()),
+        PyInterval::type_object(parent.py()),
+        PyChainInterval::type_object(parent.py()),
+        PyLocus::type_object(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?
     }

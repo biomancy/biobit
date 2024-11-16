@@ -10,10 +10,10 @@ pub fn register<'a>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'a, PyModule>> {
     let name = format!("{}.pcalling", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyByCutoff>()?;
-    PyByCutoff::type_object_bound(parent.py()).setattr("__module__", &name)?;
+    PyByCutoff::type_object(parent.py()).setattr("__module__", &name)?;
 
     parent.add_submodule(&module)?;
     sysmod.set_item(module.name()?, &module)?;

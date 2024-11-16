@@ -18,7 +18,7 @@ pub fn register<'b>(
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
     let name = format!("{}.reaper", parent.name()?);
-    let module = PyModule::new_bound(parent.py(), &name)?;
+    let module = PyModule::new(parent.py(), &name)?;
 
     module.add_class::<PyReaper>()?;
     module.add_class::<PyConfig>()?;
@@ -28,12 +28,12 @@ pub fn register<'b>(
     module.add_class::<PyHarvestRegion>()?;
 
     for typbj in [
-        PyReaper::type_object_bound(parent.py()),
-        PyConfig::type_object_bound(parent.py()),
-        PyWorkload::type_object_bound(parent.py()),
-        PyPeak::type_object_bound(parent.py()),
-        PyHarvest::type_object_bound(parent.py()),
-        PyHarvestRegion::type_object_bound(parent.py()),
+        PyReaper::type_object(parent.py()),
+        PyConfig::type_object(parent.py()),
+        PyWorkload::type_object(parent.py()),
+        PyPeak::type_object(parent.py()),
+        PyHarvest::type_object(parent.py()),
+        PyHarvestRegion::type_object(parent.py()),
     ] {
         typbj.setattr("__module__", &name)?
     }

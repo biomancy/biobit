@@ -33,22 +33,22 @@ impl PyLayout {
 
         let name = module.name()?;
         for typbj in [
-            PyLayout_Single::type_object_bound(py),
-            PyLayout_Paired::type_object_bound(py),
+            PyLayout_Single::type_object(py),
+            PyLayout_Paired::type_object(py),
         ] {
             typbj.setattr("__module__", &name)?
         }
         Ok(())
     }
 
-    fn __getnewargs__(&self, py: Python) -> PyObject {
-        match self {
-            PyLayout::Single { file } => (file,).into_py(py),
+    fn __getnewargs__(&self, py: Python) -> PyResult<PyObject> {
+        Ok(match self {
+            PyLayout::Single { file } => (file,).into_pyobject(py)?.unbind().into(),
             PyLayout::Paired { orientation, files } => {
-                let orientation = orientation.into_py(py);
-                let files = (files.0.as_path().into_py(py), files.1.as_path().into_py(py));
-                (orientation, files).into_py(py)
+                let orientation = orientation.into_pyobject(py)?;
+                let files = (files.0.as_path(), files.1.as_path()).into_pyobject(py)?;
+                (orientation, files).into_pyobject(py)?.unbind().into()
             }
-        }
+        })
     }
 }
