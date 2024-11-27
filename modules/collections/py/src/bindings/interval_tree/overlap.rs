@@ -80,8 +80,7 @@ impl PyElements {
     pub fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyIterator>> {
         let result = PyList::empty(py);
         for x in self.0.iter() {
-            let intervals =
-                PyList::new(py, x.0.iter().map(|y| PyInterval::from(*y)));
+            let intervals = PyList::new(py, x.0.iter().map(|y| PyInterval::from(*y)));
             let annotations = PyList::new(py, x.1.iter().map(|y| y.clone_ref(py)));
             result.append((intervals?, annotations?))?
         }
@@ -113,10 +112,7 @@ impl PyElements {
     }
 
     pub fn __getstate__(&self, py: Python) -> PyResult<(Py<PyList>, Py<PyList>)> {
-        Ok((
-            self.intervals(py)?.unbind(),
-            self.elements(py)?.unbind(),
-        ))
+        Ok((self.intervals(py)?.unbind(), self.elements(py)?.unbind()))
     }
 
     pub fn __setstate__(

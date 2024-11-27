@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use crate::rigid::resolution::IntoPyResolution;
 use crate::rigid::PyEngineBuilder;
 use crate::PyCounts;
@@ -8,6 +7,7 @@ use biobit_io_py::bam::IntoPyReader;
 use derive_more::{From, Into};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
+use std::ffi::CString;
 
 #[pyclass(name = "Engine")]
 #[repr(transparent)]

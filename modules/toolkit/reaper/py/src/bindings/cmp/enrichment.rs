@@ -1,4 +1,4 @@
-use biobit_core_py::{pickle, LendingIterator};
+use biobit_core_py::pickle;
 use biobit_reaper_rs::cmp::Enrichment;
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};

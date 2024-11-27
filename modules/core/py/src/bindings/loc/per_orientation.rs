@@ -1,7 +1,8 @@
 use derive_more::{From, Into};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyDict, PyTuple, PyType};
+use std::ffi::CString;
 
 use biobit_core_rs::loc::PerOrientation;
 
@@ -60,6 +61,21 @@ impl PyPerOrientation {
     pub fn get(&self, orientation: IntoPyOrientation) -> PyObject {
         let orientation = orientation.dissolve().0;
         self.internal.get(orientation).clone()
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
+        let locals = PyDict::new(py);
+        locals.set_item("cls", cls)?;
+        locals.set_item("args", args)?;
+
+        py.run(
+            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
+            None,
+            Some(&locals),
+        )?;
+
+        Ok(locals.get_item("result")?.unwrap().unbind())
     }
 
     pub fn __getitem__(&self, orientation: IntoPyOrientation) -> PyObject {

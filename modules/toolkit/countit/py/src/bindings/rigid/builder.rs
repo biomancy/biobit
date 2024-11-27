@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use biobit_core_py::loc::{Interval, IntervalOp, IntoPyInterval, IntoPyOrientation};
 use biobit_core_py::parallelism;
 use derive_getters::Dissolve;
@@ -7,6 +6,7 @@ use eyre::WrapErr;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
 use rayon::ThreadPoolBuilder;
+use std::ffi::CString;
 
 use crate::rigid::PyEngine;
 pub use biobit_countit_rs::rigid::EngineBuilder;

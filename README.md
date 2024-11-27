@@ -100,3 +100,6 @@ Exceptions to this rule are clearly marked in the codebase and documentation.
 - All traits and structs should prioritize batch-oriented processing, especially for Python wrappers, where batch
   operations are significantly faster than repeated method invocations. Where possible, batch methods should accept data
   via slices and the result buffer by a mutable reference.
+
+# Ideas
+- Add a `stitch(max_gap: usize)` method to inverted repeats to merge adjacent repeats with a gap smaller than `max_gap`.

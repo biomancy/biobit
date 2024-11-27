@@ -20,11 +20,11 @@ pub struct PyChainMap {
 impl PyChainMap {
     #[new]
     pub fn new(chain: IntoPyChainInterval) -> Self {
-        ChainMap::new(chain.py.rs.into()).into()
+        ChainMap::new(chain.py.rs).into()
     }
 
     pub fn invmap_interval(&self, py: Python, interval: IntoPyInterval) -> Option<PyChainInterval> {
-        let interval: Interval<_> = interval.0.bind(py).borrow().rs.clone();
+        let interval: Interval<_> = interval.0.bind(py).borrow().rs;
         match self.rs.invmap_interval(&interval, Default::default()) {
             Mapping::Complete(x) | Mapping::Truncated(x) => Some(PyChainInterval::from(x)),
             Mapping::None => None,
@@ -32,7 +32,7 @@ impl PyChainMap {
     }
 
     pub fn map_interval(&self, py: Python, interval: IntoPyInterval) -> Option<PyInterval> {
-        let interval: Interval<_> = interval.0.bind(py).borrow().rs.clone();
+        let interval: Interval<_> = interval.0.bind(py).borrow().rs;
         match self.rs.map_interval(&interval) {
             Mapping::Complete(x) | Mapping::Truncated(x) => Some(PyInterval::from(x)),
             Mapping::None => None,
