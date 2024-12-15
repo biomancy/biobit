@@ -151,6 +151,20 @@ impl PyInterval {
             .collect()
     }
 
+    #[staticmethod]
+    pub fn subtract(
+        py: Python,
+        source: Vec<IntoPyInterval>,
+        exclude: Vec<IntoPyInterval>,
+    ) -> Vec<Self> {
+        let mut source: Vec<_> = source.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        let mut exclude: Vec<_> = exclude.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        Interval::subtract(&mut source, &mut exclude)
+            .into_iter()
+            .map(Self::from)
+            .collect()
+    }
+
     fn __repr__(&self) -> String {
         format!("Interval[{}]", self.rs)
     }

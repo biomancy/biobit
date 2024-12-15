@@ -125,6 +125,16 @@ def test_merge():
     assert Interval.merge(segments) == [Interval(1, 15), Interval(20, 30)]
 
 
+def test_subtract():
+    source = [Interval(50, 110), Interval(0, 100)]
+    exclude = [Interval(25, 75)]
+    expected = [Interval(75, 110), Interval(0, 25), Interval(75, 100)]
+
+    result = Interval.subtract(source, exclude)
+    result, expected = sorted(result), sorted(expected)
+    assert result == expected
+
+
 def test_pickle_interval():
     segment = Interval(1, 10)
     assert pickle.loads(pickle.dumps(segment)) == segment

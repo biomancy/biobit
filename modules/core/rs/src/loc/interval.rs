@@ -183,6 +183,53 @@ impl<Idx: PrimInt> Interval<Idx> {
         merged
     }
 
+    pub fn subtract(source: &mut [Self], drop: &mut [Self]) -> Vec<Self> {
+        // source.sort_by_key(|interval| interval.start);
+        // Sort drop intervals by their start points
+        drop.sort_by_key(|interval| interval.start);
+
+        let mut result = Vec::new();
+
+        for src in source {
+            let mut start = src.start;
+
+            let mut drpind = drop
+                .binary_search_by_key(&start, |interval| interval.end)
+                .unwrap_or_else(|i| i);
+
+            // Skip irrelevant intervals in B
+            while drpind < drop.len() && drop[drpind].end <= start {
+                drpind += 1;
+            }
+
+            while drpind < drop.len() && drop[drpind].start < src.end {
+                let drp = &drop[drpind];
+                // Add the non-overlapping part before the overlap
+                if drp.start > start {
+                    result.push(Interval {
+                        start,
+                        end: drp.start.min(src.end),
+                    });
+                }
+                // Update current_start to exclude the overlap
+                start = start.max(drp.end);
+                if start >= src.end {
+                    break;
+                }
+                drpind += 1;
+            }
+
+            // Add the remaining non-overlapping part of the source interval
+            if start < src.end {
+                result.push(Interval {
+                    start,
+                    end: src.end,
+                });
+            }
+        }
+        result
+    }
+
     pub fn merge_within(intervals: &mut [Self], distance: Idx) -> Vec<Self> {
         if intervals.is_empty() {
             return Vec::new();
@@ -556,5 +603,139 @@ mod tests {
 
         let merged = Interval::<isize>::merge_within(&mut vec![], 5);
         assert!(merged.is_empty());
+    }
+
+    mod subtract {
+        use super::*;
+
+        #[test]
+        fn test_non_overlapping_intervals() {
+            let mut a = vec![
+                Interval { start: 1, end: 5 },
+                Interval { start: 10, end: 15 },
+            ];
+            let mut b = vec![Interval { start: 6, end: 9 }];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected = vec![
+                Interval { start: 1, end: 5 },
+                Interval { start: 10, end: 15 },
+            ];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_full_overlap() {
+            let mut a = vec![Interval { start: 1, end: 10 }];
+            let mut b = vec![Interval { start: 1, end: 10 }];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected: Vec<Interval<i32>> = vec![];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_partial_overlap() {
+            let mut a = vec![Interval { start: 1, end: 10 }];
+            let mut b = vec![Interval { start: 3, end: 7 }];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected = vec![
+                Interval { start: 1, end: 3 },
+                Interval { start: 7, end: 10 },
+            ];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_multiple_overlaps() {
+            let mut a = vec![Interval { start: 1, end: 10 }];
+            let mut b = vec![Interval { start: 2, end: 4 }, Interval { start: 6, end: 8 }];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected = vec![
+                Interval { start: 1, end: 2 },
+                Interval { start: 4, end: 6 },
+                Interval { start: 8, end: 10 },
+            ];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_no_overlap() {
+            let mut a = vec![Interval { start: 1, end: 5 }];
+            let mut b = vec![Interval { start: 6, end: 10 }];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected = vec![Interval { start: 1, end: 5 }];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_empty_intervals() {
+            let mut a: Vec<Interval<i32>> = vec![];
+            let mut b: Vec<Interval<i32>> = vec![];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected: Vec<Interval<i32>> = vec![];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_complex_overlap_1() {
+            let mut a = vec![
+                Interval { start: 1, end: 10 },
+                Interval { start: 15, end: 20 },
+            ];
+            let mut b = vec![
+                Interval { start: 5, end: 12 },
+                Interval { start: 18, end: 22 },
+            ];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected = vec![
+                Interval { start: 1, end: 5 },
+                Interval { start: 15, end: 18 },
+            ];
+
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn test_complex_overlap_2() {
+            let mut a = vec![
+                Interval {
+                    start: 50,
+                    end: 110,
+                },
+                Interval { start: 0, end: 100 },
+            ];
+            let mut b = vec![
+                Interval { start: 25, end: 75 },
+                Interval {
+                    start: 90,
+                    end: 100,
+                },
+            ];
+
+            let result = Interval::subtract(&mut a, &mut b);
+            let expected = vec![
+                Interval { start: 75, end: 90 },
+                Interval {
+                    start: 100,
+                    end: 110,
+                },
+                Interval { start: 0, end: 25 },
+                Interval { start: 75, end: 90 },
+            ];
+
+            assert_eq!(result, expected);
+        }
     }
 }
