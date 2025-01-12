@@ -135,6 +135,16 @@ def test_subtract():
     assert result == expected
 
 
+def test_overlap():
+    left = [Interval(0, 10), Interval(20, 30)]
+    right = [Interval(5, 25)]
+    expected = [Interval(5, 10), Interval(20, 25)]
+
+    result = Interval.overlap(left, right)
+    result, expected = sorted(result), sorted(expected)
+    assert result == expected
+
+
 def test_pickle_interval():
     segment = Interval(1, 10)
     assert pickle.loads(pickle.dumps(segment)) == segment
