@@ -18,7 +18,10 @@ use super::filtering::SoftFilter;
 
 pub struct ROITracker {
     intervals: Vec<Interval<usize>>,
-    pointer: usize,
+    // Main index of the current interval in the list of ROIs. Goes from 0 to intervals.len().
+    main: usize,
+    // Secondary index of the current interval in the list of ROIs. Goes from intervals.len() to 0.
+    secondary: usize,
 }
 
 impl ROITracker {
@@ -26,34 +29,42 @@ impl ROITracker {
         intervals.sort();
         Self {
             intervals,
-            pointer: 0,
+            main: 0,
+            secondary: 0,
         }
     }
 
-    pub fn step(&mut self, newpos: usize) -> bool {
-        while self.pointer < self.intervals.len() && self.intervals[self.pointer].end() <= newpos {
-            self.pointer += 1;
+    pub fn main(&mut self, newpos: usize) -> bool {
+        // Reset the secondary index
+        self.secondary = self.intervals.len();
+
+        // Move the main index to the right if the current interval is already passed
+        while self.main < self.intervals.len() && self.intervals[self.main].end() <= newpos {
+            self.main += 1;
         }
         debug_assert!(
-            self.pointer == self.intervals.len()
-                || self.intervals[self.pointer].start() >= newpos
-                || self.intervals[self.pointer].start() <= newpos
-                    && newpos < self.intervals[self.pointer].end()
+            self.main == self.intervals.len()
+                || self.intervals[self.main].start() >= newpos
+                || self.intervals[self.main].start() <= newpos
+                    && newpos < self.intervals[self.main].end()
         );
 
-        self.pointer < self.intervals.len() && self.intervals[self.pointer].contains(newpos)
+        self.main < self.intervals.len() && self.intervals[self.main].contains(newpos)
+    }
 
-        // Fast-forward to the closest ROI
-        // while self.rois.last().is_some_and(|x| x.1 <= nxtcol) {
-        //     self.rois.pop();
-        // }
-        // debug_assert!(self.rois.last().map_or_else(
-        //     true, |x| nxtcol < x.0 || x.0 <= nxtcol && nxtcol < x.1,
-        // ));
-        //
-        // self.rois.last().map_or_else(
-        //     false, |x| x.0 <= nxtcol,
-        // )
+    pub fn secondary(&mut self, newpos: usize) -> bool {
+        // Move the secondary index to the left if the current interval is already passed
+        while self.secondary > 0 && self.intervals[self.secondary - 1].start() > newpos {
+            self.secondary -= 1;
+        }
+        debug_assert!(
+            self.secondary == 0
+                || self.intervals[self.secondary - 1].end() <= newpos
+                || self.intervals[self.secondary - 1].start() <= newpos
+                    && newpos < self.intervals[self.secondary - 1].end()
+        );
+
+        self.secondary > 0 && self.intervals[self.secondary - 1].contains(newpos)
     }
 }
 
@@ -152,15 +163,16 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> BestOrientationTracer for AllO
     #[inline(always)]
     fn equivalent(&mut self, row: usize, col: usize, score: S) {
         let newdiag = self.cache[row].take();
+        let is_roi = self.is_roi || self.rois.secondary(self.results.len() - row);
 
         match self.diagonal.take() {
             None => {
                 // Start the new path
-                self.cache[row] = Some(CandidatesTracker::new((row, col), score, self.is_roi));
+                self.cache[row] = Some(CandidatesTracker::new((row, col), score, is_roi));
             }
             Some(mut diagonal) => {
                 // Extend & consume the diagonal
-                diagonal.equivalent(row, col, score, self.is_roi, &self.filter);
+                diagonal.equivalent(row, col, score, is_roi, &self.filter);
                 self.cache[row] = Some(diagonal);
             }
         }
@@ -234,14 +246,14 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> Tracer for AllOptimal<S, F> {
     type Score = S;
 
     fn first_col_start(&mut self) {
-        self.is_roi = self.rois.step(0);
+        self.is_roi = self.rois.main(0);
     }
     fn first_col_end(&mut self) {
         self.diagonal = None;
     }
 
     fn col_start(&mut self, col: usize) {
-        self.is_roi = self.rois.step(col);
+        self.is_roi = self.rois.main(col);
     }
     fn col_end(&mut self, _: usize) {
         if let Some(diagonal) = self.diagonal.take() {

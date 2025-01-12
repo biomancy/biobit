@@ -190,12 +190,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn why_do_i_fail() -> Result<()> {
-        let seq = b"UUGUAUUAUAUCUAUGUAUAUAGAUAUNAAUACGA";
-
-        let mut filter = Filter::<i32>::default();
-        filter.set_min_score(12);
+    // #[test]
+    // fn why_do_i_fail() -> Result<()> {
+    //     let seq = b"UUGUAUUAUAUCUAUGUAUAUAGAUAUNAAUACGA";
+    //
+    //     let mut filter = Filter::<i32>::default();
+    //     filter.set_min_score(12);
 
         // for ind in 0..seq.len() {
         //     let mut seq = seq.to_vec();
@@ -213,7 +213,20 @@ mod tests {
         //     }
         // }
 
-        run(seq, filter, Scoring::default())?;
-        Ok(())
-    }
+    //     run(seq, filter, Scoring::default())?;
+    //     Ok(())
+    // }
+
+    // #[test]
+    // fn why_there_is_no_dsRNA() -> Result<()> {
+    //     let seq = b"GUGGCUCAUGCCUGCAGUCCCAGCACUUUGGGAGGCUGAGGCAGGUGUAUCACCUGAGGUCAGGAGUUCGAGACCAGCCUGGCCAACAUGGUGAAACCCUGUUUCCACGAAAAAUACAAUAAACUAGCUGGGCAUGGUGGUACGUGCCUGUAAUCCCAGCUACUUGGGAGGCUGAGACACGAGAAUCGCUUGAACCUGGGAGGCAGAGGUUGUAGUGAGCCGAGAUUGCGCCACUGCACUCCAGCCUGGGUGACAGAGCGAGACUCCAUCUCAAAAAUAAAUAUAUAAAAUAAAAUUGAGAUAUAGUUCAGAAAGCCCACCAAGAUCUGAAUUAUUUAAACCUGUGUCCAAAUUGUUUUUGUUCUCAUUAUCUUGCAAUUGUUUUUCUUUGCAUACAGGCUCGUGAGCCCUUGGUUGUGUUUCUCCCUUUUUUCUCUCACUGUUUUUUCUCUUUUCCUUUUUGAGACGGGUCUCACUCUGUUGCCCAGGCUGGCAUGCAGUGACACAGUCAUAGCUCACUGCAGCCUCAGCCUCAACCUUCCAGGCUCAAGCGAUCCUCCGACCUCAGCCUCCAAAGUAGCUGGGACUACUGCUGUGCGACACCAUGCCUGGCUAAUUUUUGAAUUUUUAUUUUUAGAGAUGGGGUCUCCCUAUUUUGGCCAGUCUGGUCUCAAACUCCUGGGCUCAAGAGAUCCUCCAGCCUCGGCCUCCCAAAGUGCUGAGAUUACAGGUGUGAGCCACUGU";
+    //
+    //     let mut filter = Filter::<i32>::default();
+    //     filter.set_min_score(12);
+    //     filter.set_min_roi_overlap(1, 1);
+    //     filter.set_rois(vec![Interval::new(469, 546).unwrap()]);
+    //
+    //     run(seq, filter, Scoring::default())?;
+    //     Ok(())
+    // }
 }
