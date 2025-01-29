@@ -15,12 +15,19 @@ pub enum Strandedness {
     Unstranded = 0,
 }
 
+impl Strandedness {
+    /// Returns the symbol representation of the strandedness.
+    pub fn symbol(&self) -> &'static str {
+        match self {
+            Strandedness::Forward => "F",
+            Strandedness::Reverse => "R",
+            Strandedness::Unstranded => "U",
+        }
+    }
+}
+
 impl Display for Strandedness {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Strandedness::Forward => write!(f, "F"),
-            Strandedness::Reverse => write!(f, "R"),
-            Strandedness::Unstranded => write!(f, "U"),
-        }
+        write!(f, "{}", self.symbol())
     }
 }

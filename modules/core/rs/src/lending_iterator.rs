@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use ::higher_kinded_types::prelude::*;
 use ::impl_tools::autoimpl;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
+use higher_kinded_types::prelude::*;
 use higher_kinded_types::ForFixed;
 
 #[autoimpl(for <T: trait + ?Sized> &mut T, Box <T>)]

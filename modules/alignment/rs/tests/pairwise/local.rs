@@ -1,4 +1,4 @@
-use biobit_alignment_rs::alignment::pairwise::{alignment, scoring, sw};
+use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
 
 pub type Score = i32;
 pub type Symbol = u8;
@@ -53,9 +53,9 @@ pub mod best {
             //     .expect(
             //     &*format!("Aligner failed: {:?} & {:?}", seq1.0, seq2.0)
             // );
-            assert_eq!(result.seq1.start, seq1.1);
-            assert_eq!(result.seq2.start, seq2.1);
-            assert_eq!(result.score, w.score);
+            assert_eq!(result.seq1().start, seq1.1);
+            assert_eq!(result.seq2().start, seq2.1);
+            assert_eq!(*result.score(), w.score);
             assert_eq!(result.rle(), rle);
         }
     }
@@ -241,12 +241,15 @@ pub mod alloptimal {
             expected.sort_by_key(|x| (x.score, x.start));
 
             let mut hits = engine.scan_all(&seq1, &seq2);
-            hits.sort_by_key(|x| (x.score, (x.seq1.start, x.seq2.start)));
+            hits.sort_by_key(|x| (*x.score(), (x.seq1().start, x.seq2().start)));
 
             assert_eq!(hits.len(), expected.len());
             for (alignment, expected) in zip(&hits, expected) {
-                assert_eq!(alignment.score, expected.score);
-                assert_eq!((alignment.seq1.start, alignment.seq2.start), expected.start);
+                assert_eq!(*alignment.score(), expected.score);
+                assert_eq!(
+                    (alignment.seq1().start, alignment.seq2().start),
+                    expected.start
+                );
                 assert_eq!(alignment.rle(), expected.rle);
             }
         }

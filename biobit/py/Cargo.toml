@@ -12,7 +12,7 @@ license.workspace = true
 categories.workspace = true
 
 [lib]
-path = "src/bindings/lib.rs"
+path = "src/bindings.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -20,6 +20,9 @@ pyo3 = { workspace = true }
 itertools = { workspace = true }
 eyre = { workspace = true }
 biobit-core-py = { path = "../../modules/core/py" }
+biobit-collections-py = { path = "../../modules/collections/py" }
 biobit-io-py = { path = "../../modules/io/py" }
 biobit-countit-py = { path = "../../modules/toolkit/countit/py" }
+biobit-reaper-py = { path = "../../modules/toolkit/reaper/py" }
 biobit-seqproj-py = { path = "../../modules/toolkit/seqproj/py" }
+biobit-repeto-py = { path = "../../modules/toolkit/repeto/py" }

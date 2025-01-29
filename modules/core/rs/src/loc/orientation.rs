@@ -2,7 +2,11 @@ use std::fmt::Display;
 
 use super::strand::Strand;
 
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
+
 /// A type representing the orientation of an object in the genome
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Orientation {
@@ -58,7 +62,20 @@ impl TryFrom<char> for Orientation {
         match value {
             '+' => Ok(Orientation::Forward),
             '-' => Ok(Orientation::Reverse),
-            '=' | '.' => Ok(Orientation::Dual),
+            '=' => Ok(Orientation::Dual),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&str> for Orientation {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "+" => Ok(Orientation::Forward),
+            "-" => Ok(Orientation::Reverse),
+            "=" => Ok(Orientation::Dual),
             _ => Err(()),
         }
     }

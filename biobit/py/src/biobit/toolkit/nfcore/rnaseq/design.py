@@ -10,11 +10,11 @@ __all__ = ["from_seqproj"]
 
 
 def from_seqproj(
-        project: seqproj.Project, saveto: os.PathLike[str] | TextIOBase, *,
+        project: seqproj.Project, saveto: os.PathLike[str] | TextIOBase | None, *,
         seqexp2desc: Callable[[seqproj.Experiment], str] = descriptor.from_seqexp
 ) -> str:
     """
-    Converts a given bio project into an input file (design) for the nf-core/rnaseq pipeline.
+    Converts a given seqproj into an input file (design) for the nf-core/rnaseq pipeline.
 
     The function generates a CSV table with columns: "sample", "fastq_1", "fastq_2", "strandedness".
     Each row corresponds to a run in the project's experiments. The "sample" column uses the experiment ID as the sample name.
@@ -24,6 +24,7 @@ def from_seqproj(
 
     :param project: The project object to be converted.
     :param saveto: The destination for the output. This can be a file path (as a string or Path object) or a TextIO stream.
+    Use None to skip saving and return the content as a string.
     :param seqexp2desc: A function that converts a seqproj experiment into a human-readable descriptor (sample column).
     :return: The content of the generated input file.
     """
@@ -56,9 +57,10 @@ def from_seqproj(
     content = "\n".join(lines)
 
     # Save & return the content
-    if isinstance(saveto, TextIOBase):
-        saveto.write(content)
-    else:
-        with open(saveto, "w") as stream:
-            stream.write(content)
+    if saveto:
+        if isinstance(saveto, TextIOBase):
+            saveto.write(content)
+        else:
+            with open(saveto, "w") as stream:
+                stream.write(content)
     return content

@@ -14,5 +14,6 @@ categories.workspace = true
 
 [dependencies]
 biobit-core-rs = { path = "../../core/rs" }
-geo = { workspace = true }
 eyre = { workspace = true }
+derive_more = { workspace = true }
+derive-getters = { workspace = true }

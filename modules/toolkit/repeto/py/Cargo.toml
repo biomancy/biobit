@@ -1,0 +1,25 @@
+[package]
+name = "biobit-repeto-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "TODO"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[lib]
+path = "src/bindings/lib.rs"
+
+[dependencies]
+pyo3 = { workspace = true }
+eyre = { workspace = true }
+itertools = { workspace = true }
+derive_more = { workspace = true }
+derive-getters = { workspace = true }
+biobit-repeto-rs = { path = "../rs" }
+biobit-core-py = { path = "../../../core/py" }

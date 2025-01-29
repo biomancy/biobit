@@ -1,13 +1,13 @@
-use ::higher_kinded_types::prelude::*;
 use dyn_clone::DynClone;
 use eyre::Result;
+use higher_kinded_types::prelude::*;
 use impl_tools::autoimpl;
 
-use crate::LendingIterator;
 use crate::source::dyn_source::DynSource;
+use crate::LendingIterator;
 
 use super::{
-    core::Core,
+    core::{AnyMap, Core},
     transform::{Transform, Transformed},
 };
 
@@ -15,9 +15,10 @@ use super::{
 pub trait Source: Core + DynClone + Send + Sync {
     type Iter: for<'borrow> ForLt<Of<'borrow>: LendingIterator<Item = Self::Item>>;
 
-    fn fetch<'borrow>(
+    #[allow(clippy::needless_lifetimes)]
+    fn fetch<'borrow, 'args>(
         &'borrow mut self,
-        args: <<Self as Core>::Args as ForLt>::Of<'_>,
+        args: <<Self as Core>::Args as ForLt>::Of<'args>,
     ) -> Result<<Self::Iter as ForLt>::Of<'borrow>>;
 
     fn with_transform<T: Transform<Self::Iter, InItem = Self::Item>>(
@@ -28,7 +29,7 @@ pub trait Source: Core + DynClone + Send + Sync {
     where
         Self: Sized,
     {
-        Transformed::new(self, transform, args, Default::default())
+        Transformed::new(self, transform, args)
     }
 
     fn to_dynsrc(self) -> DynSourceBridge<Self>
@@ -48,22 +49,6 @@ pub trait Source: Core + DynClone + Send + Sync {
 
 dyn_clone::clone_trait_object!(<Args, Item, Iter> Source<Args=Args, Item=Item, Iter=Iter>);
 
-// where
-// Args: DynClone,
-// Item: ForLt,
-// Iter: for<'borrow> ForLt<Of<'borrow>: LendingIterator<Item = Item>>,
-
-// impl<'clone, T: Source> Source for Box<T> {
-//     type Iter = T::Iter;
-//
-//     fn fetch<'args, 'borrow>(
-//         &'borrow mut self,
-//         args: <<Self as Core>::Args as ForLt>::Of<'args>,
-//     ) -> Result<<Self::Iter as ForLt>::Of<'borrow>> {
-//         (**self).fetch(args)
-//     }
-// }
-
 #[derive(Debug, PartialEq, Eq, Hash, Default, Copy, PartialOrd, Ord)]
 pub struct DynSourceBridge<S: Source> {
     slf: S,
@@ -80,6 +65,15 @@ impl<S: Source> Clone for DynSourceBridge<S> {
 impl<S: Source> Core for DynSourceBridge<S> {
     type Args = S::Args;
     type Item = S::Item;
+
+    fn populate_caches(&mut self, cache: &mut AnyMap) {
+        self.slf.populate_caches(cache)
+    }
+
+    fn release_caches(&mut self, cache: &mut AnyMap) {
+        self.slf.release_caches(cache)
+    }
+
     #[inline(always)]
     fn batch_size(&self) -> usize {
         self.slf.batch_size()
@@ -93,9 +87,9 @@ impl<S: Source> Core for DynSourceBridge<S> {
 
 impl<S: Source> DynSource for DynSourceBridge<S> {
     #[inline(always)]
-    fn fetch<'args, 'borrow>(
+    fn fetch<'borrow, 'args>(
         &'borrow mut self,
-        args: <Self::Args as ForLt>::Of<'args>,
+        args: <<Self as Core>::Args as ForLt>::Of<'args>,
     ) -> Result<Box<dyn 'borrow + LendingIterator<Item = Self::Item>>> {
         Ok(Box::new(Source::fetch(&mut self.slf, args)?))
     }

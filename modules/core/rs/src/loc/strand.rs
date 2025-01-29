@@ -2,6 +2,9 @@ use std::fmt::Display;
 
 use super::orientation::Orientation;
 
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Strand {
@@ -51,6 +54,18 @@ impl TryFrom<char> for Strand {
         match value {
             '+' => Ok(Self::Forward),
             '-' => Ok(Self::Reverse),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&str> for Strand {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "+" => Ok(Self::Forward),
+            "-" => Ok(Self::Reverse),
             _ => Err(()),
         }
     }

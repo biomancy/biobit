@@ -11,14 +11,14 @@ use impl_tools::autoimpl;
 use crate::num::PrimInt;
 
 use super::contig::Contig;
+use super::interval::{Interval, IntervalOp};
 use super::orientation::Orientation;
-use super::segment::{AsSegment, Segment};
 
 ///  A locus is a physical region within a genome that has both coordinates (contig and range) and an orientation.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Dissolve, Constructor)]
 pub struct Locus<Ctg: Contig, Idx: PrimInt> {
     pub contig: Ctg,
-    pub segment: Segment<Idx>,
+    pub interval: Interval<Idx>,
     pub orientation: Orientation,
 }
 
@@ -27,13 +27,13 @@ pub struct Locus<Ctg: Contig, Idx: PrimInt> {
 pub trait AsLocus {
     type Contig: Contig;
     type Idx: PrimInt;
-    type Segment: AsSegment<Idx = Self::Idx>;
+    type Interval: IntervalOp<Idx = Self::Idx>;
 
     /// Contig of the locus-like object.
     fn contig(&self) -> &Self::Contig;
 
-    /// Segment of the locus-like object.
-    fn segment(&self) -> &Self::Segment;
+    /// Interval of the locus-like object.
+    fn interval(&self) -> &Self::Interval;
 
     /// Orientation of the locus-like object.
     fn orientation(&self) -> Orientation;
@@ -43,7 +43,7 @@ pub trait AsLocus {
     fn as_locus(&self) -> Locus<Self::Contig, Self::Idx> {
         Locus {
             contig: self.contig().clone(),
-            segment: self.segment().as_segment(),
+            interval: self.interval().as_interval(),
             orientation: self.orientation(),
         }
     }
@@ -52,13 +52,13 @@ pub trait AsLocus {
 impl<Ctg: Contig, Idx: PrimInt> AsLocus for Locus<Ctg, Idx> {
     type Contig = Ctg;
     type Idx = Idx;
-    type Segment = Segment<Idx>;
+    type Interval = Interval<Idx>;
 
     fn contig(&self) -> &Self::Contig {
         &self.contig
     }
-    fn segment(&self) -> &Self::Segment {
-        &self.segment
+    fn interval(&self) -> &Self::Interval {
+        &self.interval
     }
     fn orientation(&self) -> Orientation {
         self.orientation
@@ -72,17 +72,17 @@ impl<Ctg: Contig, Idx: PrimInt> Default for Locus<Ctg, Idx> {
     fn default() -> Self {
         Self {
             contig: Ctg::default(),
-            segment: Segment::default(),
+            interval: Interval::default(),
             orientation: Default::default(),
         }
     }
 }
 
-impl<Ctg: Contig, Idx: PrimInt> From<(Ctg, Segment<Idx>, Orientation)> for Locus<Ctg, Idx> {
-    fn from((contig, segment, orientation): (Ctg, Segment<Idx>, Orientation)) -> Self {
+impl<Ctg: Contig, Idx: PrimInt> From<(Ctg, Interval<Idx>, Orientation)> for Locus<Ctg, Idx> {
+    fn from((contig, interval, orientation): (Ctg, Interval<Idx>, Orientation)) -> Self {
         Self {
             contig,
-            segment,
+            interval,
             orientation,
         }
     }
@@ -96,7 +96,7 @@ impl<Ctg: Contig, Idx: PrimInt> TryFrom<(Ctg, Range<Idx>, Orientation)> for Locu
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             contig,
-            segment: (range.start, range.end).try_into()?,
+            interval: (range.start, range.end).try_into()?,
             orientation,
         })
     }
@@ -108,8 +108,8 @@ impl Display for Locus<String, i64> {
             f,
             "{}:{}-{}[{}]",
             self.contig,
-            self.segment.start(),
-            self.segment.end(),
+            self.interval.start(),
+            self.interval.end(),
             self.orientation
         )
     }

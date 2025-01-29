@@ -1,17 +1,20 @@
-use ::higher_kinded_types::prelude::*;
 use dyn_clone::DynClone;
 use eyre::Result;
+use higher_kinded_types::prelude::*;
 use impl_tools::autoimpl;
 
 use crate::LendingIterator;
 
-use super::{core::Core, source::Source};
+use super::{
+    core::{AnyMap, Core},
+    source::Source,
+};
 
 #[autoimpl(for<T: trait + ?Sized> Box<T> where Box<T>: Clone)]
 pub trait DynSource: Core + DynClone + Send + Sync {
-    fn fetch<'args, 'borrow>(
+    fn fetch<'borrow, 'args>(
         &'borrow mut self,
-        args: <Self::Args as ForLt>::Of<'args>,
+        args: <<Self as Core>::Args as ForLt>::Of<'args>,
     ) -> Result<Box<dyn 'borrow + LendingIterator<Item = Self::Item>>>;
 
     fn to_src(self) -> SourceBridge<Self>
@@ -47,6 +50,15 @@ impl<S: DynSource> Clone for SourceBridge<S> {
 impl<S: DynSource> Core for SourceBridge<S> {
     type Args = S::Args;
     type Item = S::Item;
+
+    fn populate_caches(&mut self, cache: &mut AnyMap) {
+        self.slf.populate_caches(cache)
+    }
+
+    fn release_caches(&mut self, cache: &mut AnyMap) {
+        self.slf.release_caches(cache)
+    }
+
     #[inline(always)]
     fn batch_size(&self) -> usize {
         self.slf.batch_size()
@@ -62,10 +74,11 @@ impl<S: DynSource> Source for SourceBridge<S> {
     type Iter = For!(<'borrow> = Box<dyn 'borrow + LendingIterator<Item = Self::Item>>);
 
     #[inline(always)]
-    fn fetch<'args, 'borrow>(
+    #[allow(clippy::needless_lifetimes)]
+    fn fetch<'borrow, 'args>(
         &'borrow mut self,
         args: <<Self as Core>::Args as ForLt>::Of<'args>,
-    ) -> Result<Box<dyn 'borrow + LendingIterator<Item = Self::Item>>> {
+    ) -> Result<<Self::Iter as ForLt>::Of<'borrow>> {
         Ok(Box::new(DynSource::fetch(&mut self.slf, args)?))
     }
 }

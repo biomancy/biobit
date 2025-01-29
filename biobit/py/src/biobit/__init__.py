@@ -1,3 +1,3 @@
-from . import resources, io, toolkit, core
+from . import io, toolkit, collections, core
 
-__all__ = ["core", "io", "resources", "core", "toolkit"]
+__all__ = ["core", "io", "core", "toolkit", "collections"]
