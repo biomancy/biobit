@@ -1,0 +1,23 @@
+[package]
+name = "biobit-repeto-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "TODO"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]
+biobit-core-rs = { path = "../../../core/rs" }
+biobit-alignment-rs = { path = "../../../alignment/rs" }
+biobit-collections-rs = { path = "../../../collections/rs" }
+derive-getters = { workspace = true }
+derive_more = { workspace = true }
+itertools = { workspace = true }
+eyre = { workspace = true }
+rstar = { workspace = true }

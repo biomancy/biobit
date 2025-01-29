@@ -1,0 +1,29 @@
+[package]
+name = "biobit-core-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]
+num = { workspace = true }
+itertools = { workspace = true }
+derive-getters = { workspace = true }
+derive_more = { workspace = true }
+higher-kinded-types = { workspace = true }
+impl-tools = { workspace = true }
+dyn-clone = { workspace = true }
+eyre = { workspace = true }
+anymap3 = { workspace = true }
+log = { workspace = true }
+bitcode = { workspace = true, optional = true }
+
+[features]
+bitcode = ["dep:bitcode"]

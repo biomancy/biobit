@@ -1,0 +1,29 @@
+[package]
+name = "biobit-seqproj-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "TODO"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[lib]
+path = "src/bindings/lib.rs"
+
+[dependencies]
+biobit-core-py = { path = "../../../core/py" }
+biobit-seqproj-rs = { path = "../rs" }
+derive_more = { workspace = true }
+derive-getters = { workspace = true }
+rayon = { workspace = true }
+by_address = { workspace = true }
+thread_local = { workspace = true }
+higher-kinded-types = { workspace = true }
+eyre = { workspace = true }
+dyn-clone = { workspace = true }
+pyo3 = { workspace = true }

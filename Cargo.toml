@@ -1,24 +1,53 @@
 [workspace]
-members = ["modules/*"]
+members = [
+    # Root library
+    "biobit/py",
+    # Core modules
+    "modules/core/*",
+    "modules/io/*",
+    "modules/alignment/*",
+    "modules/collections/*",
+    # Toolkit
+    "modules/toolkit/countit/*",
+    "modules/toolkit/seqproj/*",
+    "modules/toolkit/reaper/*",
+    "modules/toolkit/repeto/*",
+]
 resolver = "2"
 
 [workspace.package]
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.84.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"
-documentation = "https://github.com/terabio"
-homepage = "https://github.com/terabio"
-repository = "https://github.com/terabio"
+documentation = "https://github.com/biomancy"
+homepage = "https://github.com/biomancy"
+repository = "https://github.com/biomancy"
 license = "MIT"
-license-file = "LICENSE"
 categories = ["science", "algorithms"]
 
 [workspace.dependencies]
-itertools = "0.12.1"
-geo = "0.28.0"
-num = "0.4.1"
+derive-getters = "0.5.0"
+derive_more = { version = "1.0.0", features = ["full"] }
+itertools = "0.14.0"
+num = "0.4.3"
 eyre = "0.6.12"
-pyo3 = { version = "0.21.2", features = ["eyre"] }
+by_address = "1.2.1"
+rayon = "1.10.0"
+pyo3 = { version = "0.23.4", features = ["full"] }
+noodles = { version = "0.90.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+noodles-bgzf = { version = "0.35.0", features = ["libdeflate"] }
+thread_local = "1.1.8"
+higher-kinded-types = "0.2.0-rc1"
+impl-tools = "0.10.3"
+dyn-clone = "1.0.17"
+flate2 = "1.0.35"
+dhat = "0.3.3"
+ahash = "0.8.11"
+gxhash = "3.4.1"
+anymap3 = "1.0.1"
+rstar = "0.12.2"
+log = "0.4.25"
+bitcode = { version = "=0.6.3" }

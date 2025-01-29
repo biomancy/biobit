@@ -1,0 +1,19 @@
+from biobit.core.loc import IntoInterval
+from . import overlap
+
+
+class BitsBuilder[T]:
+    def __init__(self) -> None: ...
+
+    def add(self, data: list[tuple[IntoInterval, T]]) -> 'BitsBuilder[T]': ...
+
+    def addi(self, interval: IntoInterval, element: T) -> 'BitsBuilder[T]': ...
+
+    def build(self) -> 'Bits[T]': ...
+
+
+class Bits[T]:
+    @staticmethod
+    def builder() -> BitsBuilder[T]: ...
+
+    def overlap(self, intervals: list[IntoInterval], buffer: overlap.Elements[T]) -> overlap.Elements[T]: ...

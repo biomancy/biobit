@@ -1,0 +1,27 @@
+[package]
+name = "biobit-io-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "TODO"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]
+noodles = { workspace = true }
+noodles-bgzf = { workspace = true }
+derive-getters = { workspace = true }
+derive_more = { workspace = true }
+higher-kinded-types = { workspace = true }
+biobit-core-rs = { path = "../../core/rs" }
+dyn-clone = { workspace = true }
+eyre = { workspace = true }
+ahash = { workspace = true }
+gxhash = { workspace = true }
+anymap3 = { workspace = true }
+log = { workspace = true }

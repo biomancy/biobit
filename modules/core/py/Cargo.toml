@@ -1,0 +1,23 @@
+[package]
+name = "biobit-core-py"
+readme = "README.md"
+description = "Rust-powered Python library for biological data analysis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[lib]
+path = "src/bindings/lib.rs"
+
+[dependencies]
+pyo3 = { workspace = true }
+biobit-core-rs = { path = "../rs", features = ["bitcode"] }
+derive_more = { workspace = true }
+derive-getters = { workspace = true }
+bitcode = { workspace = true }
+eyre = { workspace = true }
