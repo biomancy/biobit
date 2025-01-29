@@ -103,7 +103,7 @@ pub struct Iterator<'borrow, InIter> {
     cache: &'borrow mut Cache,
 }
 
-impl<'borrow, InIter> Iterator<'borrow, InIter>
+impl<InIter> Iterator<'_, InIter>
 where
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<bam::Record>>)>,
 {
@@ -128,7 +128,7 @@ where
     }
 }
 
-impl<'borrow, InIter> LendingIterator for Iterator<'borrow, InIter>
+impl<InIter> LendingIterator for Iterator<'_, InIter>
 where
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<bam::Record>>)>,
 {

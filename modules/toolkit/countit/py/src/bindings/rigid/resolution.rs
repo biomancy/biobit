@@ -99,11 +99,13 @@ impl<'py> FromPyObject<'py> for IntoPyResolution {
 }
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.resolution", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "resolution";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
     module.add_class::<PyAnyOverlap>()?;
     module.add_class::<PyOverlapWeighted>()?;
@@ -111,7 +113,7 @@ pub fn register<'b>(
     module.add_class::<IntoPyResolution>()?;
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

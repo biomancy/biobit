@@ -42,19 +42,19 @@ pub struct PyPartitionMetrics {
     outcomes: Py<PyResolutionOutcome>,
 }
 
-impl IntoPy<PyPartitionMetrics> for PartitionMetrics<String, usize, f64> {
-    fn into_py(self, py: Python<'_>) -> PyPartitionMetrics {
-        let (contig, interval, time_s, alignments) = self.into();
+impl From<PartitionMetrics<String, usize, f64>> for PyPartitionMetrics {
+    fn from(metrics: PartitionMetrics<String, usize, f64>) -> Self {
+        let (contig, interval, time_s, alignments) = metrics.into();
         let interval: PyInterval = PyInterval::new(interval.start() as i64, interval.end() as i64)
             .expect("Failed to convert interval");
         let alignments: PyResolutionOutcome = alignments.into();
 
-        PyPartitionMetrics {
+        Python::with_gil(|py| PyPartitionMetrics {
             contig,
             interval: Py::new(py, interval).expect("Failed to convert interval"),
             time_s,
             outcomes: Py::new(py, alignments).expect("Failed to convert AlignmentsSummary"),
-        }
+        })
     }
 }
 
@@ -87,21 +87,22 @@ pub struct PyCounts {
     partitions: Vec<Py<PyPartitionMetrics>>,
 }
 
-impl<'a> IntoPy<PyCounts> for Counts<'a, String, usize, f64, PyObject, PyObject> {
-    fn into_py(self, py: Python<'_>) -> PyCounts {
-        let (source, elements, counts, stats) = self.into();
-        let partitions: Vec<Py<PyPartitionMetrics>> = stats
-            .into_iter()
-            .map(|x| Py::new(py, x.into_py(py)))
-            .collect::<PyResult<_>>()
-            .expect("Failed to convert CountIt stats from Rust to Python");
-
-        PyCounts {
-            source,
-            elements: elements.to_vec(),
-            counts,
-            partitions,
-        }
+impl From<Counts<'_, String, usize, f64, PyObject, PyObject>> for PyCounts {
+    fn from(counts: Counts<String, usize, f64, PyObject, PyObject>) -> Self {
+        let (source, elements, counts, stats) = counts.into();
+        Python::with_gil(|py| {
+            let partitions: Vec<Py<PyPartitionMetrics>> = stats
+                .into_iter()
+                .map(|x| Py::new(py, PyPartitionMetrics::from(x)))
+                .collect::<PyResult<_>>()
+                .expect("Failed to convert CountIt stats from Rust to Python");
+            PyCounts {
+                source,
+                elements: elements.to_vec(),
+                counts,
+                partitions,
+            }
+        })
     }
 }
 

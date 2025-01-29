@@ -6,18 +6,20 @@ pub mod predict;
 pub mod repeats;
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.repeto", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "repeto";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
-    repeats::register(&module, sysmod)?;
-    optimize::register(&module, sysmod)?;
-    predict::register(&module, sysmod)?;
+    repeats::register(&path, &module, sysmod)?;
+    optimize::register(&path, &module, sysmod)?;
+    predict::register(&path, &module, sysmod)?;
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

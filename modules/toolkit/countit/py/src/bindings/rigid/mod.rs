@@ -8,19 +8,21 @@ pub use builder::{EngineBuilder, PyEngineBuilder};
 pub use engine::{Engine, PyEngine};
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.rigid", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "rigid";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
     module.add_class::<PyEngine>()?;
     module.add_class::<PyEngineBuilder>()?;
 
-    resolution::register(&module, sysmod)?;
+    resolution::register(&path, &module, sysmod)?;
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

@@ -87,8 +87,8 @@ pub struct Merge2Setup<
     merge: Option<M>,
 }
 
-impl<'a, V, L: PrimUInt, M: Merge2<V>, IOriginal: Identical<V>, INew: Identical<V>>
-    Merge2Setup<'a, V, L, M, IOriginal, INew>
+impl<V, L: PrimUInt, M: Merge2<V>, IOriginal: Identical<V>, INew: Identical<V>>
+    Merge2Setup<'_, V, L, M, IOriginal, INew>
 {
     pub fn save_to(mut self, buffer: impl Into<(Vec<V>, Vec<L>)>) -> Self {
         let mut buffer = buffer.into();

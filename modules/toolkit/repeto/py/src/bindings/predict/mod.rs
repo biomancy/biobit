@@ -41,11 +41,13 @@ pub fn run(
 }
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.predict", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "predict";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
     module.add_class::<PyFilter>()?;
     module.add_class::<PyScoring>()?;
@@ -54,12 +56,12 @@ pub fn register<'b>(
         PyFilter::type_object(parent.py()),
         PyScoring::type_object(parent.py()),
     ] {
-        typbj.setattr("__module__", &name)?
+        typbj.setattr("__module__", &path)?
     }
     module.add_function(wrap_pyfunction!(run, &module)?)?;
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

@@ -33,7 +33,7 @@ impl PyEngine {
             readers.push((tag, source));
         }
         let result = py.allow_threads(|| self.0.run(readers.into_iter(), resolution.0))?;
-        Ok(result.into_iter().map(|x| x.into_py(py)).collect())
+        Ok(result.into_iter().map(PyCounts::from).collect())
     }
 
     #[classmethod]

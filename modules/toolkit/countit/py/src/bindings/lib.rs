@@ -8,20 +8,22 @@ mod result;
 pub mod rigid;
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.countit", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "countit";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
     module.add_class::<PyResolutionOutcome>()?;
     module.add_class::<PyCounts>()?;
     module.add_class::<PyPartitionMetrics>()?;
 
-    rigid::register(&module, sysmod)?;
+    rigid::register(&path, &module, sysmod)?;
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

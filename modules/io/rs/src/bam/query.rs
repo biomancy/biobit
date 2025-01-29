@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<'borrow, R> LendingIterator for Query<'borrow, R>
+impl<R> LendingIterator for Query<'_, R>
 where
     R: bgzf::io::BufRead + bgzf::io::Seek,
 {

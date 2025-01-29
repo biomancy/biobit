@@ -166,11 +166,7 @@ impl PyInterval {
     }
 
     #[staticmethod]
-    pub fn overlap(
-        py: Python,
-        left: Vec<IntoPyInterval>,
-        right: Vec<IntoPyInterval>,
-    ) -> Vec<Self> {
+    pub fn overlap(py: Python, left: Vec<IntoPyInterval>, right: Vec<IntoPyInterval>) -> Vec<Self> {
         let mut source: Vec<_> = left.into_iter().map(|s| s.0.borrow(py).rs).collect();
         let mut exclude: Vec<_> = right.into_iter().map(|s| s.0.borrow(py).rs).collect();
         Interval::overlap(&mut source, &mut exclude)

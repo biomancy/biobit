@@ -160,7 +160,7 @@ impl<Idx: PrimInt> Interval<Idx> {
         }
     }
 
-    pub fn overlap(left: &mut Vec<Self>, right: &mut Vec<Self>) -> Vec<Self> {
+    pub fn overlap(left: &mut [Self], right: &mut [Self]) -> Vec<Self> {
         let mut result = Vec::new();
         left.sort();
         right.sort();

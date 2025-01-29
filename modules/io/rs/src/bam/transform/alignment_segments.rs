@@ -183,7 +183,7 @@ pub struct AlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
     cache: &'borrow mut Cache,
 }
 
-impl<'borrow, InIter, D> LendingIterator for AlnSegmentsIterator<'borrow, InIter, D>
+impl<InIter, D> LendingIterator for AlnSegmentsIterator<'_, InIter, D>
 where
     D: StrDeductor + Clone,
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<Record>>)>,
@@ -278,7 +278,7 @@ pub struct PairedAlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
     deductor: &'borrow mut D,
 }
 
-impl<'borrow, InIter, D> LendingIterator for PairedAlnSegmentsIterator<'borrow, InIter, D>
+impl<InIter, D> LendingIterator for PairedAlnSegmentsIterator<'_, InIter, D>
 where
     D: StrDeductor + Clone,
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>)>,

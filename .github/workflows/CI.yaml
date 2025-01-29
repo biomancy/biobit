@@ -1,63 +1,70 @@
-#name: "Rust & Python CI checks"
-#
-#on:
-#  push:
-#    branches:
-#      - main
-#      - dev
-#    tags:
-#      - '*'
-#  pull_request:
-#    branches:
-#      - main
-#      - dev
-#
-#jobs:
-#  rust:
-#    name: Rust CI
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Setup the repository
-#        uses: actions/checkout@v4
-#      - name: Setup the toolchain
-#        uses: dtolnay/rust-toolchain@stable
-#      - name: Rust format check
-#        run: |
-#          rustup component add rustfmt
-#          cargo fmt --all -- --check
-#      - name: Rust cargo check
-#        run: cargo check
-#      - name: Rust clippy
-#        run: |
-#          rustup component add clippy
-#          cargo clippy
-#      - name: Run rust tests
-#        run: cargo test --all-features
-#  python:
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        target: [ x86_64 ]
-#        python-version: [ "3.11", "3.12" ]
-#    needs: [ rust ]
-#    steps:
-#      - uses: actions/checkout@v4
-#      - uses: actions/setup-python@v4
-#        with:
-#          python-version: ${{ matrix.python-version }}
-#      - name: Python code style & linting
-#        uses: chartboost/ruff-action@v1
-#        with:
-#          src: "./biobit/py/python"
-#          version: 0.2.1
-#          args: "check"
-#      - name: Install dependencies
-#        run: |
-#          # Install the package and all the relevant dependencies
-#          python -m pip install './biobit/py[dev]'
-#      - name: Mypy type checks
-#        run: |
-#          mypy --config-file biobit/py/pyproject.toml biobit/py/src/biobit
-#      - name: Tests
-#        run: |
-#          pytest biobit/py
+name: Rust & Python CI checks
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  rust:
+    name: Rust CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup the repository
+        uses: actions/checkout@v4
+      - name: Setup the toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Rust format check
+        run: cargo fmt --all -- --check
+      - name: Rust cargo check
+        run: cargo check
+      - name: Rust clippy
+        run: cargo clippy
+      - name: Run rust tests
+        run: cargo test --all-features
+  python:
+    name: Python CI
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [ x86_64 ]
+        python-version: [ "3.12" ]
+    needs: [ rust ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Python code style & linting
+        uses: chartboost/ruff-action@v1
+        with:
+          src: biobit/py
+          version: 0.9.3
+          args: check
+      # Maturin doesn't follow directory symlinks at the moment so we need to resolve them manually
+      - name: Resolve symlinks
+        run: |
+          cd biobit/py/src/biobit
+          for link in $(find . -type l)
+          do
+              source="$(readlink -e $link)"
+              rm "${link}"
+              cp --remove-destination --recursive "${source}" "${link}"
+          done
+          cd ../../../..
+      - name: Install dependencies
+        run: |
+          # Install the package and all the relevant dependencies
+          python -m pip install -v 'biobit/py[dev]'
+      - name: Mypy type checks
+        run: |
+          mypy --config-file biobit/py/pyproject.toml biobit/py
+      - name: Tests
+        run: |
+          pytest -x  biobit/py

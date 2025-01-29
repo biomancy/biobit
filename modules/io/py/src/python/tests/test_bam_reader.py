@@ -9,6 +9,9 @@ RESOURCES = Path(__file__).parent / "resources"
 
 def test_bam_reader():
     file = RESOURCES / "G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam"
+    if not file.exists():
+        return
+
     for fname in file, str(file), file.as_posix():
         reader = Reader(fname)
         assert reader is not None

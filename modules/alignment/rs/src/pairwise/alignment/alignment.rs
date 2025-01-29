@@ -73,7 +73,7 @@ where
         if max(self.seq2.start, other.seq2.start) >= min(self.seq2.end, other.seq2.end) {
             return false;
         }
-        return utils::intersects::<_, _, _, usize>(self.tracked_steps(), other.tracked_steps());
+        utils::intersects::<_, _, _, usize>(self.tracked_steps(), other.tracked_steps())
     }
 
     /// Returns alignment steps with tracked sequence coordinates.

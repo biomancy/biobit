@@ -1,6 +1,6 @@
 from typing import TypeVar, Generic
 
-from intervaltree import IntervalTree
+from intervaltree import IntervalTree  # type: ignore
 
 from biobit.core.loc import Interval, Orientation, IntoOrientation
 from .overlap import Overlap

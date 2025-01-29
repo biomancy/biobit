@@ -100,7 +100,7 @@ pub struct OverlapSegmentsAddValue<'a, Idx: PrimInt, T> {
     buffer: &'a mut Elements<Idx, T>,
 }
 
-impl<'a, Idx: PrimInt, T> OverlapSegmentsAddValue<'a, Idx, T> {
+impl<Idx: PrimInt, T> OverlapSegmentsAddValue<'_, Idx, T> {
     pub fn add(&mut self, interval: Interval<Idx>, annotation: T) {
         self.buffer.intervals.push(interval);
         self.buffer.elements.push(annotation);
@@ -113,7 +113,7 @@ impl<'a, Idx: PrimInt, T> OverlapSegmentsAddValue<'a, Idx, T> {
     }
 }
 
-impl<'a, Idx: PrimInt, T> Drop for OverlapSegmentsAddValue<'a, Idx, T> {
+impl<Idx: PrimInt, T> Drop for OverlapSegmentsAddValue<'_, Idx, T> {
     fn drop(&mut self) {
         if self.length != usize::MAX {
             self.buffer.hitlen.push(self.length);

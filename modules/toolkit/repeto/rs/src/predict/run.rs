@@ -197,21 +197,21 @@ mod tests {
     //     let mut filter = Filter::<i32>::default();
     //     filter.set_min_score(12);
 
-        // for ind in 0..seq.len() {
-        //     let mut seq = seq.to_vec();
-        //     seq.remove(ind);
-        //     println!("ind: {:?}, {}", (ind,), String::from_utf8(seq.clone())?);
-        //     run(&seq, filter.clone(), Scoring::default())?;
-        //
-        //     for j in ind..seq.len() {
-        //         if j >= seq.len() {
-        //             break;
-        //         }
-        //
-        //         println!("ind: {:?}, {}", (ind,), String::from_utf8(seq.clone())?);
-        //         run(&seq, filter.clone(), Scoring::default())?;
-        //     }
-        // }
+    // for ind in 0..seq.len() {
+    //     let mut seq = seq.to_vec();
+    //     seq.remove(ind);
+    //     println!("ind: {:?}, {}", (ind,), String::from_utf8(seq.clone())?);
+    //     run(&seq, filter.clone(), Scoring::default())?;
+    //
+    //     for j in ind..seq.len() {
+    //         if j >= seq.len() {
+    //             break;
+    //         }
+    //
+    //         println!("ind: {:?}, {}", (ind,), String::from_utf8(seq.clone())?);
+    //         run(&seq, filter.clone(), Scoring::default())?;
+    //     }
+    // }
 
     //     run(seq, filter, Scoring::default())?;
     //     Ok(())

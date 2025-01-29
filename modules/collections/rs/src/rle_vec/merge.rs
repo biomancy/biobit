@@ -78,8 +78,8 @@ pub struct MergeSetup<'a, V, L: PrimUInt, M: Merge<V>, IOriginal: Identical<V>, 
     merge: Option<M>,
 }
 
-impl<'a, V, L: PrimUInt, M: Merge<V>, IOriginal: Identical<V>, INew: Identical<V>>
-    MergeSetup<'a, V, L, M, IOriginal, INew>
+impl<V, L: PrimUInt, M: Merge<V>, IOriginal: Identical<V>, INew: Identical<V>>
+    MergeSetup<'_, V, L, M, IOriginal, INew>
 {
     pub fn save_to(mut self, buffer: impl Into<(Vec<V>, Vec<L>)>) -> Self {
         self.write_to = Some(buffer.into());

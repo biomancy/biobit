@@ -113,13 +113,7 @@ impl PyReaper {
     }
 
     pub fn run(mut slf: PyRefMut<Self>) -> PyResult<Vec<PyHarvest>> {
-        let py = slf.py();
-        let reaped = slf
-            .reaper
-            .run()?
-            .into_iter()
-            .map(|x| x.into_py(py))
-            .collect();
+        let reaped = slf.reaper.run()?.into_iter().map(PyHarvest::from).collect();
         slf.reaper.reset();
 
         Ok(reaped)

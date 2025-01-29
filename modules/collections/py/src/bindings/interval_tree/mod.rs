@@ -7,13 +7,15 @@ use pyo3::PyTypeInfo;
 mod bits;
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.interval_tree", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "interval_tree";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
-    overlap::register(&module, sysmod)?;
+    overlap::register(&path, &module, sysmod)?;
 
     module.add_class::<PyBits>()?;
     module.add_class::<PyBitsBuilder>()?;
@@ -22,11 +24,11 @@ pub fn register<'b>(
         PyBits::type_object(parent.py()),
         PyBitsBuilder::type_object(parent.py()),
     ] {
-        typbj.setattr("__module__", &name)?
+        typbj.setattr("__module__", &path)?
     }
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

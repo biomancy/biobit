@@ -29,7 +29,7 @@ pub trait Alignable {
     }
 }
 
-impl<'a, T: Copy> Alignable for &'a [T] {
+impl<T: Copy> Alignable for &[T] {
     type Symbol = T;
 
     #[inline(always)]
@@ -63,7 +63,7 @@ pub struct Reversed<'a, T: Alignable> {
     base: &'a T,
 }
 
-impl<'a, T: Alignable> Alignable for Reversed<'a, T> {
+impl<T: Alignable> Alignable for Reversed<'_, T> {
     type Symbol = T::Symbol;
 
     /// Returns true if the reversed object is empty.

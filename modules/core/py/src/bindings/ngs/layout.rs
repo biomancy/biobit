@@ -24,18 +24,18 @@ impl PyLayout {
     #[staticmethod]
     pub fn __biobit_initialize_complex_enum__(
         py: Python,
+        path: &str,
         module: &Bound<PyModule>,
     ) -> PyResult<()> {
         module.add_class::<PyLayout>()?;
         module.add_class::<PyLayout_Single>()?;
         module.add_class::<PyLayout_Paired>()?;
 
-        let name = module.name()?;
         for typbj in [
             PyLayout_Single::type_object(py),
             PyLayout_Paired::type_object(py),
         ] {
-            typbj.setattr("__module__", &name)?
+            typbj.setattr("__module__", path)?
         }
         Ok(())
     }

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from biobit.core.loc import Orientation
 from biobit.core.ngs import Layout, Strandedness, MatesOrientation
 from biobit.toolkit import countit
@@ -18,14 +20,16 @@ def test_countit():
         countit.rigid.resolution.TopRanked(["A", 123])
     ]
 
-    for resolve in resolutions:
-        results = engine.run(
-            [
-                (
-                    "Bam 1", "/home/alnfedorov/projects/biobit/resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam",
-                    Layout.Paired(Strandedness.Reverse, MatesOrientation.Inward)
-                )
-            ],
-            resolve
-        )
-        assert len(results) == 1
+    path = Path("/home/alnfedorov/projects/biobit/resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam")
+    if path.exists():
+        for resolve in resolutions:
+            results = engine.run(
+                [
+                    (
+                        "Bam 1", str(path),
+                        Layout.Paired(Strandedness.Reverse, MatesOrientation.Inward)
+                    )
+                ],
+                resolve
+            )
+            assert len(results) == 1

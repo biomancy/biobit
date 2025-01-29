@@ -22,11 +22,13 @@ mod per_strand;
 mod strand;
 
 pub fn register<'b>(
+    path: &str,
     parent: &Bound<'b, PyModule>,
     sysmod: &Bound<PyAny>,
 ) -> PyResult<Bound<'b, PyModule>> {
-    let name = format!("{}.loc", parent.name()?);
-    let module = PyModule::new(parent.py(), &name)?;
+    let name = "loc";
+    let path = format!("{}.{}", path, name);
+    let module = PyModule::new(parent.py(), name)?;
 
     module.add_class::<PyStrand>()?;
     module.add_class::<PyOrientation>()?;
@@ -45,13 +47,13 @@ pub fn register<'b>(
         PyChainInterval::type_object(parent.py()),
         PyLocus::type_object(parent.py()),
     ] {
-        typbj.setattr("__module__", &name)?
+        typbj.setattr("__module__", &path)?
     }
 
-    mapping::register(&module, sysmod)?;
+    mapping::register(&path, &module, sysmod)?;
 
     parent.add_submodule(&module)?;
-    sysmod.set_item(module.name()?, &module)?;
+    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from .median_of_ratios import MedianOfRatiosNormalization
+from biobit.toolkit.libnorm.median_of_ratios import MedianOfRatiosNormalization
 
 
 def test_median_of_ratios():
