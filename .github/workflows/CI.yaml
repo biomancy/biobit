@@ -50,14 +50,12 @@ jobs:
       # Maturin doesn't follow directory symlinks at the moment so we need to resolve them manually
       - name: Resolve symlinks
         run: |
-          cd biobit/py/src/biobit
           for link in $(find . -type l)
           do
               source="$(readlink -e $link)"
               rm "${link}"
               cp --remove-destination --recursive "${source}" "${link}"
           done
-          cd ../../../..
       - name: Install dependencies
         run: |
           # Install the package and all the relevant dependencies
@@ -67,4 +65,4 @@ jobs:
           mypy --config-file biobit/py/pyproject.toml biobit/py
       - name: Tests
         run: |
-          pytest -x  biobit/py
+          pytest -x biobit/py

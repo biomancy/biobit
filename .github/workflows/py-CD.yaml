@@ -17,17 +17,14 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
-      # Maturin doesn't follow directory symlinks at the moment so we need to resolve them manually
       - name: Resolve symlinks
         run: |
-          cd biobit/py/src
-          for link in $(find . -maxdepth 1 -type l)
+          for link in $(find . -type l)
           do
               source="$(readlink -e $link)"
               rm "${link}"
               cp --remove-destination --recursive "${source}" "${link}"
           done
-          cd ../../..
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -37,6 +34,7 @@ jobs:
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
+        if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.target }}-${{ matrix.python }}-wheels
@@ -54,17 +52,14 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           architecture: ${{ matrix.target }}
-      # Maturin doesn't follow directory symlinks at the moment so we need to resolve them manually
       - name: Resolve symlinks
         run: |
-          cd biobit/py/src
-          for link in $(find . -maxdepth 1 -type l)
+          for link in $(find . -type l)
           do
               source="$(readlink -e $link)"
               rm "${link}"
               cp --remove-destination --recursive "${source}" "${link}"
           done
-          cd ../../..
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -73,6 +68,7 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
       - name: Upload wheels
+        if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.target }}-${{ matrix.python }}-wheels
@@ -89,17 +85,14 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
-      # Maturin doesn't follow directory symlinks at the moment so we need to resolve them manually
       - name: Resolve symlinks
         run: |
-          cd biobit/py/src
-          for link in $(find . -maxdepth 1 -type l)
+          for link in $(find . -type l)
           do
               source="$(readlink -e $link)"
               rm "${link}"
               cp --remove-destination --recursive "${source}" "${link}"
           done
-          cd ../../..
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -108,26 +101,27 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
       - name: Upload wheels
+        if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.target }}-${{ matrix.python }}-wheels
           path: biobit/py/dist
 
-#  sdist:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#      - name: Build sdist
-#        uses: PyO3/maturin-action@v1
-#        with:
-#          working-directory: biobit/py
-#          command: sdist
-#          args: --out dist
-#      - name: Upload sdist
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: sdist-wheels
-#          path: biobit/py/dist
+  #  sdist:
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v4
+  #      - name: Build sdist
+  #        uses: PyO3/maturin-action@v1
+  #        with:
+  #          working-directory: biobit/py
+  #          command: sdist
+  #          args: --out dist
+  #      - name: Upload sdist
+  #        uses: actions/upload-artifact@v4
+  #        with:
+  #          name: sdist-wheels
+  #          path: biobit/py/dist
 
   release:
     name: Release PYPI package

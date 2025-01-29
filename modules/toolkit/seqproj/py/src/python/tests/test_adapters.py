@@ -1,12 +1,12 @@
 import pytest
 
-from . import yaml
-from ..experiment import Experiment
-from ..layout import Layout, MatesOrientation
-from ..library import Library, Strandedness
-from ..project import Project
-from ..run import Run
-from ..sample import Sample
+from biobit.toolkit.seqproj.adapter import yaml
+from biobit.toolkit.seqproj.experiment import Experiment
+from biobit.toolkit.seqproj.layout import Layout, MatesOrientation
+from biobit.toolkit.seqproj.library import Library, Strandedness
+from biobit.toolkit.seqproj.project import Project
+from biobit.toolkit.seqproj.run import Run
+from biobit.toolkit.seqproj.sample import Sample
 
 
 def _ensure_correctness(project: Project, serializer, deserializer):
