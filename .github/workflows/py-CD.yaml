@@ -2,7 +2,6 @@ name: Python Continuous Deployment
 on:
   workflow_run:
     workflows: [ "Rust & Python CI checks" ]
-    branches: [ "main", "dev" ]
     types: [ "completed" ]
 
 jobs:
@@ -10,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [ x86_64, aarch64 ]
+        target: [ x86_64 ]
         python: [ '3.12' ]
     steps:
       - uses: actions/checkout@v4
@@ -40,95 +39,12 @@ jobs:
           name: linux-${{ matrix.target }}-${{ matrix.python }}-wheels
           path: biobit/py/dist
 
-  windows:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        target: [ x64 ]
-        python: [ '3.12' ]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python }}
-          architecture: ${{ matrix.target }}
-      - name: Resolve symlinks
-        run: |
-          for link in $(find . -type l)
-          do
-              source="$(readlink -e $link)"
-              rm "${link}"
-              cp --remove-destination --recursive "${source}" "${link}"
-          done
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          working-directory: biobit/py
-          target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
-          sccache: 'true'
-      - name: Upload wheels
-        if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-${{ matrix.target }}-${{ matrix.python }}-wheels
-          path: biobit/py/dist
-
-  macos:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        target: [ x86_64, aarch64 ]
-        python: [ '3.12' ]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Resolve symlinks
-        run: |
-          for link in $(find . -type l)
-          do
-              source="$(readlink -e $link)"
-              rm "${link}"
-              cp --remove-destination --recursive "${source}" "${link}"
-          done
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          working-directory: biobit/py
-          target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
-          sccache: 'true'
-      - name: Upload wheels
-        if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-${{ matrix.target }}-${{ matrix.python }}-wheels
-          path: biobit/py/dist
-
-  #  sdist:
-  #    runs-on: ubuntu-latest
-  #    steps:
-  #      - uses: actions/checkout@v4
-  #      - name: Build sdist
-  #        uses: PyO3/maturin-action@v1
-  #        with:
-  #          working-directory: biobit/py
-  #          command: sdist
-  #          args: --out dist
-  #      - name: Upload sdist
-  #        uses: actions/upload-artifact@v4
-  #        with:
-  #          name: sdist-wheels
-  #          path: biobit/py/dist
-
   release:
     name: Release PYPI package
     runs-on: ubuntu-latest
     # Only run if the commit is tagged and CI checks were successful
     if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v') }}
-    needs: [ linux, windows, macos ]
+    needs: [ linux ]
     steps:
       - uses: actions/upload-artifact/merge@v4
         with:
