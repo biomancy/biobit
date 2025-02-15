@@ -1,27 +1,16 @@
 use pyo3::prelude::*;
-use pyo3::{Bound, PyAny, PyResult, PyTypeInfo};
+use pyo3::{Bound, PyResult};
 
 mod chain_map;
 
+use crate::utils::ImportablePyModuleBuilder;
 pub use chain_map::{ChainMap, PyChainMap};
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "mapping";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyChainMap>()?;
-
-    for typbj in [PyChainMap::type_object(parent.py())] {
-        typbj.setattr("__module__", &path)?
-    }
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyChainMap>()?
+        .finish();
 
     Ok(module)
 }

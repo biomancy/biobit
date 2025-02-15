@@ -1,20 +1,13 @@
+use biobit_core_py::utils::ImportablePyModuleBuilder;
 use pyo3::prelude::*;
 
 pub mod bam;
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "io";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    bam::register(&path, &module, sysmod)?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_submodule(&bam::construct(py, &format!("{name}.bam"))?)?
+        .finish();
 
     Ok(module)
 }

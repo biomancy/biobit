@@ -1,4 +1,3 @@
-from typing import Any
 
 from biobit.core.loc import Interval
 

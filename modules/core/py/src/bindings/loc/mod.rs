@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
-use pyo3::PyTypeInfo;
 
 pub use crate::loc::chain_interval::{IntoPyChainInterval, PyChainInterval};
+use crate::utils::ImportablePyModuleBuilder;
 pub use biobit_core_rs::loc::{
     ChainInterval, Contig, Interval, IntervalOp, Locus, Orientation, Strand,
 };
@@ -21,39 +21,18 @@ mod per_orientation;
 mod per_strand;
 mod strand;
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "loc";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyStrand>()?;
-    module.add_class::<PyOrientation>()?;
-    module.add_class::<PyPerOrientation>()?;
-    module.add_class::<PyPerStrand>()?;
-    module.add_class::<PyInterval>()?;
-    module.add_class::<PyChainInterval>()?;
-    module.add_class::<PyLocus>()?;
-
-    for typbj in [
-        PyStrand::type_object(parent.py()),
-        PyOrientation::type_object(parent.py()),
-        PyPerOrientation::type_object(parent.py()),
-        PyPerStrand::type_object(parent.py()),
-        PyInterval::type_object(parent.py()),
-        PyChainInterval::type_object(parent.py()),
-        PyLocus::type_object(parent.py()),
-    ] {
-        typbj.setattr("__module__", &path)?
-    }
-
-    mapping::register(&path, &module, sysmod)?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyStrand>()?
+        .add_class::<PyOrientation>()?
+        .add_class::<PyPerOrientation>()?
+        .add_class::<PyPerStrand>()?
+        .add_class::<PyInterval>()?
+        .add_class::<PyChainInterval>()?
+        .add_class::<PyLocus>()?
+        .add_submodule(&mapping::construct(py, &format!("{name}.mapping"))?)?
+        .finish();
 
     Ok(module)
 }

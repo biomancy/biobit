@@ -10,12 +10,15 @@ jobs:
     strategy:
       matrix:
         target: [ x86_64 ]
-        python: [ '3.12' ]
+        python: [ 'py-3-13t' ]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - name: Setup the environment
+        uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          python-version: ${{ matrix.python }}
+          pixi-version: 0.41.3
+          environments: ${{ matrix.python }}
+          cache: false
+          activate-environment: true
       - name: Resolve symlinks
         run: |
           for link in $(find . -type l)

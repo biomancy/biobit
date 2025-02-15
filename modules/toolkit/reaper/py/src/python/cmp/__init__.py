@@ -1,3 +1,3 @@
-from biobit._biobit.toolkit.reaper.cmp import Enrichment
+from biobit.rs.toolkit.reaper.cmp import Enrichment
 
 __all__ = ["Enrichment"]

@@ -18,10 +18,13 @@ jobs:
     steps:
       - name: Setup the repository
         uses: actions/checkout@v4
-      - name: Setup the toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup the environment
+        uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          components: rustfmt, clippy
+          pixi-version: 0.41.3
+          environments: "rust"
+          cache: false
+          activate-environment: true
       - name: Rust format check
         run: cargo fmt --all -- --check
       - name: Rust cargo check
@@ -36,32 +39,22 @@ jobs:
     strategy:
       matrix:
         target: [ x86_64 ]
-        python-version: [ "3.12" ]
+        python: [ "py-3-13t" ]
     needs: [ rust ]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - name: Setup the environment
+        uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          python-version: ${{ matrix.python-version }}
+          pixi-version: 0.41.3
+          environments: ${{ matrix.python }}
+          cache: false
+          activate-environment: true
       - name: Python code style & linting
-        uses: chartboost/ruff-action@v1
-        with:
-          src: biobit/py
-          version: 0.9.3
-          args: check
-      # Maturin doesn't follow directory symlinks at the moment so we need to resolve them manually
-      - name: Resolve symlinks
+        run: ruff check
+      - name: Build the library
         run: |
-          for link in $(find . -type l)
-          do
-              source="$(readlink -e $link)"
-              rm "${link}"
-              cp --remove-destination --recursive "${source}" "${link}"
-          done
-      - name: Install dependencies
-        run: |
-          # Install the package and all the relevant dependencies
-          python -m pip install -v 'biobit/py[dev]'
+          cd biobit/py
+          maturin develop
       - name: Mypy type checks
         run: |
           mypy --config-file biobit/py/pyproject.toml biobit/py

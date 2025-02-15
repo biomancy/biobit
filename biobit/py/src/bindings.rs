@@ -1,36 +1,41 @@
+use biobit_core_py::utils::ImportablePyModuleBuilder;
 use pyo3::prelude::*;
 
 pub const __VERSION__: &str = env!("CARGO_PKG_VERSION");
 
 #[pymodule]
-pub fn _biobit(py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let sysmod = py.import("sys")?.getattr("modules")?;
-    let path = "biobit._biobit";
-
-    // Core modules
-    biobit_core_py::register(path, module, &sysmod)?;
-    biobit_io_py::register(path, module, &sysmod)?;
-    biobit_collections_py::register(path, module, &sysmod)?;
+pub fn rs(py: Python, module: Bound<'_, PyModule>) -> PyResult<()> {
+    let name = module.name()?.extract::<String>()?;
+    let module = ImportablePyModuleBuilder::from(module)
+        .defaults()?
+        // Core modules
+        .add_submodule(&biobit_core_py::construct(py, &format!("{name}.core"))?)?
+        .add_submodule(&biobit_io_py::construct(py, &format!("{name}.io"))?)?
+        .add_submodule(&biobit_collections_py::construct(
+            py,
+            &format!("{name}.collections"),
+        )?)?;
 
     // Toolkit
-    {
-        let toolkit = PyModule::new(py, "toolkit")?;
-        let path = format!("{}.{}", path, toolkit.name()?);
+    let name = format!("{name}.toolkit");
+    let toolkit = ImportablePyModuleBuilder::new(py, &name)?
+        .defaults()?
+        .add_submodule(&biobit_countit_py::construct(
+            py,
+            &format!("{name}.countit"),
+        )?)?
+        .add_submodule(&biobit_reaper_py::construct(py, &format!("{name}.reaper"))?)?
+        .add_submodule(&biobit_seqproj_py::construct(
+            py,
+            &format!("{name}.seqproj"),
+        )?)?
+        .add_submodule(&biobit_repeto_py::construct(py, &format!("{name}.repeto"))?)?
+        .finish();
 
-        ::biobit_countit_py::register(&path, &toolkit, &sysmod)?;
-        ::biobit_reaper_py::register(&path, &toolkit, &sysmod)?;
-        ::biobit_seqproj_py::register(&path, &toolkit, &sysmod)?;
-        ::biobit_repeto_py::register(&path, &toolkit, &sysmod)?;
-
-        module.add_submodule(&toolkit)?;
-        sysmod.set_item(toolkit.name()?, toolkit)?;
-    }
+    let module = module.add_submodule(&toolkit)?.finish();
 
     // Constants
     module.add("__version__", __VERSION__)?;
-
-    // Add the module to sys.modules cache
-    sysmod.set_item(module.name()?, module)?;
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use biobit_core_py::fallible_py_runtime::FallibleBound;
+use biobit_core_py::utils::{FallibleBound, ImportablePyModuleBuilder};
 pub use biobit_countit_rs::rigid::resolution::{
     AnyOverlap, OverlapWeighted, Resolution, TopRanked,
 };
@@ -98,22 +98,14 @@ impl<'py> FromPyObject<'py> for IntoPyResolution {
     }
 }
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "resolution";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyAnyOverlap>()?;
-    module.add_class::<PyOverlapWeighted>()?;
-    module.add_class::<PyTopRanked>()?;
-    module.add_class::<IntoPyResolution>()?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyAnyOverlap>()?
+        .add_class::<PyOverlapWeighted>()?
+        .add_class::<PyTopRanked>()?
+        .add_class::<IntoPyResolution>()?
+        .finish();
 
     Ok(module)
 }

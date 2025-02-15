@@ -1,3 +1,3 @@
-from biobit._biobit.toolkit.reaper.model import RNAPileup
+from biobit.rs.toolkit.reaper.model import RNAPileup
 
 __all__ = ["RNAPileup"]

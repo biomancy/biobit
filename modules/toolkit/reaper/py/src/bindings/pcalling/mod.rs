@@ -1,24 +1,14 @@
-use pyo3::prelude::*;
-use pyo3::PyTypeInfo;
-
+use biobit_core_py::utils::ImportablePyModuleBuilder;
 pub use by_cutoff::PyByCutoff;
+use pyo3::prelude::*;
 
 mod by_cutoff;
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "pcalling";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyByCutoff>()?;
-    PyByCutoff::type_object(parent.py()).setattr("__module__", &path)?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyByCutoff>()?
+        .finish();
 
     Ok(module)
 }

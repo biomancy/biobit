@@ -1,12 +1,12 @@
 pub use biobit_collections_rs::interval_tree::overlap::{Elements, Steps};
-use biobit_core_py::fallible_py_runtime::FallibleBorrowed;
 use biobit_core_py::loc::{IntoPyInterval, PyInterval};
+use biobit_core_py::utils::{FallibleBorrowed, ImportablePyModuleBuilder};
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyIterator, PyList, PySet};
-use pyo3::{pyclass, pymethods, PyObject, PyTypeInfo};
+use pyo3::{pyclass, pymethods, PyObject};
 
 #[pyclass(name = "Elements")]
 #[repr(transparent)]
@@ -246,27 +246,12 @@ impl PySteps {
     }
 }
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "overlap";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyElements>()?;
-    module.add_class::<PySteps>()?;
-
-    for typbj in [
-        PyElements::type_object(parent.py()),
-        PySteps::type_object(parent.py()),
-    ] {
-        typbj.setattr("__module__", &path)?
-    }
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyElements>()?
+        .add_class::<PySteps>()?
+        .finish();
 
     Ok(module)
 }
