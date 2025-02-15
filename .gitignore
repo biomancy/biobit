@@ -136,3 +136,7 @@ resources
 # Rust
 target/
 Cargo.lock
+
+# pixi environments
+.pixi
+*.egg-info

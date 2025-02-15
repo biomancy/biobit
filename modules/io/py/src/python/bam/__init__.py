@@ -1,3 +1,3 @@
-from biobit._biobit.io.bam import Reader
+from biobit.rs.io.bam import Reader
 
 __all__ = ["Reader"]

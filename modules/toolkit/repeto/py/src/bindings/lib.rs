@@ -1,25 +1,18 @@
-use pyo3::prelude::{PyAnyMethods, PyModule, PyModuleMethods};
-use pyo3::{Bound, PyAny, PyResult};
+use biobit_core_py::utils::ImportablePyModuleBuilder;
+use pyo3::prelude::PyModule;
+use pyo3::{Bound, PyResult, Python};
 
 pub mod optimize;
 pub mod predict;
 pub mod repeats;
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "repeto";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    repeats::register(&path, &module, sysmod)?;
-    optimize::register(&path, &module, sysmod)?;
-    predict::register(&path, &module, sysmod)?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_submodule(&repeats::construct(py, &format!("{name}.repeats"))?)?
+        .add_submodule(&optimize::construct(py, &format!("{name}.optimize"))?)?
+        .add_submodule(&predict::construct(py, &format!("{name}.predict"))?)?
+        .finish();
 
     Ok(module)
 }

@@ -1,3 +1,4 @@
+use biobit_core_py::utils::ImportablePyModuleBuilder;
 use pyo3::prelude::*;
 
 mod builder;
@@ -7,22 +8,13 @@ mod resolution;
 pub use builder::{EngineBuilder, PyEngineBuilder};
 pub use engine::{Engine, PyEngine};
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "rigid";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyEngine>()?;
-    module.add_class::<PyEngineBuilder>()?;
-
-    resolution::register(&path, &module, sysmod)?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyEngine>()?
+        .add_class::<PyEngineBuilder>()?
+        .add_submodule(&resolution::construct(py, &format!("{name}.resolution"))?)?
+        .finish();
 
     Ok(module)
 }

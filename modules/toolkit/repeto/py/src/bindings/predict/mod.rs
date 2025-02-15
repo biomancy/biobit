@@ -1,9 +1,9 @@
-use pyo3::prelude::*;
-use pyo3::prelude::{PyAnyMethods, PyModule, PyModuleMethods};
-use pyo3::{wrap_pyfunction, Bound, PyAny, PyResult, PyTypeInfo};
-
+use biobit_core_py::utils::ImportablePyModuleBuilder;
 use biobit_repeto_rs::predict as rs;
 pub use filtering::PyFilter;
+use pyo3::prelude::*;
+use pyo3::prelude::{PyModule, PyModuleMethods};
+use pyo3::{wrap_pyfunction, Bound, PyResult};
 pub use scoring::PyScoring;
 
 use crate::repeats::{PyInvRepeat, PyInvSegment};
@@ -40,28 +40,13 @@ pub fn run(
     Ok((ir, scores))
 }
 
-pub fn register<'b>(
-    path: &str,
-    parent: &Bound<'b, PyModule>,
-    sysmod: &Bound<PyAny>,
-) -> PyResult<Bound<'b, PyModule>> {
-    let name = "predict";
-    let path = format!("{}.{}", path, name);
-    let module = PyModule::new(parent.py(), name)?;
-
-    module.add_class::<PyFilter>()?;
-    module.add_class::<PyScoring>()?;
-
-    for typbj in [
-        PyFilter::type_object(parent.py()),
-        PyScoring::type_object(parent.py()),
-    ] {
-        typbj.setattr("__module__", &path)?
-    }
+pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
+    let module = ImportablePyModuleBuilder::new(py, name)?
+        .defaults()?
+        .add_class::<PyFilter>()?
+        .add_class::<PyScoring>()?
+        .finish();
     module.add_function(wrap_pyfunction!(run, &module)?)?;
-
-    parent.add_submodule(&module)?;
-    sysmod.set_item(path, &module)?;
 
     Ok(module)
 }

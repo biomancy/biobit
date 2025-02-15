@@ -1,3 +1,3 @@
-from biobit._biobit.toolkit.reaper.postfilter import NMS
+from biobit.rs.toolkit.reaper.postfilter import NMS
 
 __all__ = ["NMS"]

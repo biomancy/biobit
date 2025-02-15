@@ -17,8 +17,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { workspace = true }
-itertools = { workspace = true }
-eyre = { workspace = true }
 biobit-core-py = { path = "../../modules/core/py" }
 biobit-collections-py = { path = "../../modules/collections/py" }
 biobit-io-py = { path = "../../modules/io/py" }
