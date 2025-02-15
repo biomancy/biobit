@@ -9,9 +9,14 @@ pub struct ImportablePyModuleBuilder<'py> {
 }
 
 impl<'py> ImportablePyModuleBuilder<'py> {
+    /// Creates a new `ImportablePyModuleBuilder` with the given module name.
+    /// The module is registered with the import system (via PyImport_AddModule) and
+    /// is recognizable by the Python import machinery.
+    ///
+    /// Note that the name should be a fully qualified name of the module (for example, "foo.bar.spam").
     pub fn new(py: Python<'py>, name: &str) -> PyResult<Self> {
         let module = unsafe {
-            // Create the module via import-friendly AddModule interface.
+            // Create the module via the import-friendly AddModule interface.
             // https://docs.python.org/3/c-api/import.html#c.PyImport_AddModule
             let ptr = ffi::PyImport_AddModule(CString::new(name)?.as_ptr());
 
@@ -22,7 +27,7 @@ impl<'py> ImportablePyModuleBuilder<'py> {
             bound.downcast_into::<PyModule>()?
         };
 
-        // Technically, we don't need to add __package__ attribute to the module because it is
+        // Technically, we don't need to add the __package__ attribute to the module because it is
         // automatically populated by the loader machinery. Besides, __package__ is used to support
         // relative imports that are irrelevant for native extensions.
         // https://docs.python.org/3/reference/import.html#references
@@ -33,27 +38,31 @@ impl<'py> ImportablePyModuleBuilder<'py> {
         Ok(Self { inner: module })
     }
 
+    /// Creates a new `ImportablePyModuleBuilder` from the given module.
+    /// The module is assumed to be already registered with the import system.
     pub fn from(module: Bound<'py, PyModule>) -> Self {
-        // the caller is responsible for ensuring that the module is not already registered with the import system
-        // Probably it is enough to check that the module is in sys.modules, but I'm not sure.
         Self { inner: module }
     }
 
+    /// Sets default attributes to the module.
     pub fn defaults(self) -> PyResult<Self> {
         self.inner.gil_used(false)?;
         Ok(self)
     }
 
+    /// Attaches a submodule to the current module. A module with submodules is called a package
+    /// and must have a __path__ attribute. If the __path__ attribute is not present, it is added.
     pub fn add_submodule(self, module: &Bound<'_, PyModule>) -> PyResult<Self> {
-        // We only need to set add module name to the current attribute dictionary.
+        // We only need to add the module name to the current attribute dictionary.
         let fully_qualified_name = module.name()?.extract::<String>()?;
         let name = fully_qualified_name.split('.').last().wrap_err_with(|| {
             format!("Can't extract module name from fully qualified name {fully_qualified_name}")
         })?;
         self.inner.add(name, module)?;
 
-        // Package is a module that can include other modules together with the usual stuff (classes / functions / etc).
-        // The only difference between a package and a module is that a package has a __path__ attribute.
+        // A package is a module that can include other modules together with the
+        // classes/functions/etc. The only difference between a package and a module is
+        // that a package has a __path__ attribute.
         // __path__ attribute is a 'Sequence' and can be empty, but it must be present.
         // https://docs.python.org/3/reference/import.html#packages
         if !self.inner.hasattr("__path__")? {
@@ -63,6 +72,8 @@ impl<'py> ImportablePyModuleBuilder<'py> {
         Ok(self)
     }
 
+    /// Attaches a class to the current module and sets its __module__ attribute to the module name.
+    /// If the __module__ attribute is already set to a different value, an error is raised.
     pub fn add_class<T: PyClass>(self) -> PyResult<Self> {
         self.inner.add_class::<T>()?;
 
