@@ -1,10 +1,11 @@
+import os
 from pathlib import Path
 
 import pytest
 
 from biobit.io.bam import Reader
 
-RESOURCES = Path(__file__).parent / "resources"
+RESOURCES = Path(os.environ['BIOBIT_RESOURCES']) / "bam"
 
 
 def test_bam_reader():

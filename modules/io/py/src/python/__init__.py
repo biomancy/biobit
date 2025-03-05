@@ -1,3 +1,3 @@
-from . import bam
+from . import bam, fasta
 
-__all__ = ["bam"]
+__all__ = ["bam", "fasta"]
