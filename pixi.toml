@@ -19,9 +19,10 @@ pixi-pycharm = "==0.0.8"
 pip = "==25.0.1"
 
 [feature.py-3-13t.pypi-dependencies]
-sortedcontainers-stubs = "==2.4.2"
-pandas-stubs = "==2.2.3.241126"
 mypy = "==1.15.0"
-pytest = "==8.3.4"
 ruff = "==0.9.6"
 maturin = ">=1.8,<2.0"
+pytest = "==8.3.4"
+pytest-env = ">=1.1.5,<2"
+sortedcontainers-stubs = "==2.4.2"
+pandas-stubs = "==2.2.3.241126"

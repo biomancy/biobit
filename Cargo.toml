@@ -1,12 +1,15 @@
 [workspace]
 members = [
-    # Root library
+    # Umbrella project for all modules
     "biobit/py",
     # Core modules
-    "modules/core/*",
-    "modules/io/*",
-    "modules/alignment/*",
-    "modules/collections/*",
+    "modules/core/rs",
+    "modules/core/py",
+    "modules/io/rs",
+    "modules/io/py",
+    "modules/alignment/rs",
+    "modules/collections/rs",
+    "modules/collections/py",
     # Toolkit
     "modules/toolkit/countit/*",
     "modules/toolkit/seqproj/*",
@@ -16,15 +19,15 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.0.5"
+version = "0.0.6-rc1"
 edition = "2021"
 rust-version = "1.84.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"
-documentation = "https://github.com/biomancy"
-homepage = "https://github.com/biomancy"
-repository = "https://github.com/biomancy"
+documentation = "https://github.com/biomancy/biobit"
+homepage = "https://github.com/biomancy/biobit"
+repository = "https://github.com/biomancy/biobit"
 license = "MIT"
 categories = ["science", "algorithms"]
 
@@ -36,18 +39,18 @@ num = "0.4.3"
 eyre = "0.6.12"
 by_address = "1.2.1"
 rayon = "1.10.0"
-pyo3 = { version = "0.23.4", features = ["full"] }
-noodles = { version = "0.91.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
-noodles-bgzf = { version = "0.36.0", features = ["libdeflate"] }
+pyo3 = { version = "0.23.5", features = ["full"] }
+noodles = { version = "0.93.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
 thread_local = "1.1.8"
 higher-kinded-types = "0.2.0-rc1"
 impl-tools = "0.10.3"
-dyn-clone = "1.0.17"
-flate2 = "1.0.35"
+dyn-clone = "1.0.19"
+flate2 = "1.1.0"
 dhat = "0.3.3"
 ahash = "0.8.11"
-gxhash = "3.4.1"
 anymap3 = "1.0.1"
 rstar = "0.12.2"
-log = "0.4.25"
-bitcode = { version = "=0.6.4" }
+log = "0.4.26"
+bitcode = { version = "=0.6.5" }
+memchr = "2.7.4"
+infer = "0.19.0"

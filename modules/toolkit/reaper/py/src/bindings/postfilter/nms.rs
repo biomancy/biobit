@@ -3,7 +3,7 @@ use biobit_core_py::pickle;
 use biobit_reaper_rs::postfilter::{NMSRegions, NMS};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
-use eyre::OptionExt;
+use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
 
 #[pyclass(eq, name = "NMS")]
@@ -74,7 +74,7 @@ impl PyNMS {
         pickle::to_bytes(&self.rs)
     }
 
-    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+    fn __setstate__(&mut self, state: Vec<u8>) -> Result<()> {
         pickle::from_bytes(&state).map(|rs| self.rs = rs)
     }
 }
