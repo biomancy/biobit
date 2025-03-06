@@ -20,4 +20,3 @@ biobit-collections-rs = { path = "../rs" }
 biobit-core-py = { path = "../../core/py" }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
-num = "0.4.2"

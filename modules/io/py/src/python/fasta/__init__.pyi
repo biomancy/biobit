@@ -1,0 +1,33 @@
+from biobit.core.loc import IntoInterval
+
+
+class Record:
+    def __init__(self, id: str, seq: str): ...
+
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def seq(self) -> str: ...
+
+
+class Reader:
+    def __init__(self, path: str): ...
+
+    def read_record(self, into: Record | None = None) -> Record: ...
+
+    def __iter__(self) -> Reader: ...
+
+    def __next__(self) -> Record: ...
+
+    __hash__ = None  # type: ignore
+
+
+class IndexedReader:
+    def __init__(self, path: str): ...
+
+    def fetch(self, seqid: str, interval: IntoInterval) -> str: ...
+
+    def fetch_full_seq(self, seqid: str) -> str: ...
+
+    __hash__ = None  # type: ignore

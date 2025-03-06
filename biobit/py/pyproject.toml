@@ -35,3 +35,6 @@ exclude = [
 check_untyped_defs = true
 allow_redefinition = true
 exclude = ["test.*"]
+
+[tool.pytest_env]
+BIOBIT_RESOURCES = { value = "{PWD}/resources/", transform = true }
