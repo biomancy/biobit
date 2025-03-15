@@ -1,105 +1,89 @@
 ## Rust
 
-### How are modules organized?
+### Module Organization
 
-- The `prelude.rs` usage is strongly discouraged. If necessary, it should be used only for anonymous re-exports (`as _`)
-  of traits providing access to all trait methods through a single import. This requires the use of fully qualified
-  names when referencing the trait itself.
-- `mod.rs` should re-export all public structures, functions, and traits.
+- Avoid creating a `prelude.rs`. If necessary, limit its use to anonymous trait re-exports (`as _`) to conveniently
+  access trait methods through a single import, while still requiring explicit imports to use the traits directly.
+- `mod.rs` should explicitly re-export all essential structs, functions, and traits.
 
-This structure allows module paths to be part of trait or struct names (e.g., `my_struct::Builder` instead of
-`MyStructBuilder`). At the same time, using `use my_struct::prelude::*` provides access to all trait methods without
-polluting the current namespace.
+This setup promotes clear module paths when naming structs and traits (e.g., `fasta::Record` rather than
+`FastaRecord`). At the same time, `use crate::prelude::*` provides convenient access to trait methods without
+polluting the namespace.
 
-### What is the `Bundle` trait?
+### `*Op` Traits
 
-Grouping structures logically (e.g., by strand or chromosome) is often necessary. Initially, a `Bundle<T>` struct was
-considered, where `T` represents the bundled structure type. However, this approach has several drawbacks:
+`*Op` traits abstract operations for structures sharing similar behaviors. For example, the `IntervalOp` trait defines
+operations common to interval-like structures. This abstraction prevents code duplication and allows consistent
+operation implementations across various `XOp` types.
 
-- It serves primarily as a wrapper around `HashMap` or `BTreeMap`, adding little significant functionality.
-- The `Bundle` struct does not have a clear purpose beyond data storage.
-- It offers limited utility in Python wrappers, as it compels users to work with a `Bundle` struct instead of more
-  familiar Python `dict` structures.
+### Why Require `Clone` for Certain Traits and Structures?
 
-Consequently, the decision is made to avoid introducing a `Bundle` struct and instead implement a `Bundle` trait for
-several bundle-like structures, such as `HashMap`, `BTreeMap`, and `Vec`. This trait includes only essential methods,
-like `get`, `remove`, and `iter`, for data interaction. The design integrates well with Python wrappers, where the
-`Bundle` trait is implemented for an `IntoBundle` struct, which can be constructed from Python types like `dict`,
-`list`, or `tuple`.
+Rust’s strict ownership and memory-safety guarantees can complicate data management, especially across threads or Python
+interfaces. To simplify this, certain generic structures and traits in `biobit` mandate implementing `Clone`. This
+design places ownership decisions clearly in users' hands, allowing them to explicitly choose when to clone data or use
+smart pointers to minimize overhead. Although this introduces minor runtime costs, it significantly simplifies
+maintaining memory safety.
 
-The `Bundle` trait is preferred over a `Bundle` struct to maintain flexibility and ease of future modifications. It may
-become evident that a `Bundle` struct is needed, but only time will tell.
+### Struct-Buffer-Builder Triangle
 
-### What are `*Op` traits?
+Many library structures, especially those dealing with IO operations, have three distinct states:
 
-`*Op` traits are defined for operations applicable to structures that behave like `X`. For instance, `IntervalOp`
-specifies operations that can be performed on an `Interval`-like structure. This approach allows the implementation of
-these operations across multiple structures, such as `Interval` and `MySuperInterval`, without code duplication.
+- **Structure:** Fully defined records meeting all invariants.
+- **Buffer:** A thread-safe, reference-erased memory buffer (`Send + Sync`) for efficient caching.
+- **Builder:** Fully typed but partially initialized structures.
 
-### Why is `Clone` required for generic parameters in certain traits and structures?
-
-In Rust, ownership and memory safety are strictly enforced, but managing ownership across multiple threads or when
-interfacing with external languages (like Python) can become complex. To simplify this, some generic structures and
-traits in the `biobit` library require their parameters to implement the `Clone` trait.
-
-By enforcing `Clone`, these structures offload ownership management to the user, who can either create copies of the
-data when needed or use smart pointers to avoid deep cloning. While this may introduce a slight performance overhead, it
-serves as a practical default for ensuring safe memory handling.
-
-For more efficiency, users are encouraged to adopt a `Stash`/`Unstash` strategy. With this approach, the structure is
-temporarily stored in a type- and lifetime-erased form within a `Stash` and can be reconstructed on demand. In other
-words, you stash the structure when it's not actively used, create a reference-tracked version when needed, and stash it
-again when done. This minimizes unnecessary cloning while keeping memory management flexible and efficient.
-
-(TODO: Implement `Stash`/`Unstash` in the library)
+Ideally, these variants should have identical memory layouts to enable zero-cost conversions between states. Currently,
+this is not guaranteed, requiring manual implementation for Buffers and Builders. Future work will introduce derive
+macros to automate and streamline this process.
 
 ## Python
 
-### Why are all Python classes `Send` and `Sync`?
+### `Send` and `Sync` for Python Classes
 
-Free-threaded Python is expected to become production-ready with Python 3.14/3.15. To future-proof the library, it is
-assumed that all Python objects can be accessed and sent between threads without requiring Python-side synchronization.
+With the introduction of free-threaded Python, the library assumes all Python objects can be safely shared and
+transferred between threads without explicit Python-side synchronization. Consequently, Python objects are treated as
+`Send` and `Sync`, an assumption generally enforced by PyO3.
 
-An alternative approach would assume synchronized access to Rust wrappers on the Python side. However, users may
-overlook or forget this requirement, leading to subtle, hard-to-diagnose bugs. Users seeking maximum performance can
-utilize the Rust interface directly, while others must accept the overhead of Python wrapper synchronization.
+### Why Not Implement `Clone` or `Copy` for All Python Classes?
 
-### Why don't all Python classes implement `Clone`/`Copy`?
+This limitation is addressed in [this PyO3 issue](https://github.com/PyO3/pyo3/issues/4337). Once resolved, suitable
+Python classes will implement `Clone` and/or `Copy` traits.
 
-The limitation is detailed in [this PyO3 issue](https://github.com/PyO3/pyo3/issues/4337). Once this issue is resolved,
-`Clone`/`Copy` will be implemented for all classes that can benefit from these traits.
+### Organizing Python Code per Submodule (e.g., `modules/*/py`)
 
-### Why can’t Python code be organized per submodule (e.g., inside `modules/*/py`)?
+Currently, dependencies among PyO3 modules are poorly supported (
+see [this PyO3 issue](https://github.com/PyO3/pyo3/issues/1444)). Specifically, common dependencies may compile multiple
+times, resulting in incompatible class versions. A temporary workaround involves creating and populating all `PyModule`
+instances within a single umbrella `lib.rs` file.
 
-Currently, dependencies between Python modules are not well-supported (
-see [this PyO3 issue](https://github.com/PyO3/pyo3/issues/1444)). In this structure, core Python components (like
-`py-core`) would be compiled separately for each module, leading to multiple incompatible versions of certain classes,
-such as `Interval`.
+Local Python dependencies also present challenges (
+see [StackOverflow discussion](https://stackoverflow.com/questions/75159453/specifying-local-relative-dependency-in-pyproject-toml)).
+Presently, the workaround is to symlink sources for each module within an overarching Python project.
 
-Additionally, local Python dependencies are poorly supported at present. More details can be found
-in [this StackOverflow discussion](https://stackoverflow.com/questions/75159453/specifying-local-relative-dependency-in-pyproject-toml).
+## Additional Notes
 
-If these issues are resolved in the future, the possibility of relocating Python code to `modules/*/py` directories and
-re-exporting it in the core Python module, possibly behind feature flags, can be revisited.
+- The `Interval` struct intentionally excludes a `data` field to simplify operations like `merge`, avoiding complexities
+  related to arbitrary data updates.
+- Read operations commonly accept mutable buffers to promote efficient reuse and minimize repeated allocations.
+- A long-term goal is to stimulate batch-oriented processing, particularly in Python wrappers.
 
-### Everything is a reference
+## Future Ideas
 
-In Python, (almost) everything is a reference. This principle is reflected in most Python classes, often necessitating
-that internal Rust structures are encapsulated behind an `Arc` and either a `Mutex` or `RwLock`. (Remember, every class
-is also `Sync` and `Send`.)
+- Introduce a `stitch(max_gap: usize)` method for inverted repeats, enabling seamless merging of adjacent repeats
+  separated by gaps smaller than `max_gap`.
 
-The performance penalty of this approach is negligible in most cases, as the structures need to be `Sync`/`Send` anyway.
-This design avoids introducing confusing behavior that would be unexpected for Python users.
+### The `Bundle` Trait
 
-Exceptions to this rule are clearly marked in the codebase and documentation.
+Logical grouping of structures (e.g., by strand or seqid) is frequently required. Initially, a dedicated `Bundle<T>`
+struct was considered but had several drawbacks:
 
-# Random notes:
+- Primarily functioned as a thin wrapper around collections like `HashMap` or `BTreeMap`, adding minimal additional
+  functionality.
+- Lacked clear responsibilities beyond basic data storage.
+- Was inconvenient for Python users, requiring interaction with specialized Rust structures instead of familiar Python
+  types like `dict`.
 
-- Including a `data` field in the `Interval` struct complicates operations like `merge`, as the `data` field must be
-  updated. It's the reason why there is no `data` field in the `Segment` (and other) structures.
-- All traits and structs should prioritize batch-oriented processing, especially for Python wrappers, where batch
-  operations are significantly faster than repeated method invocations. Where possible, batch methods should accept data
-  via slices and the result buffer by a mutable reference.
-
-# Ideas
-- Add a `stitch(max_gap: usize)` method to inverted repeats to merge adjacent repeats with a gap smaller than `max_gap`.
+Instead of creating a standalone struct, a `Bundle` trait has been implemented across multiple collection types (
+`HashMap`, `BTreeMap`, `Vec`, etc.). This trait provides standardized methods (`get`, `remove`, `iter`) for uniform data
+access and integrates smoothly with Python wrappers through the dedicated `IntoBundle` struct, which can be constructed
+directly from Python types (`dict`, `list`, `tuple`).
