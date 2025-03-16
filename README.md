@@ -24,18 +24,6 @@ design places ownership decisions clearly in users' hands, allowing them to expl
 smart pointers to minimize overhead. Although this introduces minor runtime costs, it significantly simplifies
 maintaining memory safety.
 
-### Struct-Buffer-Builder Triangle
-
-Many library structures, especially those dealing with IO operations, have three distinct states:
-
-- **Structure:** Fully defined records meeting all invariants.
-- **Buffer:** A thread-safe, reference-erased memory buffer (`Send + Sync`) for efficient caching.
-- **Builder:** Fully typed but partially initialized structures.
-
-Ideally, these variants should have identical memory layouts to enable zero-cost conversions between states. Currently,
-this is not guaranteed, requiring manual implementation for Buffers and Builders. Future work will introduce derive
-macros to automate and streamline this process.
-
 ## Python
 
 ### `Send` and `Sync` for Python Classes
@@ -87,3 +75,16 @@ Instead of creating a standalone struct, a `Bundle` trait has been implemented a
 `HashMap`, `BTreeMap`, `Vec`, etc.). This trait provides standardized methods (`get`, `remove`, `iter`) for uniform data
 access and integrates smoothly with Python wrappers through the dedicated `IntoBundle` struct, which can be constructed
 directly from Python types (`dict`, `list`, `tuple`).
+
+### Struct-Buffer-Builder Triangle
+
+In ideal circumstances, many library structures, especially those dealing with IO operations, should have three distinct
+states:
+
+- **Structure:** Fully defined, meets all invariants.
+- **Buffer:** A thread-safe, reference-erased memory buffer (`Send + Sync`) for efficient caching.
+- **Builder:** Fully typed but partially initialized structures.
+
+These variants should be memory-compatible to enable zero-cost conversions between states via
+[TransmuteFrom](https://github.com/rust-lang/rust/issues/99571). Currently, `transmutability` is far from stabilization,
+and a proper implementation of this pattern is not possible.
