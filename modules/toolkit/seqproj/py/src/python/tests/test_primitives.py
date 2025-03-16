@@ -1,4 +1,5 @@
 import pickle
+from pathlib import Path
 
 import pytest
 
@@ -9,13 +10,13 @@ from biobit.toolkit.seqproj.sample import Sample
 
 
 def test_layout_single():
-    fname = "ABC.fastq"
+    layout = Layout.Single("ABC.fastq")
+    path = Path("ABC.fastq")
 
-    layout = Layout.Single(fname)
     assert isinstance(layout, Layout.Single) and isinstance(layout, Layout)
-    assert layout.file == fname
+    assert layout.file == path
 
-    assert Layout.Single(fname) == layout
+    assert Layout.Single(path) == layout
     assert Layout.Single("DEF.fastq") != layout
 
     assert pickle.loads(pickle.dumps(layout)) == layout
@@ -26,9 +27,11 @@ def test_layout_single():
 
 def test_layout_paired():
     layout = Layout.Paired(MatesOrientation.Inward, ("A", "B"))
+    files = (Path("A"), Path("B"))
+
     assert isinstance(layout, Layout.Paired) and isinstance(layout, Layout)
     assert layout.orientation == MatesOrientation.Inward
-    assert layout.files == ("A", "B")
+    assert layout.files == files
 
     assert Layout.Paired(MatesOrientation.Inward, ("A", "B")) == layout
     assert Layout.Paired(MatesOrientation.Inward, ("A", "C")) != layout

@@ -10,7 +10,7 @@ def register_hooks(converter: cattrs.Converter) -> cattrs.Converter:
         if isinstance(run, Layout.Single):
             return {
                 "type": "single",
-                "file": run.file
+                "file": converter.unstructure(run.file)
             }
         elif isinstance(run, Layout.Paired):
             return {
