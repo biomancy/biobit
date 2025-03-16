@@ -33,7 +33,7 @@ def test_layout_paired():
     assert layout.orientation == MatesOrientation.Inward
     assert layout.files == files
 
-    assert Layout.Paired(MatesOrientation.Inward, ("A", "B")) == layout
+    assert Layout.Paired(MatesOrientation.Inward, files) == layout
     assert Layout.Paired(MatesOrientation.Inward, ("A", "C")) != layout
 
     assert pickle.loads(pickle.dumps(layout)) == layout
