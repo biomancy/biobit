@@ -11,21 +11,23 @@ RESOURCES = Path(os.environ['BIOBIT_RESOURCES']) / "fasta"
 
 def test_fasta_record():
     record = Record("id", "seq")
-    assert record.id == "id"
-    assert record.seq == "seq"
+    assert (record.id, record.seq) == ("id", "seq")
 
-    # Check that the id and seq are read-only
-    with pytest.raises(Exception):
-        record.id = "new_id"
-    with pytest.raises(Exception):
-        record.seq = "new_seq"
+    # Check that the id and seq can be changed
+    record.id = "new_id"
+    record.seq = "newseq"
+    assert (record.id, record.seq) == ("new_id", "newseq")
 
     # Check that the id and seq are validated
-    for id, seq in [
-        ("", "seq"), ("id", ""), ("", ""), ("id\n", "seq"), ("id", "seq123")
-    ]:
-        with pytest.raises(Exception):
-            Record(id, seq)
+    for id in ["", "id\n"]:
+        for seq in ["seq_1", "", "seq123"]:
+            with pytest.raises(Exception):
+                record.id = id
+            with pytest.raises(Exception):
+                record.seq = seq
+            with pytest.raises(Exception):
+                Record(id, seq)
+    assert (record.id, record.seq) == ("new_id", "newseq")
 
     pickled = pickle.loads(pickle.dumps(record))
     assert record == pickled
@@ -41,11 +43,12 @@ def test_fasta_reader():
     ]
 
     for file in "example.fa", "example.fa.gz":
-        reader = Reader((RESOURCES / file).as_posix())
+        reader = Reader(RESOURCES / file)
         assert list(reader) == expected
         with pytest.raises(StopIteration):
             next(reader)
 
+        # Creating a reader from a string path should work
         reader = Reader((RESOURCES / file).as_posix())
         buffer = Record("ID", "SEQ")
         for exp in expected:
@@ -55,18 +58,24 @@ def test_fasta_reader():
 
         assert reader.read_record(into=buffer) is None
 
+        reader = Reader(RESOURCES / file)
+        assert reader.read_to_end() == expected
+
 
 @pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.gz"])
 def test_indexed_fasta_reader(path):
-    path = (RESOURCES / path).as_posix()
+    path = RESOURCES / path
 
     # Read all records in RAM
     reader = Reader(path)
     allrecords = {record.id: record.seq for record in reader}
 
     # Compare with indexed reader
-    reader = IndexedReader(path)
+    reader = IndexedReader(path.as_posix())
+    assert reader.path == path
 
+    # Create a reader from a pathlib.Path
+    reader = IndexedReader(path)
     for id, seq in allrecords.items():
         assert reader.fetch_full_seq(id) == seq
 

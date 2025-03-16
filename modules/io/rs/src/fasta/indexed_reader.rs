@@ -11,7 +11,7 @@ use std::path::Path;
 
 /// An indexed FASTA reader that can fetch sequences by reference sequence ID and interval.
 #[autoimpl(for<T: trait + ?Sized> Box<T>)]
-pub trait IndexedReaderOps {
+pub trait IndexedReaderMutOp {
     /// Fetch the sequence for the given reference sequence ID and interval.
     fn fetch(&mut self, seqid: &str, interval: Interval<u64>, buffer: &mut Vec<u8>) -> Result<()>;
 
@@ -35,7 +35,7 @@ pub struct IndexedReader<R> {
 impl<R> IndexedReader<R> {
     pub fn from_path(
         fasta: impl AsRef<Path>,
-    ) -> Result<Box<dyn IndexedReaderOps + Send + Sync + 'static>> {
+    ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
         let mut path = fasta.as_ref().to_owned();
         let fname = path
             .file_name()
@@ -48,7 +48,7 @@ impl<R> IndexedReader<R> {
         ensure!(path.exists(), "fai index does not exist: {:?}", path);
         let fai = std::io::BufReader::new(std::fs::File::open(&path)?);
 
-        let boxed: Box<dyn IndexedReaderOps + Send + Sync + 'static> = match file {
+        let boxed: Box<dyn IndexedReaderMutOp + Send + Sync + 'static> = match file {
             DecompressedStream::PlainText(fasta) => Box::new(IndexedReader::new(fasta, fai)?),
             DecompressedStream::Gzip(_) => {
                 path.set_file_name(format!("{fname}.gzi"));
@@ -306,7 +306,7 @@ impl<R: Read + Seek> IndexedReader<R> {
     }
 }
 
-impl<R: Read + Seek> IndexedReaderOps for IndexedReader<R> {
+impl<R: Read + Seek> IndexedReaderMutOp for IndexedReader<R> {
     fn fetch(&mut self, seqid: &str, interval: Interval<u64>, buffer: &mut Vec<u8>) -> Result<()> {
         Self::fetch_interval(self, seqid, &interval, buffer)
     }
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_indexed_fa() -> Result<()> {
-        fn test(mut reader: impl IndexedReaderOps) -> Result<()> {
+        fn test(mut reader: impl IndexedReaderMutOp) -> Result<()> {
             // Check that we can fetch full sequences
             let sequences = vec![
                 (

@@ -1,4 +1,4 @@
-use super::record::Record;
+use super::{record::Record, validate};
 use crate::compression;
 use crate::compression::DecompressedStream;
 use derive_getters::Dissolve;
@@ -15,13 +15,20 @@ use std::path::Path;
 /// - Extra characters before the first record, between records, or after the last record
 /// - Non-alphabetic characters inside the sequence, including start/end of lines
 /// - Empty ID or sequence fields in any record
-pub trait ReaderOps {
+pub trait ReaderMutOp {
     /// Parse the next FASTA record into the given [Record] buffer.
     /// Returns None if there are no more records to read.
     ///
     /// The read is successful only if the function returns `Ok(Some())`. Otherwise, the buffer is
     /// left in an unspecified state, but can be reused for the next read.
     fn read_record(&mut self, into: &mut Record) -> Result<Option<()>>;
+
+    /// Read the remaining records in the file and place them into the given vector. Returns the
+    /// number of records read.
+    ///
+    /// The function returns an error if there are any issues while reading the file.
+    /// Records outside the ones read are left in an unspecified state but can be reused for the next read.
+    fn read_to_end(&mut self, into: &mut Vec<Record>) -> Result<usize>;
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Dissolve)]
@@ -42,14 +49,18 @@ impl<R: BufRead> Reader<R> {
 
     /// Create a new FASTA reader from the given file path.
     /// The compression is automatically detected based on the file extension and the internal file signature.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Box<dyn ReaderOps + Send + Sync + 'static>> {
-        let boxed: Box<dyn ReaderOps + Send + Sync + 'static> = match compression::read_file(path)?
-        {
-            DecompressedStream::PlainText(file) => {
-                Box::new(Reader::new(std::io::BufReader::new(file))?)
-            }
-            DecompressedStream::Gzip(gzip) => Box::new(Reader::new(std::io::BufReader::new(gzip))?),
-        };
+    pub fn from_path(
+        path: impl AsRef<Path>,
+    ) -> Result<Box<dyn ReaderMutOp + Send + Sync + 'static>> {
+        let boxed: Box<dyn ReaderMutOp + Send + Sync + 'static> =
+            match compression::read_file(path)? {
+                DecompressedStream::PlainText(file) => {
+                    Box::new(Reader::new(std::io::BufReader::new(file))?)
+                }
+                DecompressedStream::Gzip(gzip) => {
+                    Box::new(Reader::new(std::io::BufReader::new(gzip))?)
+                }
+            };
 
         Ok(boxed)
     }
@@ -80,7 +91,7 @@ impl<R: BufRead> Reader<R> {
         if id.ends_with('\r') {
             id.pop();
         }
-        Record::validate_id(id)?;
+        validate::id(id)?;
 
         // Read and validate the sequence lines
         seq.clear();
@@ -124,18 +135,40 @@ impl<R: BufRead> Reader<R> {
             // Consume the processed bytes
             self.reader.consume(consume);
         }
-        Record::validate_seq(seq)?;
+        validate::seq(seq)?;
 
         Ok(Some(()))
     }
 }
 
-impl<R: BufRead> ReaderOps for Reader<R> {
+impl<R: BufRead> ReaderMutOp for Reader<R> {
     fn read_record(&mut self, into: &mut Record) -> Result<Option<()>> {
         // SAFETY: The ID and sequence are checked for validity before being written to the buffer
         unsafe {
-            let (id, seq) = into.raw();
+            let (id, seq) = into.fields();
             self.read_next(id, seq)
+        }
+    }
+
+    fn read_to_end(&mut self, into: &mut Vec<Record>) -> Result<usize> {
+        let mut total = 0;
+
+        // Read into the existing buffer
+        for record in into.iter_mut() {
+            if self.read_record(record)?.is_none() {
+                return Ok(total);
+            }
+            total += 1;
+        }
+
+        // Append to the buffer
+        loop {
+            let mut record = Record::default();
+            if self.read_record(&mut record)?.is_none() {
+                return Ok(total);
+            }
+            into.push(record);
+            total += 1;
         }
     }
 }
@@ -147,7 +180,7 @@ mod tests {
     use std::io::Read;
     use std::path::PathBuf;
 
-    fn test_reader(content: impl Read, expected: &[(&str, &str)]) -> Result<()> {
+    fn test_read_record(content: impl Read, expected: &[(&str, &str)]) -> Result<()> {
         // Record-by-record reading
         let mut reader = Reader::new(std::io::BufReader::new(content))?;
         let mut record = Record::default();
@@ -160,9 +193,24 @@ mod tests {
         Ok(())
     }
 
+    fn test_read_to_end(content: impl Read, expected: &[(&str, &str)]) -> Result<()> {
+        // Read all records at once
+        let mut reader = Reader::new(std::io::BufReader::new(content))?;
+        let mut records = Vec::new();
+        reader.read_to_end(&mut records)?;
+        assert_eq!(records.len(), expected.len());
+        for (record, (id, seq)) in records.iter().zip(expected.iter()) {
+            assert_eq!(*record, (*id, *seq).try_into()?);
+        }
+
+        Ok(())
+    }
+
     #[test]
-    fn test_empty_fasta_reader() {
-        test_reader(&[0u8; 0][..], &[]).unwrap();
+    fn test_empty_fasta_reader() -> Result<()> {
+        test_read_record(&[0u8; 0][..], &[])?;
+        test_read_to_end(&[0u8; 0][..], &[])?;
+        Ok(())
     }
 
     #[test]
@@ -178,9 +226,19 @@ mod tests {
             ">id\nACGT\n>ID\n",
             ">id\nACGT\n>ID\nACGT ",
         ] {
+            // Per record
             let result = Reader::new(std::io::Cursor::new(content)).and_then(|mut x| {
                 let mut record = Record::default();
                 while x.read_record(&mut record)?.is_some() {}
+                Ok::<(), Report>(())
+            });
+
+            assert!(result.is_err(), "Content: {:?}", content);
+
+            // All records
+            let result = Reader::new(std::io::Cursor::new(content)).and_then(|mut x| {
+                let mut records = Vec::new();
+                x.read_to_end(&mut records)?;
                 Ok::<(), Report>(())
             });
 
@@ -205,7 +263,8 @@ mod tests {
                 vec![("ID", "ACGTAGTTTA"), ("id2", "AC")],
             ),
         ] {
-            assert!(test_reader(content.as_bytes(), &records).is_ok());
+            assert!(test_read_record(content.as_bytes(), &records).is_ok());
+            assert!(test_read_to_end(content.as_bytes(), &records).is_ok());
         }
     }
 
@@ -226,8 +285,11 @@ mod tests {
             let file = PathBuf::from(env!("BIOBIT_RESOURCES"))
                 .join("fasta")
                 .join(fname);
-            let read = compression::read_file(file)?.box_read();
-            test_reader(read, &expected)?;
+            let read = compression::read_file(&file)?.box_read();
+            test_read_record(read, &expected)?;
+
+            let read = compression::read_file(&file)?.box_read();
+            test_read_to_end(read, &expected)?;
         }
 
         Ok(())
