@@ -2,7 +2,7 @@ use biobit_core_py::loc::{IntervalOp, IntoPyInterval};
 use biobit_core_py::pickle;
 use biobit_core_py::utils::ImportablePyModuleBuilder;
 use biobit_io_rs::compression;
-use biobit_io_rs::fasta::{
+pub use biobit_io_rs::fasta::{
     IndexedReader, IndexedReaderMutOp, Reader, ReaderMutOp, Record, RecordMutOp,
 };
 use bitcode::{Decode, Encode};
@@ -12,7 +12,7 @@ use eyre::{ContextCompat, Result};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 use pyo3::PyTypeInfo;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::PathBuf;
 
@@ -95,14 +95,6 @@ pub struct PyReader {
     pub rs: Reader<Box<dyn std::io::BufRead + Send + Sync>>,
 }
 
-impl Debug for PyReader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PyReader")
-            .field("path", &self.path)
-            .finish()
-    }
-}
-
 #[pymethods]
 impl PyReader {
     #[new]
@@ -132,10 +124,10 @@ impl PyReader {
     }
 
     fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
-        let mut result = Vec::with_capacity(128);
+        let mut result = Vec::new();
         self.rs.read_to_end(&mut result)?;
 
-        let iterator = result.into_iter().map(|x| PyRecord::from(x));
+        let iterator = result.into_iter().map(PyRecord::from);
         Python::with_gil(|py| -> PyResult<_> { PyList::new(py, iterator).map(|x| x.unbind()) })
     }
 

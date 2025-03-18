@@ -9,6 +9,7 @@ use pyo3::types::PySequence;
 
 use biobit_core_rs::loc::{Interval, IntervalOp};
 
+use biobit_core_rs::num::PrimInt;
 use bitcode::{Decode, Encode};
 
 #[pyclass]
@@ -38,6 +39,16 @@ impl<'py> FromPyObject<'py> for IntoPyInterval {
             Py::new(obj.py(), PyInterval::new(start, end)?)?
         };
         Ok(IntoPyInterval(interval))
+    }
+}
+
+impl IntoPyInterval {
+    pub fn extract_rs<T: PrimInt>(self, py: Python) -> Option<Interval<T>> {
+        self.0.borrow(py).rs.cast()
+    }
+
+    pub fn extract_py(self, py: Python) -> PyInterval {
+        self.0.borrow(py).rs.into()
     }
 }
 
