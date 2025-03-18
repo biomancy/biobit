@@ -27,6 +27,8 @@ infer = { workspace = true }
 flate2 = { workspace = true }
 impl-tools = { workspace = true }
 bitcode = { workspace = true, optional = true }
+paste = { workspace = true }
+itertools = { workspace = true }
 
 [features]
 bitcode = ["dep:bitcode"]

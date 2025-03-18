@@ -46,9 +46,9 @@ def from_seqproj(
 
         for run in exp.runs:
             if isinstance(run.layout, seqproj.Layout.Paired):
-                fastq1, fastq2 = run.layout.files
+                fastq1, fastq2 = str(run.layout.files[0]), str(run.layout.files[1])
             elif isinstance(run.layout, seqproj.Layout.Single):
-                fastq1, fastq2 = run.layout.file, ""
+                fastq1, fastq2 = str(run.layout.file), ""
             else:
                 raise ValueError(f"Unsupported sequencing layout: {run.layout}")
 

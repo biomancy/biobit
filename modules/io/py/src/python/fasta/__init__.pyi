@@ -1,20 +1,21 @@
+from pathlib import Path
+
 from biobit.core.loc import IntoInterval
 
 
 class Record:
+    id: str
+    seq: str
+
     def __init__(self, id: str, seq: str): ...
-
-    @property
-    def id(self) -> str: ...
-
-    @property
-    def seq(self) -> str: ...
 
 
 class Reader:
-    def __init__(self, path: str): ...
+    def __init__(self, path: str | Path): ...
 
     def read_record(self, into: Record | None = None) -> Record: ...
+
+    def read_to_end(self) -> list[Record]: ...
 
     def __iter__(self) -> Reader: ...
 
@@ -24,7 +25,10 @@ class Reader:
 
 
 class IndexedReader:
-    def __init__(self, path: str): ...
+    def __init__(self, path: str | Path): ...
+
+    @property
+    def path(self) -> Path: ...
 
     def fetch(self, seqid: str, interval: IntoInterval) -> str: ...
 

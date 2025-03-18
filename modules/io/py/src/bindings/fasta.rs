@@ -2,15 +2,17 @@ use biobit_core_py::loc::{IntervalOp, IntoPyInterval};
 use biobit_core_py::pickle;
 use biobit_core_py::utils::ImportablePyModuleBuilder;
 use biobit_io_rs::compression;
-use biobit_io_rs::fasta::{IndexedReader, IndexedReaderOps, Reader, ReaderOps, Record};
+pub use biobit_io_rs::fasta::{
+    IndexedReader, IndexedReaderMutOp, Reader, ReaderMutOp, Record, RecordMutOp,
+};
 use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
-use eyre::{ensure, ContextCompat, Result};
+use eyre::{ContextCompat, Result};
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyList};
 use pyo3::PyTypeInfo;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::PathBuf;
 
@@ -27,9 +29,7 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
 
 #[pyclass(eq, ord, name = "Record")]
 #[repr(transparent)]
-#[derive(
-    Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into,
-)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, From, Into)]
 pub struct PyRecord {
     pub rs: Record,
 }
@@ -38,7 +38,6 @@ pub struct PyRecord {
 impl PyRecord {
     #[new]
     fn new(header: String, sequence: String) -> Result<Self> {
-        ensure!(sequence.is_ascii(), "FASTA sequence must be ASCII");
         Ok(Self {
             rs: Record::new(header, sequence.into_bytes())?,
         })
@@ -49,9 +48,21 @@ impl PyRecord {
         self.rs.id()
     }
 
+    #[setter]
+    fn set_id(&mut self, id: String) -> Result<()> {
+        self.rs.set_id(id)?;
+        Ok(())
+    }
+
     #[getter]
     fn seq(&self) -> String {
         String::from_utf8_lossy(self.rs.seq()).to_string()
+    }
+
+    #[setter]
+    fn set_seq(&mut self, seq: String) -> Result<()> {
+        self.rs.set_seq(seq.into_bytes())?;
+        Ok(())
     }
 
     fn __hash__(&self) -> u64 {
@@ -84,19 +95,10 @@ pub struct PyReader {
     pub rs: Reader<Box<dyn std::io::BufRead + Send + Sync>>,
 }
 
-impl Debug for PyReader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PyReader")
-            .field("path", &self.path)
-            .finish()
-    }
-}
-
 #[pymethods]
 impl PyReader {
     #[new]
-    fn new(path: &str) -> Result<Self> {
-        let path = PathBuf::from(path);
+    fn new(path: PathBuf) -> Result<Self> {
         let bufread = compression::read_file(&path)?.box_bufread();
         let rs = Reader::new(bufread)?;
 
@@ -121,6 +123,14 @@ impl PyReader {
         }
     }
 
+    fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
+        let mut result = Vec::new();
+        self.rs.read_to_end(&mut result)?;
+
+        let iterator = result.into_iter().map(PyRecord::from);
+        Python::with_gil(|py| -> PyResult<_> { PyList::new(py, iterator).map(|x| x.unbind()) })
+    }
+
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
@@ -133,18 +143,22 @@ impl PyReader {
 #[pyclass(name = "IndexedReader")]
 #[derive(Dissolve, From, Into)]
 pub struct PyIndexedReader {
-    pub fasta: PathBuf,
-    pub rs: Box<dyn IndexedReaderOps + Send + Sync + 'static>,
+    pub path: PathBuf,
+    pub rs: Box<dyn IndexedReaderMutOp + Send + Sync + 'static>,
 }
 
 #[pymethods]
 impl PyIndexedReader {
     #[new]
-    fn new(fasta: &str) -> Result<Self> {
-        let fasta = PathBuf::from(fasta);
-        let rs = IndexedReader::<()>::from_path(&fasta)?;
+    fn new(path: PathBuf) -> Result<Self> {
+        let rs = IndexedReader::<()>::from_path(&path)?;
 
-        Ok(Self { fasta, rs })
+        Ok(Self { path, rs })
+    }
+
+    #[getter]
+    fn path(&self) -> &PathBuf {
+        &self.path
     }
 
     fn fetch(&mut self, seqid: &str, interval: IntoPyInterval) -> Result<String> {

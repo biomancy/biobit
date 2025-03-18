@@ -9,8 +9,9 @@ classifiers = [
 ]
 dynamic = ["version", "description", "license", "authors", "readme", "urls"]
 dependencies = [
-    "attrs == 25.1.0",
+    "attrs == 25.3.0",
     "cattrs[pyyaml] == 24.1.2",
+    "PyYAML == 6.0.2",
     "intervaltree == 3.1.0",
     "sortedcontainers == 2.4.0",
     "pandas == 2.2.3",
