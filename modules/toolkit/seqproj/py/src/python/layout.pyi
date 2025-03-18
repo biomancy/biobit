@@ -5,7 +5,7 @@ from biobit.core.ngs import MatesOrientation as MatesOrientation
 
 class Layout:
     class Single(Layout):
-        file: str
+        file: Path
 
         def __init__(self, file: Path | str) -> None: ...
 
@@ -29,7 +29,7 @@ class Layout:
 
     class Paired(Layout):
         orientation: MatesOrientation | None
-        files: tuple[str, str]
+        files: tuple[Path, Path]
 
         def __init__(self, orientation: MatesOrientation | None, files: tuple[Path | str, Path | str]) -> None: ...
 

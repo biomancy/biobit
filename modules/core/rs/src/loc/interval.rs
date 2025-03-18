@@ -51,9 +51,15 @@ pub trait IntervalOp {
     }
 
     /// Check if the interval-like object touches another interval-like object.
-    /// The condition is strict and should not allow overlapping intervals.
+    /// The condition is strict and doesn't allow overlapping intervals.
     fn touches(&self, other: &Self) -> bool {
         self.start() == other.end() || self.end() == other.start()
+    }
+
+    /// Check if the interval-like object completely envelops another interval-like object.
+    /// Identical intervals are considered to be enveloped by each other.
+    fn envelops(&self, other: &Self) -> bool {
+        self.start() <= other.start() && other.end() <= self.end()
     }
 
     /// Turn the interval-like object into a basic half-open genomic interval.
