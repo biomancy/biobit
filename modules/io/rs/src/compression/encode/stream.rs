@@ -1,5 +1,5 @@
+use super::algorithm::Algorithm;
 use super::config::Config;
-use crate::compression::encode::Algorithm;
 use eyre::Result;
 use noodles::bgzf;
 use std::io::Write;
