@@ -1,6 +1,6 @@
 use super::{record::Record, validate};
-use crate::compression;
-use crate::compression::DecompressedStream;
+use crate::compression::decode;
+use crate::traits::ReadRecord;
 use derive_getters::Dissolve;
 use eyre::{ensure, Result};
 use memchr;
@@ -15,25 +15,32 @@ use std::path::Path;
 /// - Extra characters before the first record, between records, or after the last record
 /// - Non-alphabetic characters inside the sequence, including start/end of lines
 /// - Empty ID or sequence fields in any record
-pub trait ReaderMutOp {
-    /// Parse the next FASTA record into the given [Record] buffer.
-    /// Returns None if there are no more records to read.
-    ///
-    /// The read is successful only if the function returns `Ok(Some())`. Otherwise, the buffer is
-    /// left in an unspecified state, but can be reused for the next read.
-    fn read_record(&mut self, into: &mut Record) -> Result<Option<()>>;
-
-    /// Read the remaining records in the file and place them into the given vector. Returns the
-    /// number of records read.
-    ///
-    /// The function returns an error if there are any issues while reading the file.
-    /// Records outside the ones read are left in an unspecified state but can be reused for the next read.
-    fn read_to_end(&mut self, into: &mut Vec<Record>) -> Result<usize>;
-}
-
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Dissolve)]
 pub struct Reader<R> {
     reader: R,
+}
+
+impl Reader<()> {
+    /// Create a new FASTA reader from the given file path.
+    /// The compression is automatically detected based on the file extension and the internal file signature.
+    pub fn from_path(
+        path: impl AsRef<Path>,
+        decode: &decode::Config,
+    ) -> Result<Box<dyn ReadRecord<Record = Record> + Send + Sync + 'static>> {
+        let file = std::fs::File::open(path.as_ref())?;
+        let boxed: Box<dyn ReadRecord<Record = Record> + Send + Sync + 'static> =
+            match decode::Stream::new(file, decode)? {
+                decode::Stream::Raw(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
+                decode::Stream::Gzip(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
+                decode::Stream::Deflate(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
+                decode::Stream::Bgzf(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
+                decode::Stream::MultithreadedBgzf(x) => {
+                    Box::new(Reader::new(std::io::BufReader::new(x))?)
+                }
+            };
+
+        Ok(boxed)
+    }
 }
 
 impl<R: BufRead> Reader<R> {
@@ -47,35 +54,21 @@ impl<R: BufRead> Reader<R> {
         Ok(Self { reader })
     }
 
-    /// Create a new FASTA reader from the given file path.
-    /// The compression is automatically detected based on the file extension and the internal file signature.
-    pub fn from_path(
-        path: impl AsRef<Path>,
-    ) -> Result<Box<dyn ReaderMutOp + Send + Sync + 'static>> {
-        let boxed: Box<dyn ReaderMutOp + Send + Sync + 'static> =
-            match compression::read_file(path)? {
-                DecompressedStream::PlainText(file) => {
-                    Box::new(Reader::new(std::io::BufReader::new(file))?)
-                }
-                DecompressedStream::Gzip(gzip) => {
-                    Box::new(Reader::new(std::io::BufReader::new(gzip))?)
-                }
-            };
-
-        Ok(boxed)
-    }
-
-    fn read_next(&mut self, id: &mut String, seq: &mut Vec<u8>) -> Result<Option<()>> {
+    #[inline(always)]
+    fn read_parts(&mut self, record: &mut Record) -> Result<bool> {
         // Ensure that the next symbol is '>' and consume it
         let buffer = self.reader.fill_buf()?;
         if buffer.is_empty() {
-            return Ok(None);
+            return Ok(false);
         }
         ensure!(
             buffer.first().map(|x| *x == b'>').unwrap_or(false),
             "Expected '>' at the start of the FASTA record"
         );
         self.reader.consume(1);
+
+        // SAFETY: The ID and sequence are checked for validity before being written to the buffer
+        let (id, seq) = unsafe { record.fields() };
 
         // Read and validated the ID line
         id.clear();
@@ -113,7 +106,7 @@ impl<R: BufRead> Reader<R> {
                     let line = &buffer[..pos];
                     // Remove the trailing '\r' if needed
                     if line.last().map(|x| *x == b'\r').unwrap_or(false) {
-                        (&line[..line.len() - 1], pos + 1)
+                        (&line[..pos - 1], pos + 1)
                     } else {
                         (line, pos + 1)
                     }
@@ -121,12 +114,15 @@ impl<R: BufRead> Reader<R> {
                 None => (buffer, buffer.len()),
             };
 
-            // Err if the line is empty
-            ensure!(
-                !line.is_empty(),
-                "Empty line was found for the sequence with id {}",
-                id
-            );
+            // Empty lines are ignored for simplicity of the implementation.
+            // Otherwise, we would need to keep track of the previous buffer terminator to
+            // distinguish between buffers that by chance split the line just before the "\n"
+            // and those that are actually empty.
+            // ensure!(
+            //     !line.is_empty(),
+            //     "Empty line was found for the sequence with id {}",
+            //     id
+            // );
             debug_assert!(!line.contains(&b'>'));
 
             // Append the line to the sequence
@@ -137,25 +133,45 @@ impl<R: BufRead> Reader<R> {
         }
         validate::seq(seq)?;
 
-        Ok(Some(()))
+        Ok(true)
     }
 }
 
-impl<R: BufRead> ReaderMutOp for Reader<R> {
-    fn read_record(&mut self, into: &mut Record) -> Result<Option<()>> {
-        // SAFETY: The ID and sequence are checked for validity before being written to the buffer
-        unsafe {
-            let (id, seq) = into.fields();
-            self.read_next(id, seq)
-        }
+impl<R: BufRead> ReadRecord for Reader<R> {
+    type Record = Record;
+
+    /// Parse the next FASTA record into the given [Record] buffer.
+    /// Returns None if there are no more records to read.
+    ///
+    /// The read is successful only if the function returns `Ok(Some())`.
+    /// Otherwise, the buffer is left in an unspecified state, but can be reused for the next read.
+    fn read(&mut self, buf: &mut Self::Record) -> Result<bool> {
+        self.read_parts(buf)
     }
 
-    fn read_to_end(&mut self, into: &mut Vec<Record>) -> Result<usize> {
+    fn read_vectored(&mut self, bufs: &mut [Self::Record]) -> Result<usize> {
+        let mut n = 0;
+        for buf in bufs {
+            if self.read_parts(buf)? {
+                n += 1;
+            } else {
+                break;
+            }
+        }
+        Ok(n)
+    }
+
+    /// Read the remaining records in the file and place them into the given vector.
+    /// Returns the number of records read.
+    ///
+    /// The function returns an error if there are any issues while reading the file.
+    /// Records outside the ones read are left in an unspecified state but can be reused for the next read.
+    fn read_to_end(&mut self, into: &mut Vec<Self::Record>) -> Result<usize> {
         let mut total = 0;
 
         // Read into the existing buffer
         for record in into.iter_mut() {
-            if self.read_record(record)?.is_none() {
+            if !self.read(record)? {
                 return Ok(total);
             }
             total += 1;
@@ -164,7 +180,7 @@ impl<R: BufRead> ReaderMutOp for Reader<R> {
         // Append to the buffer
         loop {
             let mut record = Record::default();
-            if self.read_record(&mut record)?.is_none() {
+            if !self.read(&mut record)? {
                 return Ok(total);
             }
             into.push(record);
@@ -185,10 +201,10 @@ mod tests {
         let mut reader = Reader::new(std::io::BufReader::new(content))?;
         let mut record = Record::default();
         for (id, seq) in expected {
-            assert!(reader.read_record(&mut record)?.is_some());
+            assert!(reader.read(&mut record)?);
             assert_eq!(record, (*id, *seq).try_into()?);
         }
-        assert!(reader.read_record(&mut record)?.is_none());
+        assert!(!reader.read(&mut record)?);
 
         Ok(())
     }
@@ -221,7 +237,6 @@ mod tests {
             ">id",
             ">id\nAC GT",
             ">id\nACGT ",
-            ">id\nACGT\n\n",
             ">id\nACGT\nA \n",
             ">id\nACGT\n>ID\n",
             ">id\nACGT\n>ID\nACGT ",
@@ -229,7 +244,7 @@ mod tests {
             // Per record
             let result = Reader::new(std::io::Cursor::new(content)).and_then(|mut x| {
                 let mut record = Record::default();
-                while x.read_record(&mut record)?.is_some() {}
+                while x.read(&mut record)? {}
                 Ok::<(), Report>(())
             });
 
@@ -250,6 +265,7 @@ mod tests {
     fn test_valid_fasta() {
         for (content, records) in [
             (">id\nACGT\n", vec![("id", "ACGT")]),
+            (">id\n\nACGT\n\n", vec![("id", "ACGT")]),
             (
                 ">id\nACGT\n>id2\nACGT\n",
                 vec![("id", "ACGT"), ("id2", "ACGT")],
@@ -282,14 +298,12 @@ mod tests {
         ];
 
         for fname in ["example.fa", "example.fa.gz"] {
-            let file = PathBuf::from(env!("BIOBIT_RESOURCES"))
+            let path = PathBuf::from(env!("BIOBIT_RESOURCES"))
                 .join("fasta")
                 .join(fname);
-            let read = compression::read_file(&file)?.box_read();
-            test_read_record(read, &expected)?;
 
-            let read = compression::read_file(&file)?.box_read();
-            test_read_to_end(read, &expected)?;
+            test_read_record(decode::infer_from_path(&path)?.boxed(), &expected)?;
+            test_read_to_end(decode::infer_from_path(&path)?.boxed(), &expected)?;
         }
 
         Ok(())
