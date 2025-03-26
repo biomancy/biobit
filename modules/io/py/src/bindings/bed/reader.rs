@@ -1,11 +1,14 @@
 use super::record::{PyBed12, PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9};
-use biobit_io_rs::bed::{Bed12, Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Reader, ReaderMutOp};
-use derive_getters::Dissolve;
-use derive_more::{From, Into};
+use biobit_io_rs::bed::{Bed12, Bed3, Bed4, Bed5, Bed6, Bed8, Bed9};
+use biobit_io_rs::compression::decode;
+use biobit_io_rs::ReadRecord;
+use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::path::PathBuf;
+
+pub use biobit_io_rs::bed::Reader;
 
 #[pyclass(name = "Reader")]
 pub struct PyReader {}
@@ -14,43 +17,43 @@ pub struct PyReader {}
 impl PyReader {
     #[staticmethod]
     fn bed3(path: PathBuf) -> Result<PyBed3Reader> {
-        let rs = Reader::<Bed3>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed3>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed3Reader { path, rs })
     }
 
     #[staticmethod]
     fn bed4(path: PathBuf) -> Result<PyBed4Reader> {
-        let rs = Reader::<Bed4>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed4>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed4Reader { path, rs })
     }
 
     #[staticmethod]
     fn bed5(path: PathBuf) -> Result<PyBed5Reader> {
-        let rs = Reader::<Bed5>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed5>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed5Reader { path, rs })
     }
 
     #[staticmethod]
     fn bed6(path: PathBuf) -> Result<PyBed6Reader> {
-        let rs = Reader::<Bed6>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed6>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed6Reader { path, rs })
     }
 
     #[staticmethod]
     fn bed8(path: PathBuf) -> Result<PyBed8Reader> {
-        let rs = Reader::<Bed8>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed8>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed8Reader { path, rs })
     }
 
     #[staticmethod]
     fn bed9(path: PathBuf) -> Result<PyBed9Reader> {
-        let rs = Reader::<Bed9>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed9>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed9Reader { path, rs })
     }
 
     #[staticmethod]
     fn bed12(path: PathBuf) -> Result<PyBed12Reader> {
-        let rs = Reader::<Bed12>::from_path(&path)?;
+        let rs = Reader::from_path::<Bed12>(&path, &decode::Config::infer_from_path(&path))?;
         Ok(PyBed12Reader { path, rs })
     }
 }
@@ -58,10 +61,10 @@ impl PyReader {
 macro_rules! impl_bed_reader {
     ($Reader:ident, $Bed:ident, $PyBed:ident, $Name:literal) => {
         #[pyclass(name = $Name)]
-        #[derive(Dissolve, From, Into)]
+        #[derive(Into)]
         pub struct $Reader {
             pub path: PathBuf,
-            pub rs: Box<dyn ReaderMutOp<$Bed> + Send + Sync + 'static>,
+            pub rs: Box<dyn ReadRecord<Record = $Bed> + Send + Sync + 'static>,
         }
 
         #[pymethods]
@@ -77,10 +80,11 @@ macro_rules! impl_bed_reader {
                     None => Py::new(py, $PyBed::from($Bed::default()))?,
                 };
 
-                let result = self.rs.read_record(&mut into.borrow_mut(py).rs)?;
-                match result {
-                    Some(()) => Ok(Some(into)),
-                    None => Ok(None),
+                let success = self.rs.read_record(&mut into.borrow_mut(py).rs)?;
+                if success {
+                    Ok(Some(into))
+                } else {
+                    Ok(None)
                 }
             }
 

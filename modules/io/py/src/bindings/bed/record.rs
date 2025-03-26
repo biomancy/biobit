@@ -1,7 +1,7 @@
 use biobit_core_py::loc::{Interval, Orientation};
 use biobit_core_py::loc::{IntoPyInterval, IntoPyOrientation, PyInterval, PyOrientation};
 use biobit_core_py::pickle;
-use biobit_io_rs::bed::{
+pub use biobit_io_rs::bed::{
     Bed12, Bed12MutOp, Bed12Op, Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp,
     Bed5Op, Bed6, Bed6MutOp, Bed6Op, Bed8, Bed8MutOp, Bed8Op, Bed9, Bed9MutOp, Bed9Op,
 };

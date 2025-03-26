@@ -1,11 +1,14 @@
 use super::record::*;
-use crate::compression;
+use crate::compression::decode;
+use crate::ReadRecord;
 use biobit_core_rs::loc::{Interval, Orientation};
 use eyre::OptionExt;
 use eyre::{bail, ensure, Context, Result};
-use flate2::read::MultiGzDecoder;
+use flate2::read::{DeflateDecoder, MultiGzDecoder};
+use noodles::bgzf;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::marker::PhantomData;
 use std::path::Path;
 
 pub mod parse {
@@ -203,52 +206,49 @@ pub mod parse {
     }
 }
 
-pub trait ReaderMutOp<Bed> {
-    /// Parse the next BED record into the given buffer.
-    /// Returns None if there are no more records to read.
-    ///
-    /// The read is successful only if the function returns `Ok(Some())`. Otherwise, the buffer is
-    /// left in an unspecified state, but can be reused for the next read.
-    fn read_record(&mut self, into: &mut Bed) -> Result<Option<()>>;
-
-    /// Read the remaining records in the file and place them into the given vector. Returns the
-    /// number of records read.
-    ///
-    /// The function returns an error if there are any issues while reading the file.
-    /// Records outside the ones read are left in an unspecified state but can be reused for the next read.
-    fn read_to_end(&mut self, into: &mut Vec<Bed>) -> Result<usize>;
-}
-
-pub struct Reader<R> {
+pub struct Reader<R, Bed> {
     reader: R,
     buffer: String,
+    _phantom_data: PhantomData<Bed>,
 }
 
-impl<R> Reader<R> {
+impl<R, Bed> Reader<R, Bed> {
     pub fn new(reader: R) -> Result<Self> {
         Ok(Self {
             reader,
             buffer: String::new(),
+            _phantom_data: Default::default(),
         })
     }
+}
 
+impl Reader<(), ()> {
     /// Create a new BED reader from the given file path.
     /// The compression is automatically detected based on the file extension and the internal file signature.
     pub fn from_path<Bed>(
         path: impl AsRef<Path>,
-    ) -> Result<Box<dyn ReaderMutOp<Bed> + Send + Sync + 'static>>
+        compression: &decode::Config,
+    ) -> Result<Box<dyn ReadRecord<Record = Bed> + Send + Sync + 'static>>
     where
-        Reader<BufReader<File>>: ReaderMutOp<Bed> + Send + Sync + 'static,
-        Reader<BufReader<MultiGzDecoder<File>>>: ReaderMutOp<Bed> + Send + Sync + 'static,
+        Bed: Send + Sync + 'static,
+        Reader<BufReader<File>, Bed>: ReadRecord<Record = Bed>,
+        Reader<BufReader<MultiGzDecoder<File>>, Bed>: ReadRecord<Record = Bed>,
+        Reader<BufReader<DeflateDecoder<File>>, Bed>: ReadRecord<Record = Bed>,
+        Reader<BufReader<bgzf::Reader<File>>, Bed>: ReadRecord<Record = Bed>,
+        Reader<BufReader<bgzf::MultithreadedReader<File>>, Bed>: ReadRecord<Record = Bed>,
     {
-        match compression::read_file(path)? {
-            compression::DecompressedStream::PlainText(file) => {
-                Ok(Box::new(Reader::new(BufReader::new(file))?))
-            }
-            compression::DecompressedStream::Gzip(gzip) => {
-                Ok(Box::new(Reader::new(BufReader::new(gzip))?))
-            }
-        }
+        let file = File::open(path.as_ref())?;
+        let slf: Box<dyn ReadRecord<Record = Bed> + Send + Sync + 'static> =
+            match decode::Stream::new(file, compression)? {
+                decode::Stream::Raw(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
+                decode::Stream::Deflate(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
+                decode::Stream::Gzip(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
+                decode::Stream::Bgzf(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
+                decode::Stream::MultithreadedBgzf(x) => {
+                    Box::new(Reader::<_, Bed>::new(BufReader::new(x))?)
+                }
+            };
+        Ok(slf)
     }
 }
 
@@ -257,11 +257,13 @@ macro_rules! impl_reader {
     (($Bed:ident, $parsing:expr), $($tail:tt,)*) => {
         impl_reader!($($tail,)*);
 
-        impl<R: BufRead> ReaderMutOp<$Bed> for Reader<R> {
-            fn read_record(&mut self, into: &mut $Bed) -> Result<Option<()>> {
+        impl<R: BufRead> ReadRecord for Reader<R, $Bed> {
+            type Record = $Bed;
+
+            fn read_record(&mut self, into: &mut $Bed) -> Result<bool> {
                 self.buffer.clear();
                 if self.reader.read_line(&mut self.buffer)? == 0 {
-                    return Ok(None);
+                    return Ok(false);
                 }
 
                 let mut parts = self
@@ -275,7 +277,18 @@ macro_rules! impl_reader {
                     "BED record has too many fields: {}",
                     self.buffer
                 );
-                Ok(Some(()))
+                Ok(true)
+            }
+
+            fn read_records(&mut self, into: &mut [$Bed]) -> Result<usize> {
+                let mut total = 0;
+                for buf in into.iter_mut() {
+                    if !self.read_record(buf)? {
+                        return Ok(total);
+                    }
+                    total += 1;
+                }
+                Ok(total)
             }
 
             fn read_to_end(&mut self, into: &mut Vec<$Bed>) -> Result<usize> {
@@ -283,7 +296,7 @@ macro_rules! impl_reader {
 
                 // Read into the existing buffer
                 for record in into.iter_mut() {
-                    if self.read_record(record)?.is_none() {
+                    if !self.read_record(record)? {
                         return Ok(total);
                     }
                     total += 1;
@@ -292,7 +305,7 @@ macro_rules! impl_reader {
                 // Append to the buffer
                 loop {
                     let mut record = $Bed::default();
-                    if self.read_record(&mut record)?.is_none() {
+                    if !self.read_record(&mut record)? {
                         return Ok(total);
                     }
                     into.push(record);
@@ -335,16 +348,16 @@ mod test {
                     .join("\n");
 
                 // Record-by-record
-                let mut reader = Reader::new(Cursor::new(_lines.clone()))?;
+                let mut reader = Reader::<_, $BedX>::new(Cursor::new(_lines.clone()))?;
                 let mut record = $BedX::default();
                 for expected in expected.iter() {
-                    reader.read_record(&mut record)?;
+                    assert!(reader.read_record(&mut record)?);
                     assert_eq!(&record, &expected.clone().into());
                 }
-                assert!(reader.read_record(&mut record)?.is_none());
+                assert!(!reader.read_record(&mut record)?);
 
                 // Read to end
-                let mut reader = Reader::new(Cursor::new(_lines))?;
+                let mut reader = Reader::<_, $BedX>::new(Cursor::new(_lines))?;
                 let mut records = Vec::<$BedX>::new();
                 reader.read_to_end(&mut records)?;
                 assert_eq!(records.len(), expected.len());
@@ -474,11 +487,12 @@ mod test {
 
             // Directly test the file
             let mut buffer: Vec<Bed12> = Vec::new();
-            Reader::<Bed12>::from_path(&file)?.read_to_end(&mut buffer)?;
+            Reader::from_path(&file, &decode::Config::infer_from_path(&file))?
+                .read_to_end(&mut buffer)?;
             assert_eq!(buffer, expected);
 
             // Test all Bed combinations
-            let read = compression::read_file(&file)?.box_read();
+            let read = decode::infer_from_path(&file)?.boxed();
             test_reader(read, &expected)?;
         }
 

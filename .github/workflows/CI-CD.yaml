@@ -18,18 +18,12 @@ jobs:
       - name: Setup the environment
         uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          pixi-version: v0.41.3
+          pixi-version: v0.43.3
           environments: "dev"
           cache: false
           activate-environment: true
-      - name: Rust format check
-        run: cargo fmt --all -- --check
-      - name: Rust cargo check
-        run: cargo check
-      - name: Rust clippy
-        run: cargo clippy
-      - name: Run rust tests
-        run: cargo test --all-features
+      - name: Rust CI checks
+        run: pixi run -e dev rs-ci
 
   python:
     name: Python CI
@@ -44,20 +38,12 @@ jobs:
       - name: Setup the environment
         uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          pixi-version: v0.41.3
+          pixi-version: v0.43.3
           environments: ${{ matrix.python }}
           cache: false
           activate-environment: true
-      - name: Python code style & linting
-        run: ruff check
-      - name: Build the library
-        run: |
-          cd biobit/py
-          maturin develop
-      - name: Mypy type checks
-        run: mypy --config-file biobit/py/pyproject.toml biobit/py
-      - name: Tests
-        run: pytest -x biobit/py
+      - name: Python CI checks
+        run: pixi run -e ${{ matrix.python }} ci
 
   linux-wheels:
     name: Build python wheels [Linux]

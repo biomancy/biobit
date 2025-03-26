@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from biobit.io.fasta import Record, Reader, IndexedReader
+from biobit.io.fasta import Record, Reader, IndexedReader, Writer
 
 RESOURCES = Path(os.environ['BIOBIT_RESOURCES']) / "fasta"
 
@@ -62,7 +62,7 @@ def test_fasta_reader():
         assert reader.read_to_end() == expected
 
 
-@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.gz"])
+@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
 def test_indexed_fasta_reader(path):
     path = RESOURCES / path
 
@@ -85,3 +85,21 @@ def test_indexed_fasta_reader(path):
         for start, end in [(10, 2_000), (-1, 1), (10, len(seq) + 1)]:
             with pytest.raises(Exception):
                 reader.fetch(id, (start, end))
+
+
+@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
+def test_fasta_writer(path, tmp_path: Path):
+    path = RESOURCES / path
+    saveto = tmp_path / "output.fa"
+
+    allrecords = Reader(path).read_to_end()
+
+    with Writer(saveto, line_width=60) as writer:
+        for record in allrecords:
+            writer.write_record(record)
+    assert Reader(saveto).read_to_end() == allrecords
+    saveto.unlink()
+
+    with Writer(saveto, line_width=120) as writer:
+        writer.write_records(allrecords)
+    assert Reader(saveto).read_to_end() == allrecords

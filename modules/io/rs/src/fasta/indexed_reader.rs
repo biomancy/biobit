@@ -1,11 +1,11 @@
-use crate::compression;
-use crate::compression::DecompressedStream;
+use crate::compression::decode;
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::{Dissolve, Getters};
 use eyre::{ensure, eyre, Context, Result};
 use impl_tools::autoimpl;
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::{BufRead, Read, Seek};
 use std::path::Path;
 
@@ -32,9 +32,10 @@ pub struct IndexedReader<R> {
     index: HashMap<String, usize>, // Map from reference sequence ID to its index in the vectors above
 }
 
-impl<R> IndexedReader<R> {
+impl IndexedReader<()> {
     pub fn from_path(
         fasta: impl AsRef<Path>,
+        compression: &decode::Config,
     ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
         let mut path = fasta.as_ref().to_owned();
         let fname = path
@@ -42,24 +43,38 @@ impl<R> IndexedReader<R> {
             .and_then(|x| x.to_str())
             .unwrap_or_default()
             .to_string();
-        let file = compression::read_file(&path)?;
+        let file = decode::Stream::new(File::open(&path)?, compression)?;
 
         path.set_file_name(format!("{fname}.fai"));
         ensure!(path.exists(), "fai index does not exist: {:?}", path);
-        let fai = std::io::BufReader::new(std::fs::File::open(&path)?);
+        let fai = std::io::BufReader::new(File::open(&path)?);
 
         let boxed: Box<dyn IndexedReaderMutOp + Send + Sync + 'static> = match file {
-            DecompressedStream::PlainText(fasta) => Box::new(IndexedReader::new(fasta, fai)?),
-            DecompressedStream::Gzip(_) => {
+            decode::Stream::Raw(fasta) => Box::new(IndexedReader::new(fasta, fai)?),
+            decode::Stream::Bgzf(fasta) => {
                 path.set_file_name(format!("{fname}.gzi"));
                 ensure!(path.exists(), "gzi index does not exist: {:?}", path);
                 let gzi = noodles::bgzf::gzi::fs::read(&path)?;
 
-                let reader = noodles::bgzf::indexed_reader::IndexedReader::new(
-                    std::fs::File::open(fasta.as_ref())?,
-                    gzi,
-                );
+                let reader =
+                    noodles::bgzf::indexed_reader::IndexedReader::new(fasta.into_inner(), gzi);
                 Box::new(IndexedReader::new(reader, fai)?)
+            }
+            decode::Stream::MultithreadedBgzf(mut fasta) => {
+                path.set_file_name(format!("{fname}.gzi"));
+                ensure!(path.exists(), "gzi index does not exist: {:?}", path);
+                let gzi = noodles::bgzf::gzi::fs::read(&path)?;
+
+                let reader =
+                    noodles::bgzf::indexed_reader::IndexedReader::new(fasta.finish()?, gzi);
+                Box::new(IndexedReader::new(reader, fai)?)
+            }
+            _ => {
+                return Err(eyre!(
+                    "Unsupported compression {:?} for an Indexed FASTA file: {}",
+                    compression,
+                    path.display()
+                ))
             }
         };
 
@@ -510,11 +525,14 @@ mod tests {
             Ok(())
         }
 
-        for path in ["indexed.fa", "indexed.fa.gz"] {
+        for path in ["indexed.fa", "indexed.fa.bgz"] {
             let path = PathBuf::from(env!("BIOBIT_RESOURCES"))
                 .join("fasta")
                 .join(path);
-            test(IndexedReader::<()>::from_path(path)?)?
+            test(IndexedReader::from_path(
+                &path,
+                &decode::Config::infer_from_path(&path),
+            )?)?
         }
 
         Ok(())
