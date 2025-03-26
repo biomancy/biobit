@@ -1,6 +1,8 @@
 use biobit_core_py::utils::ImportablePyModuleBuilder;
 use pyo3::prelude::*;
 
+pub use biobit_io_rs::{ReadRecord, WriteRecord};
+
 pub mod bam;
 pub mod bed;
 pub mod fasta;

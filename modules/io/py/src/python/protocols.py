@@ -1,0 +1,9 @@
+from typing import Protocol, Iterator
+
+
+class ReadRecord[T](Protocol):
+    def read_record(self, into: T | None = None) -> T: ...
+
+    def read_to_end(self) -> list[T]: ...
+
+    def __iter__(self) -> Iterator[T]: ...

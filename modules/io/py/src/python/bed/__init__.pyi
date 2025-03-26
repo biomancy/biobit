@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from biobit.core.loc import IntoInterval, Interval, IntoOrientation, Orientation
+from biobit.io.protocols import ReadRecord
 
 
 class Bed3:
@@ -203,7 +204,7 @@ class Bed12:
     ): ...
 
 
-class Reader[T]:
+class Reader[T](ReadRecord[T]):
     @staticmethod
     def bed3(path: str | Path) -> Reader[Bed3]: ...
 

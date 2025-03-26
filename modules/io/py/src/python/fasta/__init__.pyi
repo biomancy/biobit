@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from biobit.core.loc import IntoInterval
+from biobit.io.protocols import ReadRecord
 
 
 class Record:
@@ -10,7 +11,7 @@ class Record:
     def __init__(self, id: str, seq: str): ...
 
 
-class Reader:
+class Reader(ReadRecord[Record]):
     def __init__(self, path: str | Path): ...
 
     def read_record(self, into: Record | None = None) -> Record: ...

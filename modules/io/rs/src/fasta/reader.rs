@@ -145,11 +145,11 @@ impl<R: BufRead> ReadRecord for Reader<R> {
     ///
     /// The read is successful only if the function returns `Ok(Some())`.
     /// Otherwise, the buffer is left in an unspecified state, but can be reused for the next read.
-    fn read(&mut self, buf: &mut Self::Record) -> Result<bool> {
+    fn read_record(&mut self, buf: &mut Self::Record) -> Result<bool> {
         self.read_parts(buf)
     }
 
-    fn read_vectored(&mut self, bufs: &mut [Self::Record]) -> Result<usize> {
+    fn read_records(&mut self, bufs: &mut [Self::Record]) -> Result<usize> {
         let mut n = 0;
         for buf in bufs {
             if self.read_parts(buf)? {
@@ -171,7 +171,7 @@ impl<R: BufRead> ReadRecord for Reader<R> {
 
         // Read into the existing buffer
         for record in into.iter_mut() {
-            if !self.read(record)? {
+            if !self.read_record(record)? {
                 return Ok(total);
             }
             total += 1;
@@ -180,7 +180,7 @@ impl<R: BufRead> ReadRecord for Reader<R> {
         // Append to the buffer
         loop {
             let mut record = Record::default();
-            if !self.read(&mut record)? {
+            if !self.read_record(&mut record)? {
                 return Ok(total);
             }
             into.push(record);
@@ -201,10 +201,10 @@ mod tests {
         let mut reader = Reader::new(std::io::BufReader::new(content))?;
         let mut record = Record::default();
         for (id, seq) in expected {
-            assert!(reader.read(&mut record)?);
+            assert!(reader.read_record(&mut record)?);
             assert_eq!(record, (*id, *seq).try_into()?);
         }
-        assert!(!reader.read(&mut record)?);
+        assert!(!reader.read_record(&mut record)?);
 
         Ok(())
     }
@@ -244,7 +244,7 @@ mod tests {
             // Per record
             let result = Reader::new(std::io::Cursor::new(content)).and_then(|mut x| {
                 let mut record = Record::default();
-                while x.read(&mut record)? {}
+                while x.read_record(&mut record)? {}
                 Ok::<(), Report>(())
             });
 

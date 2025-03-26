@@ -8,7 +8,7 @@ pub use record::{PyBed12, PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9};
 
 pub use reader::{PyBed3Reader, PyReader};
 
-pub use biobit_io_rs::bed::{Reader, ReaderMutOp};
+pub use biobit_io_rs::bed::Reader;
 
 use crate::bed::reader::{
     PyBed12Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader, PyBed9Reader,

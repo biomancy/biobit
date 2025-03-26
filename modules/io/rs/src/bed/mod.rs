@@ -25,7 +25,7 @@ mod reader;
 mod record;
 pub mod validate;
 
-pub use reader::{Reader, ReaderMutOp};
+pub use reader::Reader;
 
 pub use record::{
     Bed12, Bed12MutOp, Bed12Op, Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp,

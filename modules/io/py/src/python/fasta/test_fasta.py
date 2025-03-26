@@ -62,7 +62,7 @@ def test_fasta_reader():
         assert reader.read_to_end() == expected
 
 
-@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.gz"])
+@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
 def test_indexed_fasta_reader(path):
     path = RESOURCES / path
 

@@ -1,10 +1,9 @@
 use biobit_core_py::loc::{IntervalOp, IntoPyInterval};
 use biobit_core_py::pickle;
 use biobit_core_py::utils::ImportablePyModuleBuilder;
-use biobit_io_rs::compression;
-pub use biobit_io_rs::fasta::{
-    IndexedReader, IndexedReaderMutOp, Reader, ReaderMutOp, Record, RecordMutOp,
-};
+use biobit_io_rs::compression::decode;
+pub use biobit_io_rs::fasta::{IndexedReader, IndexedReaderMutOp, Reader, Record, RecordMutOp};
+use biobit_io_rs::ReadRecord;
 use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
@@ -92,16 +91,14 @@ impl PyRecord {
 #[derive(Dissolve, From, Into)]
 pub struct PyReader {
     pub path: PathBuf,
-    pub rs: Reader<Box<dyn std::io::BufRead + Send + Sync>>,
+    pub rs: Box<dyn ReadRecord<Record = Record> + Send + Sync + 'static>,
 }
 
 #[pymethods]
 impl PyReader {
     #[new]
     fn new(path: PathBuf) -> Result<Self> {
-        let bufread = compression::read_file(&path)?.box_bufread();
-        let rs = Reader::new(bufread)?;
-
+        let rs = Reader::from_path(path.clone(), &decode::Config::infer_from_path(&path))?;
         Ok(Self { path, rs })
     }
 
@@ -115,11 +112,10 @@ impl PyReader {
             Some(into) => into,
             None => Py::new(py, PyRecord::from(Record::default()))?,
         };
-
-        let result = self.rs.read_record(&mut into.borrow_mut(py).rs)?;
-        match result {
-            Some(()) => Ok(Some(into)),
-            None => Ok(None),
+        if self.rs.read_record(&mut into.borrow_mut(py).rs)? {
+            Ok(Some(into))
+        } else {
+            Ok(None)
         }
     }
 
@@ -151,8 +147,7 @@ pub struct PyIndexedReader {
 impl PyIndexedReader {
     #[new]
     fn new(path: PathBuf) -> Result<Self> {
-        let rs = IndexedReader::<()>::from_path(&path)?;
-
+        let rs = IndexedReader::from_path(&path, &decode::Config::infer_from_path(&path))?;
         Ok(Self { path, rs })
     }
 
