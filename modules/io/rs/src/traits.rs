@@ -24,11 +24,11 @@ pub trait WriteRecord {
     type Record;
 
     /// Write a single record.
-    fn write(&mut self, record: &Self::Record) -> Result<()>;
+    fn write_record(&mut self, record: &Self::Record) -> Result<()>;
 
     /// Write a slice of records. Returns the number of records written, which could be less than
     /// the length of the slice if an error occurs.
-    fn write_vectored(&mut self, records: &[&[Self::Record]]) -> Result<usize>;
+    fn write_records(&mut self, records: &[Self::Record]) -> Result<usize>;
 
     /// Flush the output.
     fn flush(&mut self) -> Result<()>;

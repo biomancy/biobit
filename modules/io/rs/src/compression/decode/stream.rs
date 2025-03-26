@@ -42,3 +42,15 @@ impl<R: Read + Send + Sync + 'static> Stream<R> {
         }
     }
 }
+
+impl<R: Read + Send + Sync + 'static> Read for Stream<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Stream::Raw(r) => r.read(buf),
+            Stream::Deflate(r) => r.read(buf),
+            Stream::Gzip(r) => r.read(buf),
+            Stream::Bgzf(r) => r.read(buf),
+            Stream::MultithreadedBgzf(r) => r.read(buf),
+        }
+    }
+}
