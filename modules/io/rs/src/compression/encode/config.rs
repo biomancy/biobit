@@ -1,7 +1,7 @@
-use std::path::Path;
 use super::algorithm::Algorithm;
 use super::params;
 use bitcode::{Decode, Encode};
+use std::path::Path;
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -19,7 +19,7 @@ impl Default for Config {
 
 impl Config {
     pub const UNCOMPRESSED: Config = Config::RawBytes(Algorithm::None);
-    
+
     pub fn infer_from_path(path: impl AsRef<Path>) -> Self {
         path.as_ref()
             .extension()
