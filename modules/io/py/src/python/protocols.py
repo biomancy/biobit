@@ -1,4 +1,5 @@
-from typing import Protocol, Iterator
+from types import TracebackType
+from typing import Protocol, Iterator, Iterable, Self
 
 
 class ReadRecord[T](Protocol):
@@ -7,3 +8,16 @@ class ReadRecord[T](Protocol):
     def read_to_end(self) -> list[T]: ...
 
     def __iter__(self) -> Iterator[T]: ...
+
+
+class WriteRecord[T](Protocol):
+    def write_record(self, record: T): ...
+
+    def write_records(self, records: Iterable[T]): ...
+
+    def flush(self): ...
+
+    def __enter__(self) -> Self: ...
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
+                 exc_tb: TracebackType | None): ...

@@ -1,7 +1,9 @@
 from pathlib import Path
+from types import TracebackType
+from typing import Iterable
 
 from biobit.core.loc import IntoInterval, Interval, IntoOrientation, Orientation
-from biobit.io.protocols import ReadRecord
+from biobit.io.protocols import ReadRecord, WriteRecord
 
 
 class Bed3:
@@ -235,3 +237,37 @@ class Reader[T](ReadRecord[T]):
     def __next__(self) -> T: ...
 
     __hash__ = None  # type: ignore
+
+
+class Writer[T](WriteRecord[T]):
+    @staticmethod
+    def bed3(path: Path) -> Writer[Bed3]: ...
+
+    @staticmethod
+    def bed4(path: Path) -> Writer[Bed4]: ...
+
+    @staticmethod
+    def bed5(path: Path) -> Writer[Bed5]: ...
+
+    @staticmethod
+    def bed6(path: Path) -> Writer[Bed6]: ...
+
+    @staticmethod
+    def bed8(path: Path) -> Writer[Bed8]: ...
+
+    @staticmethod
+    def bed9(path: Path) -> Writer[Bed9]: ...
+
+    @staticmethod
+    def bed12(path: Path) -> Writer[Bed12]: ...
+
+    def write_record(self, record: T): ...
+
+    def write_records(self, records: Iterable[T]): ...
+
+    def flush(self): ...
+
+    def __enter__(self) -> Writer: ...
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
+                 exc_tb: TracebackType | None): ...

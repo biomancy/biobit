@@ -56,15 +56,6 @@ impl<W: Write> WriteRecord for Writer<W> {
             })
     }
 
-    fn write_records(&mut self, records: &[Self::Record]) -> Result<usize> {
-        let mut count = 0;
-        for record in records {
-            self.write_record(record)?;
-            count += 1;
-        }
-        Ok(count)
-    }
-
     fn flush(&mut self) -> Result<()> {
         self.writer.flush()?;
         Ok(())
@@ -81,7 +72,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_fasta_reader_preserves_content() -> Result<()> {
+    fn test_fasta_writer_preserves_content() -> Result<()> {
         let line_width = NonZeroUsize::new(60).unwrap();
         for fname in ["indexed.fa", "indexed.fa.bgz"] {
             let path = PathBuf::from(env!("BIOBIT_RESOURCES"))

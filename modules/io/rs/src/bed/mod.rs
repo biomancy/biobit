@@ -24,6 +24,7 @@
 mod reader;
 mod record;
 pub mod validate;
+mod writer;
 
 pub use reader::Reader;
 
@@ -31,3 +32,5 @@ pub use record::{
     Bed12, Bed12MutOp, Bed12Op, Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp,
     Bed5Op, Bed6, Bed6MutOp, Bed6Op, Bed8, Bed8MutOp, Bed8Op, Bed9, Bed9MutOp, Bed9Op,
 };
+
+pub use writer::Writer;

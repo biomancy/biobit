@@ -28,7 +28,12 @@ pub trait WriteRecord {
 
     /// Write a slice of records. Returns the number of records written, which could be less than
     /// the length of the slice if an error occurs.
-    fn write_records(&mut self, records: &[Self::Record]) -> Result<usize>;
+    fn write_records(&mut self, records: &[Self::Record]) -> Result<()> {
+        for record in records {
+            self.write_record(record)?;
+        }
+        Ok(())
+    }
 
     /// Flush the output.
     fn flush(&mut self) -> Result<()>;

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from biobit.core.loc import IntoInterval, IntoOrientation, Orientation, Interval
-from biobit.io.bed import Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, Reader
+from biobit.io.bed import Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, Reader, Writer
 from biobit.test_utils import ensure_pickable
 
 RESOURCES = Path(os.environ['BIOBIT_RESOURCES']) / "bed"
@@ -206,3 +206,21 @@ def test_bed_reader():
 
         reader = Reader.bed12(RESOURCES / file)
         assert reader.read_to_end() == expected
+
+
+@pytest.mark.parametrize("path", ["example.bed", "example.bed.gz"])
+def test_bed_writer(path, tmp_path: Path):
+    path = RESOURCES / path
+    saveto = tmp_path / "output.bed"
+
+    allrecords = Reader.bed12(path).read_to_end()
+
+    with Writer.bed12(saveto) as writer:
+        for record in allrecords:
+            writer.write_record(record)
+    assert Reader.bed12(saveto).read_to_end() == allrecords
+    saveto.unlink()
+
+    with Writer.bed12(saveto) as writer:
+        writer.write_records(allrecords)
+    assert Reader.bed12(saveto).read_to_end() == allrecords

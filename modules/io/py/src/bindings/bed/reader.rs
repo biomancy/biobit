@@ -1,13 +1,14 @@
 use super::record::{PyBed12, PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9};
-use biobit_io_rs::bed::{Bed12, Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Reader};
+use biobit_io_rs::bed::{Bed12, Bed3, Bed4, Bed5, Bed6, Bed8, Bed9};
 use biobit_io_rs::compression::decode;
 use biobit_io_rs::ReadRecord;
-use derive_getters::Dissolve;
-use derive_more::{From, Into};
+use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::path::PathBuf;
+
+pub use biobit_io_rs::bed::Reader;
 
 #[pyclass(name = "Reader")]
 pub struct PyReader {}
@@ -60,7 +61,7 @@ impl PyReader {
 macro_rules! impl_bed_reader {
     ($Reader:ident, $Bed:ident, $PyBed:ident, $Name:literal) => {
         #[pyclass(name = $Name)]
-        #[derive(Dissolve, From, Into)]
+        #[derive(Into)]
         pub struct $Reader {
             pub path: PathBuf,
             pub rs: Box<dyn ReadRecord<Record = $Bed> + Send + Sync + 'static>,

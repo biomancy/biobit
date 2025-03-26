@@ -3,7 +3,7 @@ from types import TracebackType
 from typing import Iterable
 
 from biobit.core.loc import IntoInterval
-from biobit.io.protocols import ReadRecord
+from biobit.io.protocols import ReadRecord, WriteRecord
 
 
 class Record:
@@ -40,7 +40,7 @@ class IndexedReader:
     __hash__ = None  # type: ignore
 
 
-class Writer:
+class Writer(WriteRecord[Record]):
     def __init__(self, path: Path, line_width: int | None = None): ...
 
     def write_record(self, record: Record): ...
