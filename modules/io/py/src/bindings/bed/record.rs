@@ -1,3 +1,11 @@
+use super::reader::{
+    PyBed12Reader, PyBed3Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader,
+    PyBed9Reader,
+};
+use super::writer::{
+    PyBed12Writer, PyBed3Writer, PyBed4Writer, PyBed5Writer, PyBed6Writer, PyBed8Writer,
+    PyBed9Writer,
+};
 use biobit_core_py::loc::{Interval, Orientation};
 use biobit_core_py::loc::{IntoPyInterval, IntoPyOrientation, PyInterval, PyOrientation};
 use biobit_core_py::pickle;
@@ -13,6 +21,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::PyTypeInfo;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::path::PathBuf;
 
 const U64_TO_I64_CAST_ERROR: &str =
     "Failed to cast u64 used in the BED format to i64 used in Python intervals";
@@ -230,6 +239,7 @@ macro_rules! impl_pybed {
                     }
                 }
 
+                // Expand the getter and setter methods
                 $(
                     #[getter]
                     $pyget
@@ -237,6 +247,16 @@ macro_rules! impl_pybed {
                     #[setter]
                     $pyset
                 )+
+
+                #[staticmethod]
+                fn writer(path: PathBuf) -> Result<paste!{ [<$Bed Writer>] }> {
+                    paste!{ [<$Bed Writer>]::new(path) }
+                }
+
+                #[staticmethod]
+                fn reader(path: PathBuf) -> Result<paste!{ [<$Bed Reader>] }> {
+                    paste!{ [<$Bed Reader>]::new(path) }
+                }
 
 
                 #[pyo3(signature = ($($field=None, )+))]

@@ -6,7 +6,7 @@ use biobit_io_rs::compression::encode;
 use biobit_io_rs::fasta::Record;
 use biobit_io_rs::WriteRecord;
 use derive_more::Into;
-use eyre::Result;
+use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
 use std::path::PathBuf;
 
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 #[derive(Into)]
 pub struct PyWriter {
     path: PathBuf,
-    rs: Box<dyn WriteRecord<Record = Record> + Send + Sync + 'static>,
+    rs: Option<Box<dyn WriteRecord<Record = Record> + Send + Sync + 'static>>,
 }
 
 #[pymethods]
@@ -23,29 +23,51 @@ impl PyWriter {
     #[pyo3(signature = (path, line_width = None))]
     pub fn new(path: PathBuf, line_width: Option<NonZeroUsize>) -> Result<Self> {
         let line_width = line_width.unwrap_or(DEFAULT_LINE_WIDTH);
-        let rs = Writer::from_path(
+        let rs = Some(Writer::from_path(
             path.clone(),
             &encode::Config::infer_from_path(&path),
             line_width,
-        )?;
+        )?);
         Ok(Self { path, rs })
     }
 
-    pub fn write_record(&mut self, record: &PyRecord) -> Result<()> {
-        self.rs.write_record(&record.rs)
+    pub fn write_record<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        record: &PyRecord,
+    ) -> Result<PyRefMut<'a, Self>> {
+        slf.rs
+            .as_mut()
+            .ok_or_eyre("Writing to a closed writer")?
+            .write_record(&record.rs)?;
+        Ok(slf)
     }
 
-    pub fn write_records(&mut self, py: Python, records: Py<PyAny>) -> Result<()> {
+    pub fn write_records<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        py: Python<'_>,
+        records: Py<PyAny>,
+    ) -> Result<PyRefMut<'a, Self>> {
+        let rs = slf.rs.as_mut().ok_or_eyre("Writing to a closed writer")?;
         for record in records.bind(py).try_iter()? {
             let record = record?;
             let record = record.extract::<PyRecord>()?;
-            self.rs.write_record(&record.rs)?;
+            rs.write_record(&record.rs)?;
         }
-        Ok(())
+        Ok(slf)
     }
 
-    pub fn flush(&mut self) -> Result<()> {
-        self.rs.flush()
+    pub fn flush(mut slf: PyRefMut<Self>) -> Result<PyRefMut<Self>> {
+        slf.rs
+            .as_mut()
+            .ok_or_eyre("Writing to a closed writer")?
+            .flush()?;
+        Ok(slf)
+    }
+
+    pub fn close(mut slf: PyRefMut<Self>) -> Result<()> {
+        let rs = slf.rs.take().ok_or_eyre("Writing to a closed writer")?;
+        drop(rs);
+        Ok(())
     }
 
     fn __enter__(slf: PyRefMut<Self>) -> PyRefMut<Self> {
@@ -53,11 +75,12 @@ impl PyWriter {
     }
 
     fn __exit__(
-        mut slf: PyRefMut<Self>,
+        slf: PyRefMut<Self>,
         _exc_type: PyObject,
         _exc_value: PyObject,
         _traceback: PyObject,
     ) -> Result<()> {
-        slf.flush()
+        Self::close(slf)?;
+        Ok(())
     }
 }

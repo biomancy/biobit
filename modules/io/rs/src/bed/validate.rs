@@ -10,8 +10,9 @@ pub fn seqid(s: &str) -> Result<()> {
 
     for c in s.chars() {
         ensure!(
-            c.is_alphanumeric() || c == '_',
-            "BED seqid can only contain alphanumeric characters and underscores"
+            !c.is_ascii_whitespace(),
+            "BED seqid can only contain non-whitespace ASCII characters, got: {}",
+            s
         );
     }
 

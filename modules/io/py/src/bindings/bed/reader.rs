@@ -69,8 +69,14 @@ macro_rules! impl_bed_reader {
 
         #[pymethods]
         impl $Reader {
+            #[new]
+            pub fn new(path: PathBuf) -> Result<Self> {
+                let rs = Reader::from_path::<$Bed>(&path, &decode::Config::infer_from_path(&path))?;
+                Ok(Self { path, rs })
+            }
+
             #[pyo3(signature = (into=None))]
-            fn read_record(
+            pub fn read_record(
                 &mut self,
                 py: Python,
                 into: Option<Py<$PyBed>>,
@@ -88,7 +94,7 @@ macro_rules! impl_bed_reader {
                 }
             }
 
-            fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
+            pub fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
                 let mut result = Vec::new();
                 self.rs.read_to_end(&mut result)?;
 
@@ -98,11 +104,11 @@ macro_rules! impl_bed_reader {
                 })
             }
 
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+            pub fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
                 slf
             }
 
-            fn __next__(&mut self, py: Python) -> Result<Option<Py<$PyBed>>> {
+            pub fn __next__(&mut self, py: Python) -> Result<Option<Py<$PyBed>>> {
                 self.read_record(py, None)
             }
         }

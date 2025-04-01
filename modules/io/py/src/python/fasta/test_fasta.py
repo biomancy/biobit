@@ -100,6 +100,10 @@ def test_fasta_writer(path, tmp_path: Path):
     assert Reader(saveto).read_to_end() == allrecords
     saveto.unlink()
 
+    # Check that the file is closed
+    with pytest.raises(Exception):
+        writer.flush()
+
     with Writer(saveto, line_width=120) as writer:
         writer.write_records(allrecords)
     assert Reader(saveto).read_to_end() == allrecords
