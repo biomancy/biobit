@@ -15,65 +15,79 @@ pub struct PyWriter {}
 #[pymethods]
 impl PyWriter {
     #[staticmethod]
-    fn bed3(path: PathBuf) -> Result<PyBed3Writer> {
-        let rs = Some(Writer::from_path::<Bed3>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed3(path: PathBuf, compression: Option<&str>) -> Result<PyBed3Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed3>(&path, &config)?);
         Ok(PyBed3Writer { path, rs })
     }
 
     #[staticmethod]
-    fn bed4(path: PathBuf) -> Result<PyBed4Writer> {
-        let rs = Some(Writer::from_path::<Bed4>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed4(path: PathBuf, compression: Option<&str>) -> Result<PyBed4Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed4>(&path, &config)?);
         Ok(PyBed4Writer { path, rs })
     }
 
     #[staticmethod]
-    fn bed5(path: PathBuf) -> Result<PyBed5Writer> {
-        let rs = Some(Writer::from_path::<Bed5>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed5(path: PathBuf, compression: Option<&str>) -> Result<PyBed5Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed5>(&path, &config)?);
         Ok(PyBed5Writer { path, rs })
     }
 
     #[staticmethod]
-    fn bed6(path: PathBuf) -> Result<PyBed6Writer> {
-        let rs = Some(Writer::from_path::<Bed6>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed6(path: PathBuf, compression: Option<&str>) -> Result<PyBed6Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed6>(&path, &config)?);
         Ok(PyBed6Writer { path, rs })
     }
 
     #[staticmethod]
-    fn bed8(path: PathBuf) -> Result<PyBed8Writer> {
-        let rs = Some(Writer::from_path::<Bed8>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed8(path: PathBuf, compression: Option<&str>) -> Result<PyBed8Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed8>(&path, &config)?);
         Ok(PyBed8Writer { path, rs })
     }
 
     #[staticmethod]
-    fn bed9(path: PathBuf) -> Result<PyBed9Writer> {
-        let rs = Some(Writer::from_path::<Bed9>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed9(path: PathBuf, compression: Option<&str>) -> Result<PyBed9Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed9>(&path, &config)?);
         Ok(PyBed9Writer { path, rs })
     }
 
     #[staticmethod]
-    fn bed12(path: PathBuf) -> Result<PyBed12Writer> {
-        let rs = Some(Writer::from_path::<Bed12>(
-            &path,
-            &encode::Config::infer_from_path(&path),
-        )?);
+    #[pyo3(signature = (path, compression=None))]
+    fn bed12(path: PathBuf, compression: Option<&str>) -> Result<PyBed12Writer> {
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Some(Writer::from_path::<Bed12>(&path, &config)?);
         Ok(PyBed12Writer { path, rs })
     }
 }
@@ -90,11 +104,13 @@ macro_rules! impl_bed_writer {
         #[pymethods]
         impl $Writer {
             #[new]
-            pub fn new(path: PathBuf) -> Result<Self> {
-                let rs = Some(Writer::from_path::<$Bed>(
-                    path.clone(),
-                    &encode::Config::infer_from_path(&path),
-                )?);
+            #[pyo3(signature = (path, compression=None))]
+            pub fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
+                let config = match compression {
+                    None => encode::Config::infer_from_path(&path),
+                    Some(x) => encode::Config::infer_from_nickname(x)?,
+                };
+                let rs = Some(Writer::from_path::<$Bed>(path.clone(), &config)?);
                 Ok(Self { path, rs })
             }
 

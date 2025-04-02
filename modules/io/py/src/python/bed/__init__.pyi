@@ -3,13 +3,16 @@ from types import TracebackType
 from typing import Iterable, Self
 
 from biobit.core.loc import IntoInterval, Interval, IntoOrientation, Orientation
-from biobit.io.protocols import ReadRecord, WriteRecord
+from biobit.io.protocols import ReadRecord, WriteRecord, IntoDecoding, IntoEncoding
 
 type AnyBed = Bed3 | Bed4 | Bed5 | Bed6 | Bed8 | Bed9 | Bed12
 
 
 class Bed3:
     seqid: str
+
+    Reader: type[Reader[Bed3]]
+    Writer: type[Writer[Bed3]]
 
     def __init__(self, seqid: str, interval: IntoInterval): ...
 
@@ -24,16 +27,13 @@ class Bed3:
 
     def set(self, seqid: str | None = None, interval: IntoInterval | None = None): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed3]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed3]: ...
-
 
 class Bed4:
     seqid: str
     name: str
+
+    Reader: type[Reader[Bed4]]
+    Writer: type[Writer[Bed4]]
 
     def __init__(self, seqid: str, interval: IntoInterval, name: str): ...
 
@@ -48,17 +48,14 @@ class Bed4:
 
     def set(self, seqid: str | None = None, interval: IntoInterval | None = None, name: str | None = None): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed4]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed4]: ...
-
 
 class Bed5:
     seqid: str
     name: str
     score: int
+
+    Reader: type[Reader[Bed5]]
+    Writer: type[Writer[Bed5]]
 
     def __init__(self, seqid: str, interval: IntoInterval, name: str, score: int): ...
 
@@ -76,17 +73,14 @@ class Bed5:
             score: int | None = None
     ): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed5]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed5]: ...
-
 
 class Bed6:
     seqid: str
     name: str
     score: int
+
+    Reader: type[Reader[Bed6]]
+    Writer: type[Writer[Bed6]]
 
     def __init__(self, seqid: str, interval: IntoInterval, name: str, score: int, orientation: IntoOrientation): ...
 
@@ -110,20 +104,17 @@ class Bed6:
             score: int | None = None, orientation: IntoOrientation | None = None
     ): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed6]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed6]: ...
-
 
 class Bed8:
     seqid: str
     name: str
     score: int
 
+    Reader: type[Reader[Bed8]]
+    Writer: type[Writer[Bed8]]
+
     def __init__(self, seqid: str, interval: IntoInterval, name: str, score: int, orientation: IntoOrientation,
-                 thick: IntoOrientation): ...
+                 thick: IntoInterval): ...
 
     @staticmethod
     def default() -> Bed8: ...
@@ -151,12 +142,6 @@ class Bed8:
             score: int | None = None, orientation: IntoOrientation | None = None, thick: IntoInterval | None = None
     ): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed8]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed8]: ...
-
 
 class Bed9:
     seqid: str
@@ -164,8 +149,11 @@ class Bed9:
     score: int
     rgb: tuple[int, int, int]
 
+    Reader: type[Reader[Bed9]]
+    Writer: type[Writer[Bed9]]
+
     def __init__(self, seqid: str, interval: IntoInterval, name: str, score: int, orientation: IntoOrientation,
-                 thick: IntoOrientation, rgb: tuple[int, int, int]): ...
+                 thick: IntoInterval, rgb: tuple[int, int, int]): ...
 
     @staticmethod
     def default() -> Bed9: ...
@@ -194,12 +182,6 @@ class Bed9:
             rgb: tuple[int, int, int] | None = None
     ): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed9]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed9]: ...
-
 
 class Bed12:
     seqid: str
@@ -207,8 +189,11 @@ class Bed12:
     score: int
     rgb: tuple[int, int, int]
 
+    Reader: type[Reader[Bed12]]
+    Writer: type[Writer[Bed12]]
+
     def __init__(self, seqid: str, interval: IntoInterval, name: str, score: int, orientation: IntoOrientation,
-                 thick: IntoOrientation, rgb: tuple[int, int, int], blocks: list[IntoInterval]): ...
+                 thick: IntoInterval, rgb: tuple[int, int, int], blocks: list[IntoInterval]): ...
 
     @staticmethod
     def default() -> Bed12: ...
@@ -243,34 +228,30 @@ class Bed12:
             rgb: tuple[int, int, int] | None = None, blocks: list[IntoInterval] | None = None
     ): ...
 
-    @staticmethod
-    def reader(path: str | Path) -> Reader[Bed12]: ...
-
-    @staticmethod
-    def writer(path: str | Path) -> Writer[Bed12]: ...
-
 
 class Reader[T](ReadRecord[T]):
-    @staticmethod
-    def bed3(path: str | Path) -> Reader[Bed3]: ...
+    def __init__(self, path: str | Path, compression: IntoDecoding | None = None): ...
 
     @staticmethod
-    def bed4(path: str | Path) -> Reader[Bed4]: ...
+    def bed3(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed3]: ...
 
     @staticmethod
-    def bed5(path: str | Path) -> Reader[Bed5]: ...
+    def bed4(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed4]: ...
 
     @staticmethod
-    def bed6(path: str | Path) -> Reader[Bed6]: ...
+    def bed5(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed5]: ...
 
     @staticmethod
-    def bed8(path: str | Path) -> Reader[Bed8]: ...
+    def bed6(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed6]: ...
 
     @staticmethod
-    def bed9(path: str | Path) -> Reader[Bed9]: ...
+    def bed8(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed8]: ...
 
     @staticmethod
-    def bed12(path: str | Path) -> Reader[Bed12]: ...
+    def bed9(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed9]: ...
+
+    @staticmethod
+    def bed12(path: str | Path, compression: IntoDecoding | None = None) -> Reader[Bed12]: ...
 
     def read_record(self, into: T | None = None) -> T: ...
 
@@ -284,26 +265,28 @@ class Reader[T](ReadRecord[T]):
 
 
 class Writer[T](WriteRecord[T]):
-    @staticmethod
-    def bed3(path: Path) -> Writer[Bed3]: ...
+    def __init__(self, path: str | Path, compression: IntoEncoding | None = None): ...
 
     @staticmethod
-    def bed4(path: Path) -> Writer[Bed4]: ...
+    def bed3(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed3]: ...
 
     @staticmethod
-    def bed5(path: Path) -> Writer[Bed5]: ...
+    def bed4(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed4]: ...
 
     @staticmethod
-    def bed6(path: Path) -> Writer[Bed6]: ...
+    def bed5(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed5]: ...
 
     @staticmethod
-    def bed8(path: Path) -> Writer[Bed8]: ...
+    def bed6(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed6]: ...
 
     @staticmethod
-    def bed9(path: Path) -> Writer[Bed9]: ...
+    def bed8(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed8]: ...
 
     @staticmethod
-    def bed12(path: Path) -> Writer[Bed12]: ...
+    def bed9(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed9]: ...
+
+    @staticmethod
+    def bed12(path: str | Path, compression: IntoEncoding | None = None) -> Writer[Bed12]: ...
 
     def write_record(self, record: T) -> Self: ...
 

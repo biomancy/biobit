@@ -225,6 +225,6 @@ def test_bed_writer(path, tmp_path: Path):
     assert Reader.bed12(saveto).read_to_end() == allrecords
     saveto.unlink()
 
-    with Bed12.writer(saveto) as writer:
+    with Bed12.Writer(saveto) as writer:
         writer.write_records(allrecords)
-    assert Bed12.reader(saveto).read_to_end() == allrecords
+    assert Bed12.Reader(saveto).read_to_end() == allrecords

@@ -20,14 +20,19 @@ pub struct PyWriter {
 #[pymethods]
 impl PyWriter {
     #[new]
-    #[pyo3(signature = (path, line_width = None))]
-    pub fn new(path: PathBuf, line_width: Option<NonZeroUsize>) -> Result<Self> {
+    #[pyo3(signature = (path, line_width = None, compression = None))]
+    pub fn new(
+        path: PathBuf,
+        line_width: Option<NonZeroUsize>,
+        compression: Option<&str>,
+    ) -> Result<Self> {
         let line_width = line_width.unwrap_or(DEFAULT_LINE_WIDTH);
-        let rs = Some(Writer::from_path(
-            path.clone(),
-            &encode::Config::infer_from_path(&path),
-            line_width,
-        )?);
+        let config = match compression {
+            None => encode::Config::infer_from_path(&path),
+            Some(x) => encode::Config::infer_from_nickname(x)?,
+        };
+
+        let rs = Some(Writer::from_path(path.clone(), &config, line_width)?);
         Ok(Self { path, rs })
     }
 

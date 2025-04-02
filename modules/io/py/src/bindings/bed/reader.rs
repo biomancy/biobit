@@ -16,45 +16,45 @@ pub struct PyReader {}
 #[pymethods]
 impl PyReader {
     #[staticmethod]
-    fn bed3(path: PathBuf) -> Result<PyBed3Reader> {
-        let rs = Reader::from_path::<Bed3>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed3Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed3(path: PathBuf, compression: Option<&str>) -> Result<PyBed3Reader> {
+        PyBed3Reader::new(path, compression)
     }
 
     #[staticmethod]
-    fn bed4(path: PathBuf) -> Result<PyBed4Reader> {
-        let rs = Reader::from_path::<Bed4>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed4Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed4(path: PathBuf, compression: Option<&str>) -> Result<PyBed4Reader> {
+        PyBed4Reader::new(path, compression)
     }
 
     #[staticmethod]
-    fn bed5(path: PathBuf) -> Result<PyBed5Reader> {
-        let rs = Reader::from_path::<Bed5>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed5Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed5(path: PathBuf, compression: Option<&str>) -> Result<PyBed5Reader> {
+        PyBed5Reader::new(path, compression)
     }
 
     #[staticmethod]
-    fn bed6(path: PathBuf) -> Result<PyBed6Reader> {
-        let rs = Reader::from_path::<Bed6>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed6Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed6(path: PathBuf, compression: Option<&str>) -> Result<PyBed6Reader> {
+        PyBed6Reader::new(path, compression)
     }
 
     #[staticmethod]
-    fn bed8(path: PathBuf) -> Result<PyBed8Reader> {
-        let rs = Reader::from_path::<Bed8>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed8Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed8(path: PathBuf, compression: Option<&str>) -> Result<PyBed8Reader> {
+        PyBed8Reader::new(path, compression)
     }
 
     #[staticmethod]
-    fn bed9(path: PathBuf) -> Result<PyBed9Reader> {
-        let rs = Reader::from_path::<Bed9>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed9Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed9(path: PathBuf, compression: Option<&str>) -> Result<PyBed9Reader> {
+        PyBed9Reader::new(path, compression)
     }
 
     #[staticmethod]
-    fn bed12(path: PathBuf) -> Result<PyBed12Reader> {
-        let rs = Reader::from_path::<Bed12>(&path, &decode::Config::infer_from_path(&path))?;
-        Ok(PyBed12Reader { path, rs })
+    #[pyo3(signature = (path, compression=None))]
+    fn bed12(path: PathBuf, compression: Option<&str>) -> Result<PyBed12Reader> {
+        PyBed12Reader::new(path, compression)
     }
 }
 
@@ -70,8 +70,13 @@ macro_rules! impl_bed_reader {
         #[pymethods]
         impl $Reader {
             #[new]
-            pub fn new(path: PathBuf) -> Result<Self> {
-                let rs = Reader::from_path::<$Bed>(&path, &decode::Config::infer_from_path(&path))?;
+            #[pyo3(signature = (path, compression=None))]
+            pub fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
+                let config = match compression {
+                    None => decode::Config::infer_from_path(&path),
+                    Some(x) => decode::Config::infer_from_nickname(x)?,
+                };
+                let rs = Reader::from_path::<$Bed>(&path, &config)?;
                 Ok(Self { path, rs })
             }
 

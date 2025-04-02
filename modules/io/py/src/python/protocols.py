@@ -1,5 +1,8 @@
 from types import TracebackType
-from typing import Protocol, Iterator, Iterable, Self
+from typing import Protocol, Iterator, Iterable, Self, Literal
+
+type IntoEncoding = Literal["gz", "gzip", "bgz", "bgzip", "bgzf", "raw", "none"]
+type IntoDecoding = Literal["gz", "gzip", "bgz", "bgzip", "bgzf", "raw", "none"]
 
 
 class ReadRecord[T](Protocol):

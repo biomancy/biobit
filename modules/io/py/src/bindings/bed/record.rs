@@ -19,9 +19,9 @@ use eyre::{OptionExt, Result};
 use paste::paste;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use pyo3::types::PyType;
 use pyo3::PyTypeInfo;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::path::PathBuf;
 
 const U64_TO_I64_CAST_ERROR: &str =
     "Failed to cast u64 used in the BED format to i64 used in Python intervals";
@@ -223,6 +223,18 @@ macro_rules! impl_pybed {
 
             #[pymethods]
             impl $Bed {
+                #[classattr]
+                #[allow(non_snake_case)]
+                pub fn Reader(py: Python) -> Py<PyType> {
+                    paste!{ [<$Bed Reader>]::type_object(py).unbind() }
+                }
+
+                #[classattr]
+                #[allow(non_snake_case)]
+                pub fn Writer(py: Python) -> Py<PyType> {
+                    paste!{ [<$Bed Writer>]::type_object(py).unbind() }
+                }
+
                 #[new]
                 #[allow(clippy::too_many_arguments)]
                 fn new(py: Python, $($field: $ftype,)+) -> Result<Self> {
@@ -247,17 +259,6 @@ macro_rules! impl_pybed {
                     #[setter]
                     $pyset
                 )+
-
-                #[staticmethod]
-                fn writer(path: PathBuf) -> Result<paste!{ [<$Bed Writer>] }> {
-                    paste!{ [<$Bed Writer>]::new(path) }
-                }
-
-                #[staticmethod]
-                fn reader(path: PathBuf) -> Result<paste!{ [<$Bed Reader>] }> {
-                    paste!{ [<$Bed Reader>]::new(path) }
-                }
-
 
                 #[pyo3(signature = ($($field=None, )+))]
                 #[allow(clippy::too_many_arguments)]
