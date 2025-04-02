@@ -200,6 +200,46 @@ impl<Idx: PrimInt> Interval<Idx> {
         result
     }
 
+    pub fn overlaps(source: &[Self], with: &mut [Self]) -> Vec<bool> {
+        let n = source.len();
+        let mut result = vec![false; n];
+
+        // Early return for empty inputs
+        if source.is_empty() || with.is_empty() {
+            return result;
+        }
+
+        let mut argsort = (0..source.len()).collect::<Vec<_>>();
+        argsort.sort_by_key(|x| &source[*x]);
+        with.sort();
+
+        let mut rind = 0;
+        for lind in argsort {
+            let liv = &source[lind];
+            // Fast forward the global right index to the first potentially overlapping interval
+            while rind < with.len() && with[rind].end <= liv.start {
+                rind += 1;
+            }
+
+            // If there are no more potentially overlapping intervals, we're done
+            if rind == with.len() {
+                break;
+            }
+
+            // Check for overlaps
+            let mut ind = rind;
+            while ind < with.len() && with[ind].start < liv.end {
+                if liv.intersects(&with[ind]) {
+                    result[lind] = true;
+                    break;
+                }
+                ind += 1;
+            }
+        }
+
+        result
+    }
+
     pub fn merge(intervals: &mut [Self]) -> Vec<Self> {
         // TODO: make it much more efficient and API-friendly. Why do I have union and merge? Can I merge in-place? Can I merge in a single pass? Do I need a separate namespace for this?
         if intervals.is_empty() {
@@ -788,6 +828,9 @@ mod tests {
             let mut right = vec![Interval::new(6, 10).unwrap()];
             let result = Interval::overlap(&mut left, &mut right);
             assert!(result.is_empty());
+
+            let result = Interval::overlaps(&mut right, &mut left);
+            assert_eq!(result, vec![false]);
         }
 
         #[test]
@@ -796,6 +839,9 @@ mod tests {
             let mut right = vec![Interval::new(5, 15).unwrap()];
             let result = Interval::overlap(&mut left, &mut right);
             assert_eq!(result, vec![Interval::new(5, 10).unwrap()]);
+
+            let result = Interval::overlaps(&mut right, &mut left);
+            assert_eq!(result, vec![true]);
         }
 
         #[test]
@@ -804,12 +850,19 @@ mod tests {
             let mut right = vec![Interval::new(1, 10).unwrap()];
             let result = Interval::overlap(&mut left, &mut right);
             assert_eq!(result, vec![Interval::new(1, 10).unwrap()]);
+
+            let result = Interval::overlaps(&mut right, &mut left);
+            assert_eq!(result, vec![true]);
         }
 
         #[test]
         fn overlap_multiple_intervals() {
             let mut left = vec![Interval::new(1, 5).unwrap(), Interval::new(10, 15).unwrap()];
             let mut right = vec![Interval::new(3, 12).unwrap()];
+
+            assert_eq!(Interval::overlaps(&left, &mut right), vec![true, true]);
+            assert_eq!(Interval::overlaps(&right, &mut left), vec![true]);
+
             let result = Interval::overlap(&mut left, &mut right);
             assert_eq!(
                 result,
@@ -822,6 +875,9 @@ mod tests {
             let mut left: Vec<Interval<i32>> = vec![];
             let mut right: Vec<Interval<i32>> = vec![];
             let result = Interval::overlap(&mut left, &mut right);
+            assert!(result.is_empty());
+
+            let result = Interval::overlaps(&mut right, &mut left);
             assert!(result.is_empty());
         }
 
@@ -847,6 +903,36 @@ mod tests {
                     Interval::new(15, 18).unwrap(),
                     Interval::new(17, 22).unwrap(),
                 ]
+            );
+
+            // Shuffle
+            left.reverse();
+            right.reverse();
+
+            let result = Interval::overlaps(&mut right, &mut left);
+            assert_eq!(result, vec![true, true, true]);
+        }
+
+        #[test]
+        fn overlap_non_sorted_partially_overlapping_intervals() {
+            let mut left = vec![
+                Interval::new(10, 20).unwrap(),
+                Interval::new(1, 5).unwrap(),
+                Interval::new(15, 25).unwrap(),
+            ];
+            let mut right = vec![
+                Interval::new(30, 35).unwrap(),
+                Interval::new(0, 5).unwrap(),
+                Interval::new(40, 50).unwrap(),
+            ];
+            assert_eq!(
+                Interval::overlaps(&left, &mut right),
+                vec![false, true, false]
+            );
+
+            assert_eq!(
+                Interval::overlap(&mut left, &mut right),
+                vec![Interval::new(1, 5).unwrap()]
             );
         }
     }
