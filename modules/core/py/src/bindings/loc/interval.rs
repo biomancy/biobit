@@ -192,9 +192,9 @@ impl PyInterval {
         source: Vec<IntoPyInterval>,
         overlap: Vec<IntoPyInterval>,
     ) -> Vec<bool> {
-        let mut source: Vec<_> = source.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        let source: Vec<_> = source.into_iter().map(|s| s.0.borrow(py).rs).collect();
         let mut overlap: Vec<_> = overlap.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Interval::overlaps(&mut source, &mut overlap)
+        Interval::overlaps(&source, &mut overlap)
     }
 
     fn __repr__(&self) -> String {

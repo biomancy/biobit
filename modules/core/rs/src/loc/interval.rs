@@ -339,6 +339,13 @@ impl<Idx: PrimInt> Interval<Idx> {
         self
     }
 
+    pub fn shifted(&self, shift: Idx) -> Self {
+        Self {
+            start: self.start + shift,
+            end: self.end + shift,
+        }
+    }
+
     pub fn clamped(self, inside: &Self) -> Option<Self> {
         self.intersection(inside)
     }

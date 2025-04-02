@@ -4,12 +4,15 @@ use std::iter::zip;
 
 use derive_getters::{Dissolve, Getters};
 use derive_more::{From, Into};
-use eyre::eyre;
+use eyre::{eyre, OptionExt, Result};
 use itertools::{chain, Itertools};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-use biobit_core_py::loc::{IntervalOp, IntoPyInterval, PyInterval};
+use biobit_core_py::loc::{
+    IntervalOp, IntoPyInterval, IntoPyOrientation, PyInterval, PyOrientation,
+};
+use biobit_io_py::bed::{Bed12, PyBed12};
 use biobit_repeto_rs::repeats::InvSegment;
 
 #[pyclass(eq, ord, name = "InvSegment")]
@@ -156,51 +159,49 @@ impl PyInvRepeat {
 
     #[allow(clippy::too_many_arguments)]
     #[pyo3(
-        signature = (contig, *args, name = ".", score = 0, strand = ".", color = "0,0,0"),
+        signature = (seqid, *args, name = ".", score = 0, orientation = IntoPyOrientation::from(PyOrientation::Dual), rgb = (0, 0, 0)),
         text_signature = None
     )]
     pub fn to_bed12(
         &self,
         py: Python,
-        contig: &str,
+        seqid: &str,
         args: Bound<PyTuple>,
         name: &str,
         score: u16,
-        strand: &str,
-        color: &str,
-    ) -> PyResult<String> {
+        orientation: IntoPyOrientation,
+        rgb: (u8, u8, u8),
+    ) -> Result<PyBed12> {
         if !args.is_empty() {
             return Err(eyre!(
-                "to_bed12 doesn't support positional arguments except 'contig'"
+                "to_bed12 doesn't support positional arguments except 'seqid'"
             ))?;
-        } else if score > 1000 {
-            return Err(eyre!("Score must be from 0 to 1000"))?;
         }
 
-        let range = self.brange(py);
-        let (block_sizes, block_starts): (Vec<usize>, Vec<i64>) = self
+        let brange = self.brange(py).rs;
+        let blocks = self
             .seqranges(py)
-            .into_iter()
-            .map(|x| (x.rs.len() as usize, x.rs.start() - range.start()))
-            .unzip();
-        let block_sizes = block_sizes.into_iter().join(",");
-        let block_starts = block_starts.into_iter().join(",");
+            .iter()
+            .map(|x| x.rs.shifted(brange.start()).cast())
+            .collect::<Option<Vec<_>>>();
 
-        Ok(format!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            contig,
-            range.start(),
-            range.end(),
-            name,
+        let brange = brange
+            .cast()
+            .ok_or_eyre("Inverted repeats coordinates must be strictly positive.")?;
+        let blocks =
+            blocks.ok_or_eyre("Inverted repeats coordinates must be strictly positive.")?;
+
+        Bed12::new(
+            seqid.to_owned(),
+            brange,
+            name.to_owned(),
             score,
-            strand,
-            range.start(),
-            range.end(),
-            color,
-            self.segments.len() * 2,
-            block_sizes,
-            block_starts
-        ))
+            orientation.0 .0,
+            brange,
+            rgb,
+            blocks,
+        )
+        .map(PyBed12::from)
     }
 
     pub fn __len__(&self, py: Python) -> usize {
