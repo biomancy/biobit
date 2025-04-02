@@ -182,7 +182,7 @@ impl PyInvRepeat {
         let blocks = self
             .seqranges(py)
             .iter()
-            .map(|x| x.rs.shifted(brange.start()).cast())
+            .map(|x| x.rs.shifted(-brange.start()).cast())
             .collect::<Option<Vec<_>>>();
 
         let brange = brange
