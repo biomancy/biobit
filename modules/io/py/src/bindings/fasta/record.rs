@@ -19,50 +19,50 @@ pub struct PyRecord {
 #[pymethods]
 impl PyRecord {
     #[new]
-    fn new(header: String, sequence: String) -> Result<Self> {
+    pub fn new(header: String, sequence: String) -> Result<Self> {
         Ok(Self {
             rs: Record::new(header, sequence.into_bytes())?,
         })
     }
 
     #[getter]
-    fn id(&self) -> &str {
+    pub fn id(&self) -> &str {
         self.rs.id()
     }
 
     #[setter]
-    fn set_id(&mut self, id: String) -> Result<()> {
+    pub fn set_id(&mut self, id: String) -> Result<()> {
         self.rs.set_id(id)?;
         Ok(())
     }
 
     #[getter]
-    fn seq(&self) -> String {
+    pub fn seq(&self) -> String {
         String::from_utf8_lossy(self.rs.seq()).to_string()
     }
 
     #[setter]
-    fn set_seq(&mut self, seq: String) -> Result<()> {
+    pub fn set_seq(&mut self, seq: String) -> Result<()> {
         self.rs.set_seq(seq.into_bytes())?;
         Ok(())
     }
 
-    fn __hash__(&self) -> u64 {
+    pub fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
     }
 
-    fn __repr__(&self) -> String {
+    pub fn __repr__(&self) -> String {
         format!("Record({:?}, {:?})", self.rs.id(), self.rs.seq())
     }
 
     #[staticmethod]
-    fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
+    pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
         pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
     }
 
-    fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+    pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
             (pickle::to_bytes(self),),

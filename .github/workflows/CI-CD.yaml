@@ -70,7 +70,7 @@ jobs:
           working-directory: biobit/py
           target: ${{ matrix.target }}
           args: --release --out dist --interpreter ${{ matrix.python }}
-          rust-toolchain: 1.84.0
+          rust-toolchain: 1.86.0
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels

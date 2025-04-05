@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 
-from biobit.core.loc import Interval, IntoInterval
+from biobit.core.loc import Interval, IntoInterval, IntoOrientation
+from biobit.io.bed import Bed12
 
 
 class InvSegment:
@@ -117,15 +118,16 @@ class InvRepeat:
         """
         pass
 
-    def to_bed12(self, contig: str, *args,
-                 name: str = ".", score: int = 0, strand: str = ".", color: str = "0,0,0") -> str:
+    def coverage(self) -> int:
         """
-        Convert inverted repeat to a BED12 record. All arguments except the contig should be passed as kwargs
+        The total number of base pairs covered by the inverted repeat.
         """
         pass
 
-    def __len__(self) -> int:
+    def to_bed12(self, seqid: str, *args,
+                 name: str = ".", score: int = 0, orientation: IntoOrientation = "=",
+                 rgb: tuple[int, int, int] = (0, 0, 0)) -> Bed12:
         """
-        The length of inverted repeats is defined as the total number of base pairs of the underlying segments.
+        Convert inverted repeat to a BED12 record. All arguments except the seqid should be passed as kwargs
         """
         pass

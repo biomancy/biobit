@@ -31,4 +31,13 @@ impl Config {
             })
             .unwrap_or(Config::UNCOMPRESSED)
     }
+
+    pub fn infer_from_nickname(nickname: &str) -> eyre::Result<Self> {
+        match nickname {
+            "gz" | "gzip" => Ok(Config::Gzip(Default::default())),
+            "bgz" | "bgzip" | "bgzf" => Ok(Config::Bgzf(Default::default())),
+            "raw" | "none" => Ok(Config::RawBytes(Algorithm::None)),
+            _ => Err(eyre::eyre!("Unknown compression format: {}", nickname)),
+        }
+    }
 }

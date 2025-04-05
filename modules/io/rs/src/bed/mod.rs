@@ -1,7 +1,7 @@
 // Format specification: https://samtools.github.io/hts-specs/BEDv1.pdf
 
 // Mandatory fields:
-// 1. seqid: [[:alnum:]_]{1,255}
+// 1. seqid: [[:alnum:]_]{1,255} (Using relaxed format allowing any non-whitespace ASCII characters)
 // 2. start: u64
 // 3. end: u64
 // 4. name: [\x20-\x7e]{1,255}

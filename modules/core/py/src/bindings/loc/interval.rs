@@ -186,6 +186,17 @@ impl PyInterval {
             .collect()
     }
 
+    #[staticmethod]
+    pub fn overlaps(
+        py: Python,
+        source: Vec<IntoPyInterval>,
+        overlap: Vec<IntoPyInterval>,
+    ) -> Vec<bool> {
+        let source: Vec<_> = source.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        let mut overlap: Vec<_> = overlap.into_iter().map(|s| s.0.borrow(py).rs).collect();
+        Interval::overlaps(&source, &mut overlap)
+    }
+
     fn __repr__(&self) -> String {
         format!("Interval[{}]", self.rs)
     }

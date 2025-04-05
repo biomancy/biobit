@@ -15,10 +15,11 @@ ci = { depends-on = ["rs-ci", "py-ci"] }
 
 # [Rust]
 [feature.rust.dependencies]
-rust = "==1.84.0"               # .pixi/envs/dev/bin
-rust-src = "==1.84.0"           # .pixi/envs/dev/lib/rustlib/src/rust
+rust = "==1.86.0"               # .pixi/envs/dev/bin
+rust-src = "==1.86.0"           # .pixi/envs/dev/lib/rustlib/src/rust
 
 [feature.rust.tasks]
+rs-upgrade = "cargo upgrade --incompatible allow && cargo update"
 rs-ci-fmt = "cargo fmt --all -- --check"
 rs-ci-check = "cargo check --all-features"
 rs-ci-clippy = "cargo clippy --all-features"

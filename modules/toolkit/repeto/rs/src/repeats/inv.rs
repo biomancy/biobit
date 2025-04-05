@@ -1,14 +1,18 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use derive_getters::{Dissolve, Getters};
-use derive_more::{From, Into};
-use eyre::Result;
+use derive_more::From;
+use eyre::{ensure, Result};
 use itertools::{chain, Itertools};
 
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Getters, Dissolve)]
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
+
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Dissolve, Getters)]
 pub struct InvSegment<Idx: PrimInt> {
     left: Interval<Idx>,
     right: Interval<Idx>,
@@ -16,17 +20,10 @@ pub struct InvSegment<Idx: PrimInt> {
 
 impl<Idx: PrimInt> InvSegment<Idx> {
     pub fn new(left: Interval<Idx>, right: Interval<Idx>) -> Result<Self> {
-        if left.len() != right.len() {
-            return Err(eyre::eyre!(
-                "Repeat intervals' length must be equal: {left:?} vs {right:?}"
-            ));
-        }
-        if left.intersects(&right) {
-            return Err(eyre::eyre!(
-                "Repeat intervals must not overlap: {left:?} vs {right:?}"
-            ));
-        }
-
+        ensure!(
+            left.len() == right.len() && !left.intersects(&right) && left.end() <= right.start(),
+            "Inverted segment must have equal length and not overlap: {left:?} vs {right:?}"
+        );
         Ok(Self { left, right })
     }
 
@@ -34,16 +31,15 @@ impl<Idx: PrimInt> InvSegment<Idx> {
         self.right().start() - self.left().end()
     }
 
-    pub fn seqlen(&self) -> Idx {
-        self.left().len().shl(1) // = len * 2
-    }
-
     pub fn brange(&self) -> Interval<Idx> {
         Interval::new(self.left().start(), self.right().end()).unwrap()
     }
-
     pub fn len(&self) -> Idx {
         self.left.len()
+    }
+
+    pub fn seqlen(&self) -> Idx {
+        self.len().shl(1) // = len * 2
     }
 
     pub fn shift(&mut self, shift: Idx) {
@@ -71,6 +67,7 @@ impl<Idx: PrimInt + Display> Display for InvSegment<Idx> {
     }
 }
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Eq, PartialEq, Hash, Clone, Getters, Dissolve)]
 pub struct InvRepeat<Idx: PrimInt> {
     segments: Vec<InvSegment<Idx>>,
@@ -96,10 +93,15 @@ impl<Idx: PrimInt> InvRepeat<Idx> {
         })
     }
 
-    pub fn seqlen(&self) -> Idx {
+    pub fn len(&self) -> Idx {
         self.segments
             .iter()
-            .fold(Idx::zero(), |acc, x| acc + x.seqlen())
+            .map(|x| x.len())
+            .fold(Idx::zero(), |a, b| a + b)
+    }
+
+    pub fn seqlen(&self) -> Idx {
+        self.len().shl(1) // = len * 2
     }
 
     pub fn inner_gap(&self) -> Idx {
@@ -137,6 +139,14 @@ impl<Idx: PrimInt> InvRepeat<Idx> {
             self.segments.iter().map(|x| x.left()),
             self.segments.iter().rev().map(|x| x.right()),
         )
+    }
+
+    pub fn cast<T: PrimInt>(&self) -> Option<InvRepeat<T>> {
+        self.segments
+            .iter()
+            .map(|x| x.cast::<T>())
+            .collect::<Option<Vec<_>>>()
+            .map(|segments| InvRepeat { segments })
     }
 }
 

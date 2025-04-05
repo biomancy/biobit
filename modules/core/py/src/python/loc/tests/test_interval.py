@@ -143,6 +143,9 @@ def test_overlap():
     result = Interval.overlap(left, right)
     result, expected = sorted(result), sorted(expected)
     assert result == expected
+    
+    assert Interval.overlaps(left, right)
+    
 
 
 def test_pickle_interval():

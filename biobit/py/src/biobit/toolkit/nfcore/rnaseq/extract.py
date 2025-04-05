@@ -43,3 +43,9 @@ def salmon(exp: seqproj.Experiment, /) -> Path:
 
 def bams(project: seqproj.Project, /, factory: BamReader = default) -> dict[str, tuple[io.bam.Reader, Layout]]:
     return {exp.ind: bam(exp, factory=factory) for exp in project.experiments}
+
+
+def resfolder(exp: seqproj.Experiment, /) -> Path:
+    if "__nfcore_rnaseq_resfolder__" not in exp.attributes:
+        raise ValueError(f"Attribute '__nfcore_rnaseq_resfolder__' not found for the experiment: {exp}")
+    return Path(exp.attributes["__nfcore_rnaseq_resfolder__"])
