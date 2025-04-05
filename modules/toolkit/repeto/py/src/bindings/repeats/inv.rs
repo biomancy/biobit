@@ -1,26 +1,27 @@
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::iter::zip;
 
-use derive_getters::{Dissolve, Getters};
+use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use eyre::{eyre, OptionExt, Result};
-use itertools::{chain, Itertools};
 use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyBytes, PyTuple};
 
 use biobit_core_py::loc::{
     IntervalOp, IntoPyInterval, IntoPyOrientation, PyInterval, PyOrientation,
 };
+use biobit_core_py::pickle;
 use biobit_io_py::bed::{Bed12, PyBed12};
-use biobit_repeto_rs::repeats::InvSegment;
+use biobit_repeto_rs::repeats::{InvRepeat, InvSegment};
+use bitcode::{Decode, Encode};
+use pyo3::PyTypeInfo;
 
 #[pyclass(eq, ord, name = "InvSegment")]
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Getters, Dissolve,
+    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Dissolve, Encode, Decode,
 )]
 pub struct PyInvSegment {
-    rs: InvSegment<i64>,
+    pub rs: InvSegment<i64>,
 }
 
 #[pymethods]
@@ -71,90 +72,81 @@ impl PyInvSegment {
         self.rs.len() as usize
     }
 
-    pub fn __getnewargs__(&self) -> PyResult<(PyInterval, PyInterval)> {
-        Ok(((*self.rs.left()).into(), (*self.rs.right()).into()))
-    }
-
     pub fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
     }
+
+    #[staticmethod]
+    pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
+        pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
+    }
+
+    pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+        Ok((
+            Self::type_object(py).getattr("_from_pickle")?.unbind(),
+            (pickle::to_bytes(self),),
+        ))
+    }
 }
 
 #[pyclass(name = "InvRepeat")]
-#[derive(Debug, Clone, From, Into, Dissolve)]
+#[derive(Debug, Clone, From, Into, Decode, Encode, Dissolve)]
 pub struct PyInvRepeat {
-    pub segments: Vec<Py<PyInvSegment>>,
+    pub rs: InvRepeat<i64>,
 }
 
 #[pymethods]
 impl PyInvRepeat {
     #[new]
-    pub fn new(segments: Vec<Py<PyInvSegment>>, py: Python) -> PyResult<Self> {
-        if segments.is_empty() {
-            Err(eyre!("Inverted repeat must have at least one segment"))?
-        }
+    pub fn new(segments: Vec<PyInvSegment>) -> Result<Self> {
+        let segments = segments.into_iter().map(|x| x.rs).collect::<Vec<_>>();
 
-        // Segments shouldn't overlap
-        for (prev, nxt) in segments.iter().tuple_windows() {
-            let (p, n) = (prev.borrow(py), nxt.borrow(py));
-            if p.rs.left().end() > n.rs.left().start() || p.rs.right().start() < n.rs.right().end()
-            {
-                Err(eyre!("Segments must be ordered from outer to inner and must not overlap: {:?} vs {:?}", p.rs, n.rs))?
-            }
-        }
-
-        Ok(Self { segments })
+        InvRepeat::new(segments).map(Self::from)
     }
 
     #[getter]
-    pub fn segments(&self, py: Python) -> Vec<Py<PyInvSegment>> {
-        self.segments.iter().map(|x| x.clone_ref(py)).collect()
+    pub fn segments(&self) -> Vec<PyInvSegment> {
+        self.rs
+            .segments()
+            .iter()
+            .map(|x| PyInvSegment::from(*x))
+            .collect()
     }
 
-    pub fn seqlen(&self, py: Python) -> i64 {
-        self.segments.iter().map(|x| x.borrow(py).rs.seqlen()).sum()
+    pub fn seqlen(&self) -> i64 {
+        self.rs.seqlen()
     }
 
-    pub fn inner_gap(&self, py: Python) -> i64 {
-        self.segments.last().unwrap().borrow(py).rs.inner_gap()
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> i64 {
+        self.rs.len()
     }
 
-    pub fn left_brange(&self, py: Python) -> PyInterval {
-        let start = self.segments[0].borrow(py).rs.left().start();
-        let end = self.segments.last().unwrap().borrow(py).rs.left().end();
-        PyInterval::new(start, end).unwrap()
+    pub fn inner_gap(&self) -> i64 {
+        self.rs.inner_gap()
     }
 
-    pub fn right_brange(&self, py: Python) -> PyInterval {
-        let start = self.segments.last().unwrap().borrow(py).rs.right().start();
-        let end = self.segments[0].borrow(py).rs.right().end();
-        PyInterval::new(start, end).unwrap()
+    pub fn left_brange(&self) -> PyInterval {
+        self.rs.left_brange().into()
     }
 
-    pub fn brange(&self, py: Python) -> PyInterval {
-        self.segments[0].borrow(py).rs.brange().into()
+    pub fn right_brange(&self) -> PyInterval {
+        self.rs.right_brange().into()
     }
 
-    pub fn shift<'a>(mut slf: PyRefMut<'a, Self>, py: Python, shift: i64) -> PyRefMut<'a, Self> {
-        for x in &mut slf.segments {
-            x.borrow_mut(py).rs.shift(shift);
-        }
+    pub fn brange(&self) -> PyInterval {
+        self.rs.brange().into()
+    }
+
+    pub fn shift(mut slf: PyRefMut<Self>, shift: i64) -> PyRefMut<Self> {
+        slf.rs.shift(shift);
         slf
     }
 
-    pub fn seqranges(&self, py: Python) -> Vec<PyInterval> {
-        chain(
-            self.segments
-                .iter()
-                .map(|x| (*x.borrow(py).rs.left()).into()),
-            self.segments
-                .iter()
-                .rev()
-                .map(|x| (*x.borrow(py).rs.right()).into()),
-        )
-        .collect()
+    pub fn seqranges(&self) -> Vec<PyInterval> {
+        self.rs.seqranges().map(|x| (*x).into()).collect()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -164,7 +156,6 @@ impl PyInvRepeat {
     )]
     pub fn to_bed12(
         &self,
-        py: Python,
         seqid: &str,
         args: Bound<PyTuple>,
         name: &str,
@@ -178,9 +169,9 @@ impl PyInvRepeat {
             ))?;
         }
 
-        let brange = self.brange(py).rs;
+        let brange = self.brange().rs;
         let blocks = self
-            .seqranges(py)
+            .seqranges()
             .iter()
             .map(|x| x.rs.shifted(-brange.start()).cast())
             .collect::<Option<Vec<_>>>();
@@ -204,36 +195,29 @@ impl PyInvRepeat {
         .map(PyBed12::from)
     }
 
-    pub fn __len__(&self, py: Python) -> usize {
-        self.segments.iter().map(|x| x.borrow(py).__len__()).sum()
+    pub fn __eq__(&self, other: &Self) -> bool {
+        self.rs == other.rs
     }
 
-    pub fn __eq__(&self, other: &Self, py: Python) -> bool {
-        if self.segments.len() != other.segments.len() {
-            return false;
-        }
-
-        let mut alleq = true;
-        for (a, b) in zip(&self.segments, &other.segments) {
-            let (a, b) = (a.borrow(py), &b.borrow(py));
-
-            if a.rs != b.rs {
-                alleq = false;
-                break;
-            }
-        }
-        alleq
-    }
-
-    pub fn __getnewargs__(&self, py: Python) -> (Vec<Py<PyInvSegment>>,) {
-        (self.segments.iter().map(|x| x.clone_ref(py)).collect(),)
-    }
-
-    pub fn __hash__(&self, py: Python) -> PyResult<u64> {
+    pub fn __hash__(&self) -> PyResult<u64> {
         let mut hasher = DefaultHasher::new();
-        for s in &self.segments {
-            s.borrow(py).hash(&mut hasher);
-        }
+        self.rs.hash(&mut hasher);
         Ok(hasher.finish())
+    }
+
+    pub fn __len__(&self) -> usize {
+        self.rs.len() as usize
+    }
+
+    #[staticmethod]
+    pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
+        pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
+    }
+
+    pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+        Ok((
+            Self::type_object(py).getattr("_from_pickle")?.unbind(),
+            (pickle::to_bytes(self),),
+        ))
     }
 }

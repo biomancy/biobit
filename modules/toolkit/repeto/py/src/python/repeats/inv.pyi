@@ -118,16 +118,16 @@ class InvRepeat:
         """
         pass
 
+    def coverage(self) -> int:
+        """
+        The total number of base pairs covered by the inverted repeat.
+        """
+        pass
+
     def to_bed12(self, seqid: str, *args,
                  name: str = ".", score: int = 0, orientation: IntoOrientation = "=",
                  rgb: tuple[int, int, int] = (0, 0, 0)) -> Bed12:
         """
         Convert inverted repeat to a BED12 record. All arguments except the seqid should be passed as kwargs
-        """
-        pass
-
-    def __len__(self) -> int:
-        """
-        The length of inverted repeats is defined as the total number of base pairs of the underlying segments.
         """
         pass

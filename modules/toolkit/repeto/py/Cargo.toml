@@ -21,6 +21,7 @@ eyre = { workspace = true }
 itertools = { workspace = true }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
-biobit-repeto-rs = { path = "../rs" }
+bitcode = { workspace = true }
+biobit-repeto-rs = { path = "../rs", features = ["bitcode"] }
 biobit-core-py = { path = "../../../core/py" }
 biobit-io-py = { path = "../../../io/py" }

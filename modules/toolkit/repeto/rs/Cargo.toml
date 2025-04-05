@@ -21,3 +21,7 @@ derive_more = { workspace = true }
 itertools = { workspace = true }
 eyre = { workspace = true }
 rstar = { workspace = true }
+bitcode = { workspace = true, optional = true }
+
+[features]
+bitcode = ["dep:bitcode"]
