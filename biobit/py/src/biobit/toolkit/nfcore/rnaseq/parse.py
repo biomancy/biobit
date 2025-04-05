@@ -37,6 +37,9 @@ def into_seqproj(
 
         descriptor = seqexp2descriptor(exp)
 
+        # Results folder
+        exp.attributes["__nfcore_rnaseq_resfolder__"] = resfolder.as_posix()
+
         # BAM file
         bam = resfolder / "star_salmon" / f"{descriptor}.markdup.sorted.bam"
         exp.attributes["__nfcore_rnaseq_bam__"] = bam.as_posix()

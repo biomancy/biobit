@@ -1,6 +1,7 @@
 use super::algorithm::Algorithm;
 use super::params;
 use bitcode::{Decode, Encode};
+use eyre::{bail, Result};
 use std::path::Path;
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
@@ -30,5 +31,14 @@ impl Config {
                 _ => Config::UNCOMPRESSED,
             })
             .unwrap_or(Config::UNCOMPRESSED)
+    }
+
+    pub fn infer_from_nickname(name: &str) -> Result<Self> {
+        Ok(match name {
+            "gz" | "gzip" => Config::Gzip,
+            "bgz" | "bgzip" | "bgzf" => Config::Bgzf(Default::default()),
+            "raw" | "none" => Config::UNCOMPRESSED,
+            _ => bail!("Unknown compression format: {}", name),
+        })
     }
 }

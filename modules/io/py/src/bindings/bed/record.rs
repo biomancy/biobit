@@ -1,3 +1,11 @@
+use super::reader::{
+    PyBed12Reader, PyBed3Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader,
+    PyBed9Reader,
+};
+use super::writer::{
+    PyBed12Writer, PyBed3Writer, PyBed4Writer, PyBed5Writer, PyBed6Writer, PyBed8Writer,
+    PyBed9Writer,
+};
 use biobit_core_py::loc::{Interval, Orientation};
 use biobit_core_py::loc::{IntoPyInterval, IntoPyOrientation, PyInterval, PyOrientation};
 use biobit_core_py::pickle;
@@ -11,6 +19,7 @@ use eyre::{OptionExt, Result};
 use paste::paste;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use pyo3::types::PyType;
 use pyo3::PyTypeInfo;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -49,11 +58,11 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 seqid: String [from_py::not_required] =>
-                fn seqid(&self) -> &str {
+                pub fn seqid(&self) -> &str {
                     self.rs.seqid()
                 }
 
-                fn set_seqid(&mut self, _py: Python, seqid: String) -> Result<()> {
+                pub fn set_seqid(&mut self, _py: Python, seqid: String) -> Result<()> {
                     self.rs.set_seqid(seqid)?;
                     Ok(())
                 }
@@ -65,7 +74,7 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 interval: IntoPyInterval [from_py::interval] =>
-                fn interval(&self) -> Result<PyInterval> {
+                pub fn interval(&self) -> Result<PyInterval> {
                     let interval = self
                         .rs
                         .interval()
@@ -75,7 +84,7 @@ macro_rules! impl_pybed {
                     Ok(interval)
                 }
 
-                fn set_interval(&mut self, py: Python, interval: IntoPyInterval) -> Result<()> {
+                pub fn set_interval(&mut self, py: Python, interval: IntoPyInterval) -> Result<()> {
                     self.rs.set_interval(from_py::interval(py, interval)?)?;
                     Ok(())
                 }
@@ -87,11 +96,11 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 name: String [from_py::not_required] =>
-                fn name(&self) -> &str {
+                pub fn name(&self) -> &str {
                     self.rs.name()
                 }
 
-                fn set_name(&mut self, _py: Python, name: String) -> Result<()> {
+                pub fn set_name(&mut self, _py: Python, name: String) -> Result<()> {
                     self.rs.set_name(name)?;
                     Ok(())
                 }
@@ -103,11 +112,11 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 score: u16 [from_py::not_required] =>
-                fn score(&self) -> u16 {
+                pub fn score(&self) -> u16 {
                     self.rs.score()
                 }
 
-                fn set_score(&mut self, _py: Python, score: u16) -> Result<()> {
+                pub fn set_score(&mut self, _py: Python, score: u16) -> Result<()> {
                     self.rs.set_score(score)?;
                     Ok(())
                 }
@@ -119,11 +128,11 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 orientation: IntoPyOrientation [from_py::orientation] =>
-                fn orientation(&self) -> PyOrientation {
+                pub fn orientation(&self) -> PyOrientation {
                     self.rs.orientation().into()
                 }
 
-                fn set_orientation(
+                pub fn set_orientation(
                     &mut self,
                     py: Python,
                     orientation: IntoPyOrientation
@@ -139,7 +148,7 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 thick: IntoPyInterval [from_py::interval] =>
-                fn thick(&self) -> Result<PyInterval> {
+                pub fn thick(&self) -> Result<PyInterval> {
                     let thick = self
                         .rs
                         .thick()
@@ -149,7 +158,7 @@ macro_rules! impl_pybed {
                     Ok(thick)
                 }
 
-                fn set_thick(&mut self, py: Python, thick: IntoPyInterval) -> Result<()> {
+                pub fn set_thick(&mut self, py: Python, thick: IntoPyInterval) -> Result<()> {
                     let thick = from_py::interval(py, thick)?;
                     self.rs.set_thick(thick)?;
                     Ok(())
@@ -162,11 +171,11 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 rgb: (u8, u8, u8) [from_py::not_required] =>
-                fn rgb(&self) -> (u8, u8, u8) {
+                pub fn rgb(&self) -> (u8, u8, u8) {
                     self.rs.rgb()
                 }
 
-                fn set_rgb(&mut self, _py: Python, rgb: (u8, u8, u8)) -> Result<()> {
+                pub fn set_rgb(&mut self, _py: Python, rgb: (u8, u8, u8)) -> Result<()> {
                     self.rs.set_rgb(rgb)?;
                     Ok(())
                 }
@@ -178,7 +187,7 @@ macro_rules! impl_pybed {
             $($postfix)*
             (
                 blocks: Vec<IntoPyInterval> [from_py::interval_vec] =>
-                fn blocks(&self) -> Result<Vec<PyInterval>> {
+                pub fn blocks(&self) -> Result<Vec<PyInterval>> {
                     let blocks = self.rs.blocks();
                     let mut pyblocks = Vec::with_capacity(self.rs.blocks().len());
                     for block in blocks {
@@ -191,7 +200,7 @@ macro_rules! impl_pybed {
                     Ok(pyblocks)
                 }
 
-                fn set_blocks(&mut self, py: Python, blocks: Vec<IntoPyInterval>) -> Result<()> {
+                pub fn set_blocks(&mut self, py: Python, blocks: Vec<IntoPyInterval>) -> Result<()> {
                     self.rs.set_blocks(from_py::interval_vec(py, blocks)?)?;
                     Ok(())
                 }
@@ -214,9 +223,21 @@ macro_rules! impl_pybed {
 
             #[pymethods]
             impl $Bed {
+                #[classattr]
+                #[allow(non_snake_case)]
+                pub fn Reader(py: Python) -> Py<PyType> {
+                    paste!{ [<$Bed Reader>]::type_object(py).unbind() }
+                }
+
+                #[classattr]
+                #[allow(non_snake_case)]
+                pub fn Writer(py: Python) -> Py<PyType> {
+                    paste!{ [<$Bed Writer>]::type_object(py).unbind() }
+                }
+
                 #[new]
                 #[allow(clippy::too_many_arguments)]
-                fn new(py: Python, $($field: $ftype,)+) -> Result<Self> {
+                pub fn new(py: Python, $($field: $ftype,)+) -> Result<Self> {
                     $(
                         let $field = $from_py(py, $field)?;
                     )+
@@ -224,12 +245,14 @@ macro_rules! impl_pybed {
                 }
 
                 #[staticmethod]
-                fn default() -> Self {
+                #[allow(clippy::should_implement_trait)]
+                pub fn default() -> Self {
                     Self {
                         rs: $Rs::default(),
                     }
                 }
 
+                // Expand the getter and setter methods
                 $(
                     #[getter]
                     $pyget
@@ -238,10 +261,9 @@ macro_rules! impl_pybed {
                     $pyset
                 )+
 
-
                 #[pyo3(signature = ($($field=None, )+))]
                 #[allow(clippy::too_many_arguments)]
-                fn set(&mut self, py: Python, $($field: Option<$ftype>,)+) -> Result<()> {
+                pub fn set(&mut self, py: Python, $($field: Option<$ftype>,)+) -> Result<()> {
                     $(
                         let $field = $field.map(|x| $from_py(py, x)).transpose()?;
                     )+
@@ -249,13 +271,13 @@ macro_rules! impl_pybed {
                     Ok(())
                 }
 
-                fn __hash__(&self) -> u64 {
+                pub fn __hash__(&self) -> u64 {
                     let mut hasher = DefaultHasher::new();
                     self.hash(&mut hasher);
                     hasher.finish()
                 }
 
-                fn __repr__(&self) -> String {
+                pub fn __repr__(&self) -> String {
                     let mut repr = String::from($Name);
                     repr.push('(');
                     $(
@@ -268,11 +290,11 @@ macro_rules! impl_pybed {
                 }
 
                 #[staticmethod]
-                fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
+                pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
                     pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
                 }
 
-                fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+                pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
                     Ok((
                         Self::type_object(py).getattr("_from_pickle")?.unbind(),
                         (pickle::to_bytes(self),),

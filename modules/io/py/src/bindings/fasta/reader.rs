@@ -20,8 +20,13 @@ pub struct PyReader {
 #[pymethods]
 impl PyReader {
     #[new]
-    fn new(path: PathBuf) -> Result<Self> {
-        let rs = Reader::from_path(path.clone(), &decode::Config::infer_from_path(&path))?;
+    #[pyo3(signature = (path, compression=None))]
+    fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
+        let config = match compression {
+            None => decode::Config::infer_from_path(&path),
+            Some(x) => decode::Config::infer_from_nickname(x)?,
+        };
+        let rs = Reader::from_path(path.clone(), &config)?;
         Ok(Self { path, rs })
     }
 

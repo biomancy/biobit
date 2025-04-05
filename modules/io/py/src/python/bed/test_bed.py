@@ -21,11 +21,11 @@ def _bed3(obj, seqid: str, interval: IntoInterval | None):
         assert obj.interval == (interval.start - 1, interval.end + 1)
 
     prev = obj.interval
-    obj.set(seqid="seqid_new", interval=None)
-    assert (obj.seqid, obj.interval) == ("seqid_new", prev)
+    obj.set(seqid="seqid.new", interval=None)
+    assert (obj.seqid, obj.interval) == ("seqid.new", prev)
 
-    # Only _ and alphanumeric strings with less than 255 characters are allowed
-    for seqid in ["", "seqid?", "seq$id", "seq-id", "seq id", "seq.id", "A" * 256]:
+    # Only non-whitespace strings with less than 255 characters are allowed
+    for seqid in [" ", "seqid A", "\t", "Seq\nA", "A" * 256]:
         with pytest.raises(Exception):
             obj.seqid = seqid
 
@@ -218,9 +218,13 @@ def test_bed_writer(path, tmp_path: Path):
     with Writer.bed12(saveto) as writer:
         for record in allrecords:
             writer.write_record(record)
+    # Check that the file is closed
+    with pytest.raises(Exception):
+        writer.flush()
+
     assert Reader.bed12(saveto).read_to_end() == allrecords
     saveto.unlink()
 
-    with Writer.bed12(saveto) as writer:
+    with Bed12.Writer(saveto) as writer:
         writer.write_records(allrecords)
-    assert Reader.bed12(saveto).read_to_end() == allrecords
+    assert Bed12.Reader(saveto).read_to_end() == allrecords
