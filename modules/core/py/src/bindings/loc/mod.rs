@@ -2,11 +2,8 @@ use pyo3::prelude::*;
 
 pub use crate::loc::chain_interval::{IntoPyChainInterval, PyChainInterval};
 use crate::utils::ImportablePyModuleBuilder;
-pub use biobit_core_rs::loc::{
-    ChainInterval, Contig, Interval, IntervalOp, Locus, Orientation, Strand,
-};
+pub use biobit_core_rs::loc::{ChainInterval, Contig, Interval, IntervalOp, Orientation, Strand};
 pub use interval::{IntoPyInterval, PyInterval};
-pub use locus::{IntoPyLocus, PyLocus};
 pub use orientation::{IntoPyOrientation, PyOrientation};
 pub use per_orientation::PyPerOrientation;
 pub use per_strand::PyPerStrand;
@@ -14,7 +11,6 @@ pub use strand::{IntoPyStrand, PyStrand};
 
 mod chain_interval;
 mod interval;
-mod locus;
 pub mod mapping;
 mod orientation;
 mod per_orientation;
@@ -30,7 +26,6 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .add_class::<PyPerStrand>()?
         .add_class::<PyInterval>()?
         .add_class::<PyChainInterval>()?
-        .add_class::<PyLocus>()?
         .add_submodule(&mapping::construct(py, &format!("{name}.mapping"))?)?
         .finish();
 
