@@ -4,14 +4,21 @@ name = "biobit"
 platforms = ["linux-64"]
 
 [environments]
-dev = ["rust", "python", "py-3-13t"]
+rust = ["rust"]
+docs = ["docs", "py-3-13t"]
+dev = ["docs", "rust", "python", "py-3-13t"]
 
-# Individual interpreter environments for testing
+# Interpreter-specific environments
 py-3-13t = ["rust", "python", "py-3-13t"]
 
 # Common tasks
 [tasks]
 ci = { depends-on = ["rs-ci", "py-ci"] }
+
+# [Docs]
+[feature.docs.pypi-dependencies]
+mkdocs = "==1.6.1"
+mkdocs-material = ">=9.6.11, <10"
 
 # [Rust]
 [feature.rust.dependencies]

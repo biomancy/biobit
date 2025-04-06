@@ -19,7 +19,7 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.8.2
         with:
           pixi-version: v0.43.3
-          environments: "dev"
+          environments: "rust"
           cache: false
           activate-environment: true
       - name: Rust CI checks
