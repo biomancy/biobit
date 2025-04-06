@@ -1,55 +1,89 @@
 name: Rust & Python CI/CD
+
 on:
   push:
-    tags:
-      - '*'
+    branches: [ main, dev ]
   pull_request:
-    branches:
-      - main
-      - dev
+    branches: [ main, dev ]
+  release:
+    types: [ published ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  PIXI_VERSION: v0.43.3
+  RUST_VERSION: 1.86.0
+  PYTHON_PACKAGE_PATH: biobit/py
+  DOCS_OUTPUT_PATH: biobit/docs/site
 
 jobs:
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup the repository
+        uses: actions/checkout@v4
+      - name: Setup Pixi Docs Environment
+        uses: prefix-dev/setup-pixi@v0.8.2
+        with:
+          pixi-version: ${{ env.PIXI_VERSION }}
+          environments: "docs"
+          cache: false
+          activate-environment: true
+      - name: Build documentation
+        run: pixi run -e docs build-docs
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: ${{ env.DOCS_OUTPUT_PATH }}
+
   rust:
     name: Rust CI
     runs-on: ubuntu-latest
+    needs: [ docs ]
     steps:
       - name: Setup the repository
         uses: actions/checkout@v4
       - name: Setup the environment
         uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          pixi-version: v0.43.3
+          pixi-version: ${{ env.PIXI_VERSION }}
           environments: "rust"
           cache: false
           activate-environment: true
       - name: Rust CI checks
-        run: pixi run -e dev rs-ci
+        run: pixi run -e rust rs-ci
 
   python:
-    name: Python CI
+    name: Python CI (${{ matrix.python-env }})
     needs: [ rust ]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
-        python: [ "py-3-13t" ]
+        python-env: [ "py-3-13t" ]
     steps:
       - name: Setup the repository
         uses: actions/checkout@v4
-      - name: Setup the environment
+      - name: Setup the environment (${{ matrix.python-env }})
         uses: prefix-dev/setup-pixi@v0.8.2
         with:
-          pixi-version: v0.43.3
-          environments: ${{ matrix.python }}
+          pixi-version: ${{ env.PIXI_VERSION }}
+          environments: ${{ matrix.python-env }}
           cache: false
           activate-environment: true
       - name: Python CI checks
-        run: pixi run -e ${{ matrix.python }} ci
+        run: pixi run -e ${{ matrix.python-env }} py-ci
 
   linux-wheels:
-    name: Build python wheels [Linux]
+    name: Build Python Wheels [Linux ${{ matrix.target }}]
     needs: [ python ]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
         target: [ x86_64 ]
         python: [ '3.12 3.13 3.13t' ]
@@ -64,36 +98,34 @@ jobs:
               rm "${link}"
               cp --remove-destination --recursive "${source}" "${link}"
           done
-      - name: Build wheels
+      - name: Build wheels (${{ matrix.target }})
         uses: PyO3/maturin-action@v1
         with:
-          working-directory: biobit/py
           target: ${{ matrix.target }}
           args: --release --out dist --interpreter ${{ matrix.python }}
-          rust-toolchain: 1.86.0
+          working-directory: ${{ env.PYTHON_PACKAGE_PATH }}
+          rust-toolchain: ${{ env.RUST_VERSION }}
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: github.event_name == 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ matrix.target }}-${{ matrix.python }}-wheels
-          path: biobit/py/dist
+          name: linux-${{ matrix.target }}-wheels
+          path: ${{ env.PYTHON_PACKAGE_PATH }}/dist
 
   pypi-release:
-    name: Release PYPI package
+    name: Release PyPI package
     needs: [ linux-wheels ]
-    # Only run if the commit is tagged and CI checks were successful
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/upload-artifact/merge@v4
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
         with:
-          name: wheels
           pattern: '*-wheels'
-      - uses: actions/download-artifact@v4
-        with:
-          name: wheels
+          path: dist
+          merge-multiple: true
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
@@ -101,3 +133,46 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing *
+
+  deploy-docs:
+    name: Deploy Documentation to GitHub Pages
+    needs: [ docs ]
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Tag the documentation version
+        id: deploy-info
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            # Use the tag name for releases (e.g., v1.2.3 -> /1.2.3/)
+            TAG_NAME="${{ github.ref_name }}"
+            # Remove 'v' prefix if present for directory name
+            DEST_DIR="${TAG_NAME#v}"
+            COMMIT_MSG="Deploy documentation for release ${{ github.ref_name }}"
+            echo "DEST_DIR=${DEST_DIR}" >> $GITHUB_OUTPUT
+            echo "COMMIT_MSG=${COMMIT_MSG}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # Use 'main' for pushes to the main branch
+            echo "DEST_DIR=main" >> $GITHUB_OUTPUT
+            echo "COMMIT_MSG=Deploy documentation for main branch (${{ github.sha }})" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            # Use 'dev' for pushes to the dev branch
+            echo "DEST_DIR=dev" >> $GITHUB_OUTPUT
+            echo "COMMIT_MSG=Deploy documentation for dev branch (${{ github.sha }})" >> $GITHUB_OUTPUT
+          fi
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-site
+          path: site
+      - name: Deploy docs to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: site
+          destination_dir: ${{ steps.deploy-info.outputs.DEST_DIR }}
+          full_commit_message: ${{ steps.deploy-info.outputs.COMMIT_MSG }}
+          force_orphan: true
