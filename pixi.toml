@@ -4,7 +4,7 @@ name = "biobit"
 platforms = ["linux-64"]
 
 [environments]
-rust = ["rust"]
+rust = ["rust", "py-3-13t"]
 docs = ["docs", "py-3-13t"]
 dev = ["docs", "rust", "python", "py-3-13t"]
 
