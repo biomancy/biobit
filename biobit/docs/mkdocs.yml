@@ -1,0 +1,7 @@
+site_name: biobit
+docs_dir: src
+theme:
+  name: material
+
+nav:
+  - Development Notes: dev_notes.md

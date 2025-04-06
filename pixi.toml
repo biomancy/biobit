@@ -4,14 +4,24 @@ name = "biobit"
 platforms = ["linux-64"]
 
 [environments]
-dev = ["rust", "python", "py-3-13t"]
+rust = ["rust", "py-3-13t"]
+docs = ["docs", "py-3-13t"]
+dev = ["docs", "rust", "python", "py-3-13t"]
 
-# Individual interpreter environments for testing
+# Interpreter-specific environments
 py-3-13t = ["rust", "python", "py-3-13t"]
 
 # Common tasks
 [tasks]
-ci = { depends-on = ["rs-ci", "py-ci"] }
+ci = { depends-on = ["build-docs", "rs-ci", "py-ci"] }
+
+# [Docs]
+[feature.docs.pypi-dependencies]
+mkdocs = "==1.6.1"
+mkdocs-material = ">=9.6.11, <10"
+
+[feature.docs.tasks]
+build-docs = { cmd = "mkdocs build", cwd = "biobit/docs" }
 
 # [Rust]
 [feature.rust.dependencies]
@@ -33,8 +43,8 @@ pip = "==25.0.1"
 
 [feature.python.tasks]
 py-ci-ruff = "ruff check"
-py-ci-mypy = "mypy --config-file biobit/py/pyproject.toml biobit/py"
-py-ci-build = { cmd = "cd biobit/py && maturin develop", depends-on = ["py-ci-ruff", "py-ci-mypy"] }
+py-ci-mypy = { cmd = "mypy --config-file pyproject.toml .", cwd = "biobit/py" }
+py-ci-build = { cmd = "maturin develop", cwd = "biobit/py", depends-on = ["py-ci-ruff", "py-ci-mypy"] }
 py-ci-test = { cmd = "pytest -x biobit/py", depends-on = ["py-ci-build"] }
 py-ci = { depends-on = ["py-ci-test"] }
 
