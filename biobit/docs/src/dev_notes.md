@@ -17,11 +17,11 @@ module's users.
 
 ## Optional Prelude (`prelude.rs`)
 
-If a prelude module is used, its scope is strictly limited to re-exporting common *traits*
-anonymously (`pub use TraitName as _;`). This allows convenient access to trait extension methods via a single glob
-import (`use crate::prelude::*;`) without polluting the user's namespace with concrete type names, function names, or
+If a prelude module is used, its scope is strictly limited to re-exporting common *traits* anonymously
+(`pub use TraitName as _;`). This allows convenient access to trait extension methods via a single glob import
+(`use crate::prelude::*;`) without polluting the user's namespace with concrete type names, function names, or
 even trait names themselves, thereby encouraging explicit imports for types and enhancing code clarity. Adherence to
-this strict "traits-only, anonymous export" rule is crucial for effectiveness.
+this strict “traits-only, anonymous export” rule is crucial for effectiveness.
 
 ## Traits And Structures
 
@@ -68,18 +68,18 @@ transferred between threads without explicit Python-side synchronization. Conseq
 
 ## Why Not Implement `Clone` or `Copy` for All Python Classes?
 
-This limitation is addressed in [this PyO3 issue](https://github.com/PyO3/pyo3/issues/4337). Once resolved, suitable
-Python classes will implement `Clone` and / or `Copy` traits.
+This limitation is discussed in [this PyO3 issue](https://github.com/PyO3/pyo3/issues/4337). Once resolved, suitable
+Python classes will implement `Clone` and/or `Copy` traits.
 
 ## Organizing Python Code per Submodule (e.g., `modules/*/py`)
 
-Currently, dependencies among PyO3 modules are poorly supported (
-see [this PyO3 issue](https://github.com/PyO3/pyo3/issues/1444)). Specifically, common dependencies may compile multiple
+Currently, dependencies among PyO3 modules are poorly supported (see
+[this PyO3 issue](https://github.com/PyO3/pyo3/issues/1444)). Specifically, common dependencies may compile multiple
 times, resulting in incompatible class versions. A temporary workaround involves creating and populating all `PyModule`
 instances within a single umbrella `lib.rs` file.
 
-Local Python dependencies also present challenges (
-see [StackOverflow discussion](https://stackoverflow.com/questions/75159453/specifying-local-relative-dependency-in-pyproject-toml)).
+Local Python dependencies also present challenges (see
+[StackOverflow discussion](https://stackoverflow.com/questions/75159453/specifying-local-relative-dependency-in-pyproject-toml)).
 Presently, the workaround is to symlink sources for each module within an overarching Python project.
 
 # Future Ideas
@@ -97,10 +97,10 @@ struct was considered but had several drawbacks:
 - Was inconvenient for Python users, requiring interaction with specialized Rust structures instead of familiar Python
   types like `dict`.
 
-Instead of creating a standalone struct, a `Bundle` trait has been implemented across multiple collection types (
-`HashMap`, `BTreeMap`, `Vec`, etc.). This trait provides standardized methods (`get`, `remove`, `iter`) for uniform data
-access and integrates smoothly with Python wrappers through the dedicated `IntoBundle` struct, which can be constructed
-directly from Python types (`dict`, `list`, `tuple`).
+Instead of creating a standalone struct, a `Bundle` trait has been implemented across multiple collection types
+(`HashMap`, `BTreeMap`, `Vec`, etc.). This trait provides standardized methods (`get`, `remove`, `iter`) for uniform
+data access and integrates smoothly with Python wrappers through the dedicated `IntoBundle` struct, which can be
+constructed directly from Python types (`dict`, `list`, `tuple`).
 
 ## Struct-Buffer-Builder Triangle
 
@@ -121,6 +121,7 @@ and a proper implementation of this pattern is not possible.
 
 **Idea:** Introduce a `stitch(max_gap: usize)` method for inverted repeats, enabling merging of adjacent repeats
 separated by gaps smaller than `max_gap`.
+
 **Reason:** Impossible to implement without violating the underlying invariant. Stitching gaps will produce left/right
 sides of the inverted repeat that might not be of the same length.
 
@@ -128,6 +129,7 @@ sides of the inverted repeat that might not be of the same length.
 
 **Idea:** Introduce a `data` field in fundamental structures (e.g., `Interval`) to store additional information. It
 could be generic with a default unit `()` type.
+
 **Reason:** This would complicate the design and usage of these structures. For example, what should happen when merging
-two `Interval`s with different `data` types? Should the `data` field be merged or discarded? In the face of such
-ambiguities, better to avoid the `data` field altogether.
+two `Interval` objects with different `data` types? Should the `data` field be merged or discarded? In the face of such
+ambiguities, it is better to avoid the `data` field altogether.
