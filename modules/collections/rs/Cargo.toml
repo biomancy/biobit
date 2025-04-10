@@ -21,3 +21,7 @@ ahash = { workspace = true }
 eyre = { workspace = true }
 itertools = { workspace = true }
 impl-tools = { workspace = true }
+bitcode = { workspace = true, optional = true }
+
+[features]
+bitcode = ["dep:bitcode"]
