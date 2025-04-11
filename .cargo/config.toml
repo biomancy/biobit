@@ -1,5 +1,2 @@
-#[build]
-#rustflags = ["-C", "target-feature=+aes,+sse2"]
-
 [env]
 BIOBIT_RESOURCES = { value = "resources", relative = true }
