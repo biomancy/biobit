@@ -5,6 +5,8 @@ use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::Dissolve;
 use eyre::{ensure, Result};
+use itertools::izip;
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -61,18 +63,19 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Ord for Event<'tree, Idx, T> {
 /// Internal sweep-line implementation.
 /// Populates the provided `segments` and `data` vectors based on query intervals and hits.
 /// Errors if the lengths of `hits` and `data` don't match, or if the query intervals are empty.
-fn sweep_line_into<'a, 'tree: 'a, Idx: PrimInt + 'a, T: Eq + Hash + ?Sized>(
-    query: impl Iterator<Item = &'a Interval<Idx>>,
-    mut hits: impl Iterator<Item = &'a Interval<Idx>>,
-    mut data: impl Iterator<Item = &'a &'tree T>,
+fn sweep_line_into<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized>(
+    query: impl Iterator<Item: Borrow<Interval<Idx>>>,
+    mut hits: impl Iterator<Item: Borrow<Interval<Idx>>>,
+    mut data: impl Iterator<Item: Borrow<&'tree T>>,
     segments: &mut Vec<Interval<Idx>>,
     segdata: &mut Vec<HashSet<&'tree T>>,
 ) -> Result<()> {
     // Create a vector of events
     let mut events = Vec::with_capacity(query.size_hint().0 * 2 + hits.size_hint().0 * 2);
-    for q_interval in query {
-        events.push(Event::QueryStart(q_interval.start()));
-        events.push(Event::QueryEnd(q_interval.end()));
+    for qit in query {
+        let qit = qit.borrow();
+        events.push(Event::QueryStart(qit.start()));
+        events.push(Event::QueryEnd(qit.end()));
     }
 
     ensure!(
@@ -80,9 +83,11 @@ fn sweep_line_into<'a, 'tree: 'a, Idx: PrimInt + 'a, T: Eq + Hash + ?Sized>(
         "No query intervals provided, cannot build segments."
     );
 
-    for (it, &hdata) in hits.by_ref().zip(data.by_ref()) {
-        events.push(Event::HitStart(it.start(), hdata));
-        events.push(Event::HitEnd(it.end(), hdata));
+    for (it, hdata) in hits.by_ref().zip(data.by_ref()) {
+        let it = it.borrow();
+        let hdata = hdata.borrow();
+        events.push(Event::HitStart(it.start(), *hdata));
+        events.push(Event::HitEnd(it.end(), *hdata));
     }
 
     ensure!(
@@ -274,11 +279,9 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
     ///             Segments will only be generated within these intervals.
     /// * `hits` – A reference to the `Hits` object containing the overlaps (intervals
     ///            and associated data references `&'tree T`) found by querying an interval tree.
-    pub fn build<'a, Query>(&mut self, query: Query, hits: &'a Hits<'tree, Idx, T>) -> Result<()>
+    pub fn build<Query>(&mut self, query: Query, hits: &Hits<'tree, Idx, T>) -> Result<()>
     where
-        Query: IntoIterator<Item = &'a Interval<Idx>>,
-        Idx: 'a,
-        'tree: 'a,
+        Query: IntoIterator<Item: Borrow<Interval<Idx>>>,
     {
         self.clear();
         sweep_line_into(
@@ -292,17 +295,16 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
 
     /// Calculates the segments based on the query intervals and hit parts. Errs if the length
     /// of intervals and data don't match.
-    pub fn build_from_parts<'a, Query, Intervals, Data>(
-        &'a mut self,
+    pub fn build_from_parts<Query, Intervals, Data>(
+        &mut self,
         query: Query,
         intervals: Intervals,
         data: Data,
     ) -> Result<()>
     where
-        Query: IntoIterator<Item = &'a Interval<Idx>>,
-        Intervals: IntoIterator<Item = &'a Interval<Idx>>,
-        Data: IntoIterator<Item = &'a &'tree T>,
-        Idx: 'a,
+        Query: IntoIterator<Item: Borrow<Interval<Idx>>>,
+        Intervals: IntoIterator<Item: Borrow<Interval<Idx>>>,
+        Data: IntoIterator<Item: Borrow<&'tree T>>,
     {
         self.clear();
         sweep_line_into(
@@ -443,14 +445,13 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> BatchHitSegments<'tree, Idx, T>
     /// * `hits` – A reference to the `Hits` object containing the overlaps between query regions
     ///            and hits (intervals and associated data references `&'tree T`) found by querying
     ///            an interval tree.
-    pub fn build<'a, Queries>(
+    pub fn build<Queries>(
         &mut self,
         queries: Queries,
-        hits: &'a BatchHits<'tree, Idx, T>,
+        hits: &BatchHits<'tree, Idx, T>,
     ) -> Result<()>
     where
-        Queries: IntoIterator<Item: IntoIterator<Item = &'a Interval<Idx>>>,
-        Idx: 'a,
+        Queries: IntoIterator<Item: IntoIterator<Item: Borrow<Interval<Idx>>>>,
     {
         let mut queries = queries.into_iter();
         self.clear();
@@ -468,6 +469,40 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> BatchHitSegments<'tree, Idx, T>
         ensure!(
             self.len() == hits.len() && queries.next().is_none(),
             "Mismatch between number of queries and hits."
+        );
+        Ok(())
+    }
+
+    pub fn build_from_parts<Queries, Intervals, Data>(
+        &mut self,
+        queries: Queries,
+        intervals: Intervals,
+        data: Data,
+    ) -> Result<()>
+    where
+        Queries: IntoIterator<Item: IntoIterator<Item: Borrow<Interval<Idx>>>>,
+        Intervals: IntoIterator<Item: IntoIterator<Item: Borrow<Interval<Idx>>>>,
+        Data: IntoIterator<Item: IntoIterator<Item: Borrow<&'tree T>>>,
+    {
+        self.clear();
+
+        let mut queries = queries.into_iter();
+        let mut intervals = intervals.into_iter();
+        let mut data = data.into_iter();
+
+        for (q, i, d) in izip!(queries.by_ref(), intervals.by_ref(), data.by_ref()) {
+            sweep_line_into(
+                q.into_iter(),
+                i.into_iter(),
+                d.into_iter(),
+                &mut self.segments,
+                &mut self.data,
+            )?;
+            self.index.push(self.segments.len());
+        }
+        ensure!(
+            queries.next().is_none() && intervals.next().is_none() && data.next().is_none(),
+            "Mismatch between number of queries and hit intervals/data."
         );
         Ok(())
     }
