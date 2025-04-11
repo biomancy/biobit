@@ -1,7 +1,4 @@
-mod bundle;
 pub mod interval_tree;
-
-pub use bundle::IntoPyBundle;
 
 use biobit_core_py::utils::ImportablePyModuleBuilder;
 use pyo3::prelude::*;
