@@ -62,7 +62,7 @@ impl<Idx: PrimInt, Data> Builder for BitsBuilder<Idx, Data> {
 /// A partially immutable interval tree implementation using the BITS algorithm. The tree layout
 /// is constant after construction, but the data elements can be modified.
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
-#[derive(Debug, Clone, Default, From, Dissolve)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, From, Dissolve)]
 pub struct Bits<Idx: PrimInt, Data> {
     // Associated data elements, corresponding to intervals at the same index.
     data: Vec<Data>,

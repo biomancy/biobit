@@ -14,10 +14,9 @@ use std::fmt::Debug;
 /// 1.  **Within the same lifetime scope:** Use the [`clear`](#method.clear)
 ///     method before passing the buffer mutably to subsequent intersection methods.
 ///     This reuses the internal allocations without deallocating/reallocating.
-/// 2.  **Across different lifetime scopes:** Use the [`recycle`](#method.recycle)
-///     method. This consumes the current `Hits` object and returns a new, empty
-///     `Hits` object that reuses the internal allocations but can be associated
-///     with a new lifetime `'new_tree`.
+/// 2.  **Across different lifetime scopes and types:** Use the [`recycle`](#method.recycle)
+///     method to consume the current `Hits` object and return a new one with
+///     the same capacity, but with different types and a new lifetime.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Dissolve)]
 pub struct Hits<'tree, Idx: PrimInt, T: ?Sized> {
     /// The intervals found in the tree corresponding to the hits.
@@ -70,13 +69,6 @@ impl<'tree, Idx: PrimInt, T: ?Sized> Hits<'tree, Idx, T> {
         }
     }
 
-    /// Returns an iterator yielding pairs of `(&Interval<Idx>, &'tree T)` – interval tree records
-    /// that overlapped the query.
-    #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Interval<Idx>, &'tree T)> {
-        self.intervals.iter().zip(self.data.iter().cloned())
-    }
-
     /// Returns all intervals that overlapped the query.
     #[inline]
     pub fn intervals(&self) -> &[Interval<Idx>] {
@@ -87,6 +79,13 @@ impl<'tree, Idx: PrimInt, T: ?Sized> Hits<'tree, Idx, T> {
     #[inline]
     pub fn data(&self) -> &[&'tree T] {
         &self.data
+    }
+
+    /// Returns an iterator yielding pairs of `(&Interval<Idx>, &'tree T)` – interval tree records
+    /// that overlapped the query.
+    #[inline]
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Interval<Idx>, &'tree T)> {
+        self.intervals.iter().zip(self.data.iter().cloned())
     }
 
     /// Adds a hit result to the collection.
@@ -136,16 +135,12 @@ impl<'tree, Idx: PrimInt, T: ?Sized> Hits<'tree, Idx, T> {
         self.data.clear();
     }
 
-    /// Consumes this `Hits` object and returns a new, empty `Hits` object,
-    /// reusing the allocated memory capacity of the original.
-    ///
-    /// The returned `Hits` object may be associated with a different lifetime scope (`'new_tree`).
-    /// The compiler infers `'new_tree` based on the context in which the new object is used.
     #[inline]
-    pub fn recycle<'new_tree>(mut self) -> Hits<'new_tree, Idx, T> {
+    pub fn recycle<'new_tree, NewIdx: PrimInt, NewT>(mut self) -> Hits<'new_tree, NewIdx, NewT> {
         self.clear();
         let (intervals, data) = self.dissolve();
-        let data: Vec<&'new_tree T> = data.into_iter().map(|_| unreachable!()).collect();
+        let intervals = intervals.into_iter().map(|_| unreachable!()).collect();
+        let data = data.into_iter().map(|_| unreachable!()).collect();
 
         Hits { intervals, data }
     }
@@ -159,7 +154,7 @@ impl<'tree, Idx: PrimInt, T: ?Sized> Hits<'tree, Idx, T> {
 ///
 /// This structure supports buffer reuse similar to [`Hits`]:
 /// 1.  **Within the same lifetime scope:** Use [`clear`](#method.clear).
-/// 2.  **Across different lifetime scopes:** Use [`recycle`](#method.recycle).
+/// 2.  **Across different lifetime scopes and types:** Use [`recycle`](#method.recycle).
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Dissolve)]
 pub struct BatchHits<'tree, Idx: PrimInt, T: ?Sized> {
     // Flattened vector of all intervals found across all queries in the batch.
@@ -321,16 +316,15 @@ impl<'tree, Idx: PrimInt, T: ?Sized> BatchHits<'tree, Idx, T> {
         self.index.push(0);
     }
 
-    /// Consumes this `BatchHits` object and returns a new, empty `BatchHits` object,
-    /// reusing the allocated memory capacity of the original.
-    ///
-    /// Allows transferring the buffer's allocation across different lifetime scopes.
-    /// The lifetime `'new_tree` is inferred by the compiler. Consumes `self`.
     #[inline]
-    pub fn recycle<'new_tree>(mut self) -> BatchHits<'new_tree, Idx, T> {
+    pub fn recycle<'new_tree, NewIdx: PrimInt, NewT>(
+        mut self,
+    ) -> BatchHits<'new_tree, NewIdx, NewT> {
         self.clear();
         let (intervals, data, index) = self.dissolve();
         let data = data.into_iter().map(|_| unreachable!()).collect();
+        let intervals = intervals.into_iter().map(|_| unreachable!()).collect();
+
         BatchHits {
             intervals,
             data,

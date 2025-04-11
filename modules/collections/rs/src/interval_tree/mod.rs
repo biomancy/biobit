@@ -1,5 +1,5 @@
 pub use bits::{Bits, BitsBuilder};
-pub use results::{BatchHits, HitSegments, Hits};
+pub use results::{BatchHits, HitSegments, Hits, BatchHitSegments};
 pub use tree::{Builder, ITree};
 
 mod bits;

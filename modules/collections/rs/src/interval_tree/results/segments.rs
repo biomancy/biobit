@@ -4,7 +4,7 @@ use ahash::{HashMap, HashMapExt};
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::Dissolve;
-use eyre::Result;
+use eyre::{ensure, Result};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -60,30 +60,35 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Ord for Event<'tree, Idx, T> {
 
 /// Internal sweep-line implementation.
 /// Populates the provided `segments` and `data` vectors based on query intervals and hits.
-fn sweep_line_into<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized>(
-    query: &[Interval<Idx>],
-    hits: &[Interval<Idx>],
-    data: &[&'tree T],
+/// Errors if the lengths of `hits` and `data` don't match, or if the query intervals are empty.
+fn sweep_line_into<'a, 'tree: 'a, Idx: PrimInt + 'a, T: Eq + Hash + ?Sized>(
+    query: impl Iterator<Item = &'a Interval<Idx>>,
+    mut hits: impl Iterator<Item = &'a Interval<Idx>>,
+    mut data: impl Iterator<Item = &'a &'tree T>,
     segments: &mut Vec<Interval<Idx>>,
     segdata: &mut Vec<HashSet<&'tree T>>,
-) {
-    debug_assert_eq!(hits.len(), data.len());
-
-    // Quick exit -> no query intervals
-    if query.is_empty() {
-        return;
-    }
-
+) -> Result<()> {
     // Create a vector of events
-    let mut events = Vec::with_capacity(query.len() * 2 + hits.len() * 2);
-    for q_interval in query.iter() {
+    let mut events = Vec::with_capacity(query.size_hint().0 * 2 + hits.size_hint().0 * 2);
+    for q_interval in query {
         events.push(Event::QueryStart(q_interval.start()));
         events.push(Event::QueryEnd(q_interval.end()));
     }
-    for (it, &hdata) in hits.iter().zip(data) {
+
+    ensure!(
+        !events.is_empty(),
+        "No query intervals provided, cannot build segments."
+    );
+
+    for (it, &hdata) in hits.by_ref().zip(data.by_ref()) {
         events.push(Event::HitStart(it.start(), hdata));
         events.push(Event::HitEnd(it.end(), hdata));
     }
+
+    ensure!(
+        hits.next().is_none() && data.next().is_none(),
+        "Mismatch between number of hits and data references."
+    );
 
     // Sort events by position and priority
     events.sort_unstable();
@@ -135,7 +140,7 @@ fn sweep_line_into<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized>(
 
     // If there are no more events, we're done
     if evind == events.len() {
-        return;
+        return Ok(());
     }
 
     // Otherwise, we need to process the remaining events
@@ -185,6 +190,8 @@ fn sweep_line_into<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized>(
 
     debug_assert!(active_set.is_empty());
     debug_assert!(segments.len() == segdata.len());
+
+    Ok(())
 }
 
 /// Represents the segmentation of query intervals based on overlapping hits.
@@ -223,7 +230,7 @@ fn sweep_line_into<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized>(
 /// - `clear()`: Removes all segments and data, keeping the allocated memory for reuse
 ///   within the same lifetime (`'tree`).
 /// - `recycle()`: Consumes the object, returning a new empty one with the same allocated
-///   capacity but potentially associated with a new lifetime (`'new_tree`).
+///   capacity but potentially associated with different types and a new lifetime (`'new_tree`).
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve)]
 pub struct HitSegments<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> {
     segments: Vec<Interval<Idx>>,
@@ -267,15 +274,44 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
     ///             Segments will only be generated within these intervals.
     /// * `hits` – A reference to the `Hits` object containing the overlaps (intervals
     ///            and associated data references `&'tree T`) found by querying an interval tree.
-    pub fn build(&mut self, query: &[Interval<Idx>], hits: &Hits<'tree, Idx, T>) {
+    pub fn build<'a, Query>(&mut self, query: Query, hits: &'a Hits<'tree, Idx, T>) -> Result<()>
+    where
+        Query: IntoIterator<Item = &'a Interval<Idx>>,
+        Idx: 'a,
+        'tree: 'a,
+    {
         self.clear();
         sweep_line_into(
-            query,
-            hits.intervals(),
-            hits.data(),
+            query.into_iter(),
+            hits.intervals().into_iter(),
+            hits.data().into_iter(),
             &mut self.segments,
             &mut self.data,
-        );
+        )
+    }
+
+    /// Calculates the segments based on the query intervals and hit parts. Errs if the length
+    /// of intervals and data don't match.
+    pub fn build_from_parts<'a, Query, Intervals, Data>(
+        &'a mut self,
+        query: Query,
+        intervals: Intervals,
+        data: Data,
+    ) -> Result<()>
+    where
+        Query: IntoIterator<Item = &'a Interval<Idx>>,
+        Intervals: IntoIterator<Item = &'a Interval<Idx>>,
+        Data: IntoIterator<Item = &'a &'tree T>,
+        Idx: 'a,
+    {
+        self.clear();
+        sweep_line_into(
+            query.into_iter(),
+            intervals.into_iter(),
+            data.into_iter(),
+            &mut self.segments,
+            &mut self.data,
+        )
     }
 
     /// Returns all annotation segments generated by the query.
@@ -320,17 +356,14 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
         self.data.clear();
     }
 
-    /// Consumes this `HitSegments` object and returns a new, empty `HitSegments` object,
-    /// reusing the allocated memory.
-    ///
-    /// The returned `HitSegments` object is associated with a potentially different lifetime
-    /// (`'new_tree`), as inferred by the compiler. This is useful for reusing buffers or storing
-    /// them in a safe manner with the `'static` lifetime.
-    pub fn recycle<'new_tree>(mut self) -> HitSegments<'new_tree, Idx, T> {
+    pub fn recycle<'new_tree, NewIdx: PrimInt, NewT: Eq + Hash>(
+        mut self,
+    ) -> HitSegments<'new_tree, NewIdx, NewT> {
         self.clear();
 
         let (segments, data) = self.dissolve();
         let data = data.into_iter().map(|_| unreachable!()).collect();
+        let segments = segments.into_iter().map(|_| unreachable!()).collect();
 
         HitSegments { segments, data }
     }
@@ -354,7 +387,7 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
 /// - `clear()`: Removes all segments and data, keeping the allocated memory for reuse
 ///   within the same lifetime (`'tree`).
 /// - `recycle()`: Consumes the object, returning a new empty one with the same allocated
-///   capacity but potentially associated with a new lifetime (`'new_tree`).
+///   capacity but potentially associated with new types/lifetime.
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve)]
 pub struct BatchHitSegments<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> {
     // Flattened vector of all non-overlapping, sorted segments across all queries.
@@ -410,25 +443,32 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> BatchHitSegments<'tree, Idx, T>
     /// * `hits` – A reference to the `Hits` object containing the overlaps between query regions
     ///            and hits (intervals and associated data references `&'tree T`) found by querying
     ///            an interval tree.
-    pub fn build(
+    pub fn build<'a, Queries>(
         &mut self,
-        queries: &[&[Interval<Idx>]],
-        hits: &BatchHits<'tree, Idx, T>,
-    ) -> Result<()> {
-        if queries.len() != hits.len() {
-            eyre::bail!(
-                "Mismatch between number of queries and hits, {} != {}",
-                queries.len(),
-                hits.len()
-            );
-        }
-
+        queries: Queries,
+        hits: &'a BatchHits<'tree, Idx, T>,
+    ) -> Result<()>
+    where
+        Queries: IntoIterator<Item: IntoIterator<Item = &'a Interval<Idx>>>,
+        Idx: 'a,
+    {
+        let mut queries = queries.into_iter();
         self.clear();
-        for (&q, h) in queries.iter().zip(hits.iter()) {
-            sweep_line_into(q, h.0, h.1, &mut self.segments, &mut self.data);
+
+        for (q, h) in queries.by_ref().zip(hits.iter()) {
+            sweep_line_into(
+                q.into_iter(),
+                h.0.into_iter(),
+                h.1.into_iter(),
+                &mut self.segments,
+                &mut self.data,
+            )?;
             self.index.push(self.segments.len());
         }
-
+        ensure!(
+            self.len() == hits.len() && queries.next().is_none(),
+            "Mismatch between number of queries and hits."
+        );
         Ok(())
     }
 
@@ -502,19 +542,15 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> BatchHitSegments<'tree, Idx, T>
         self.index.push(0); // Reset to initial state
     }
 
-    /// Consumes this `BatchHitSegments` object and returns a new, empty `BatchHitSegments` object,
-    /// reusing the allocated memory.
-    ///
-    /// The returned `BatchHitSegments` object is associated with a potentially different lifetime
-    /// (`'new_tree`), as inferred by the compiler. This is useful for reusing buffers or storing
-    /// them in a safe manner with the `'static` lifetime.
     #[inline]
-    pub fn recycle<'new_tree>(mut self) -> BatchHitSegments<'new_tree, Idx, T> {
+    pub fn recycle<'new_tree, NewIdx: PrimInt, NewT: Eq + Hash>(
+        mut self,
+    ) -> BatchHitSegments<'new_tree, NewIdx, NewT> {
         self.clear();
-        let (segments, data, index) = self.dissolve();
 
-        // Recycle the data Vec<HashSet<&'tree T>> -> Vec<HashSet<&'new_tree T>>
-        let data: Vec<HashSet<&'new_tree T>> = data.into_iter().map(|_| unreachable!()).collect();
+        let (segments, data, index) = self.dissolve();
+        let data = data.into_iter().map(|_| unreachable!()).collect();
+        let segments = segments.into_iter().map(|_| unreachable!()).collect();
 
         BatchHitSegments {
             segments,
@@ -568,7 +604,7 @@ mod tests {
             .cloned()
             .map(|(start, end)| Interval::new(start, end).unwrap())
             .collect();
-        segments.build(&query, &allhits);
+        segments.build(&query, &allhits).unwrap();
         segments
     }
 
@@ -797,9 +833,9 @@ mod tests {
 
         let mut segments = BatchHitSegments::new();
         segments.build(
-            &[
-                &[Interval::new(0, 10)?],
-                &[Interval::new(20, 25)?, Interval::new(30, 40)?],
+            [
+                &vec![Interval::new(0, 10)?],
+                &vec![Interval::new(20, 25)?, Interval::new(30, 40)?],
             ],
             &batch,
         )?;
