@@ -57,7 +57,7 @@ impl IndexedReader<()> {
                 let gzi = noodles::bgzf::gzi::fs::read(&path)?;
 
                 let reader =
-                    noodles::bgzf::indexed_reader::IndexedReader::new(fasta.into_inner(), gzi);
+                    noodles::bgzf::io::indexed_reader::IndexedReader::new(fasta.into_inner(), gzi);
                 Box::new(IndexedReader::new(reader, fai)?)
             }
             decode::Stream::MultithreadedBgzf(mut fasta) => {
@@ -66,7 +66,7 @@ impl IndexedReader<()> {
                 let gzi = noodles::bgzf::gzi::fs::read(&path)?;
 
                 let reader =
-                    noodles::bgzf::indexed_reader::IndexedReader::new(fasta.finish()?, gzi);
+                    noodles::bgzf::io::indexed_reader::IndexedReader::new(fasta.finish()?, gzi);
                 Box::new(IndexedReader::new(reader, fai)?)
             }
             _ => {
