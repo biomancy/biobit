@@ -1,5 +1,4 @@
 use core::cmp::Ordering;
-use core::fmt::{Debug, Display};
 use core::hash::{Hash, Hasher};
 use core::ptr;
 use pyo3::PyObject;
