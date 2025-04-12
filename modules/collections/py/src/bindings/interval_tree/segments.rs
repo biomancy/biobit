@@ -1,8 +1,9 @@
 use biobit_collections_rs::interval_tree::{BatchHitSegments, HitSegments};
 use biobit_core_py::loc::PyInterval;
+use biobit_core_py::utils::type_hint_class_getitem;
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
-use pyo3::types::{PyFrozenSet, PyIterator, PyList};
+use pyo3::types::{PyFrozenSet, PyIterator, PyList, PyType};
 use pyo3::{pyclass, pymethods, Py, PyObject, PyResult, Python};
 use std::hash::Hash;
 use std::ops::Deref;
@@ -82,6 +83,11 @@ impl PyHitSegments {
             }
             Ok(true)
         })
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 
     pub fn __getstate__<'a>(
@@ -214,6 +220,11 @@ impl PyBatchHitSegments {
             }
             Ok(true)
         })
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 
     pub fn __getstate__<'a>(

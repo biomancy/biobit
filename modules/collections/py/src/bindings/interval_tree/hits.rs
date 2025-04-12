@@ -2,10 +2,10 @@ use crate::interval_tree::{PyBatchHitSegments, PyHitSegments};
 use biobit_collections_rs::interval_tree::{BatchHits, Hits};
 use biobit_core_py::loc::{Interval, IntoPyInterval, PyInterval};
 use biobit_core_py::pickle;
-use biobit_core_py::utils::ByPyPointer;
+use biobit_core_py::utils::{type_hint_class_getitem, ByPyPointer};
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyIterator, PyList};
+use pyo3::types::{PyBytes, PyIterator, PyList, PyType};
 use pyo3::{pyclass, pymethods, PyObject};
 
 #[pyclass(name = "Hits")]
@@ -124,6 +124,11 @@ impl PyHits {
             }
             Ok(true)
         })
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 
     pub fn __repr__(&self) -> String {
@@ -324,6 +329,11 @@ impl PyBatchHits {
             }
             Ok(true)
         })
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 
     pub fn __repr__(&self) -> String {
