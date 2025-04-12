@@ -140,3 +140,7 @@ Cargo.lock
 # pixi environments
 .pixi
 *.egg-info
+
+# LLM context generation
+llm-ctx.py
+llm-ctx.txt
