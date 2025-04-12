@@ -45,7 +45,7 @@ pip = "==25.0.1"
 py-ci-ruff = "ruff check"
 py-ci-mypy = { cmd = "mypy --config-file pyproject.toml .", cwd = "biobit/py" }
 py-ci-build = { cmd = "maturin develop", cwd = "biobit/py", depends-on = ["py-ci-ruff", "py-ci-mypy"] }
-py-ci-test = { cmd = "pytest -x biobit/py", depends-on = ["py-ci-build"] }
+py-ci-test = { cmd = "pytest -v -x biobit/py", depends-on = ["py-ci-build"] }
 py-ci = { depends-on = ["py-ci-test"] }
 
 [feature.python.pypi-dependencies]
