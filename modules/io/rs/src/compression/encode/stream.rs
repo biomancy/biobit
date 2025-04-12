@@ -33,7 +33,8 @@ impl<W: Write + Send + Sync + 'static> Stream<W> {
                 Ok(Stream::Gzip(encoder))
             }
             Config::Bgzf(params) => {
-                let level = bgzf::io::writer::CompressionLevel::new(*params.deflate().level()).unwrap();
+                let level =
+                    bgzf::io::writer::CompressionLevel::new(*params.deflate().level()).unwrap();
                 if params.threads().get() == 1 {
                     let writer = bgzf::io::writer::Builder::default()
                         .set_compression_level(level)

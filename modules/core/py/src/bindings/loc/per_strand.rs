@@ -50,11 +50,7 @@ impl PyPerStrand {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(
-        cls: &Bound<PyType>,
-        args: PyObject,
-        py: Python,
-    ) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
         let locals = PyDict::new(py);
         locals.set_item("cls", cls)?;
         locals.set_item("args", args)?;
