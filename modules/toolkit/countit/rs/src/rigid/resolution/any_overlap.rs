@@ -31,10 +31,10 @@ impl<Idx: PrimInt, Cnts: Float, Elt> Resolution<Idx, Cnts, Elt> for AnyOverlap {
         debug_assert_eq!(alignment.len(), bhits.len());
 
         let mut empty = 0;
-        for (query, n) in bhits.iter().zip(&alignment.total_hits) {
+        for ((_, data), n) in bhits.iter().zip(&alignment.total_hits) {
             // Gather unique hits
             self.cache.clear();
-            for hit in query.1 {
+            for hit in data {
                 self.cache.insert(**hit);
             }
 
