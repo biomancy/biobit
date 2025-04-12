@@ -36,6 +36,13 @@ rs-ci-clippy = "cargo clippy --all-features"
 rs-ci-test = "cargo test --all-features"
 rs-ci = { depends-on = ["rs-ci-fmt", "rs-ci-check", "rs-ci-clippy", "rs-ci-test"] }
 
+[feature.rust.tasks.code2prompt]
+cmd = [
+    "code2prompt", "--full-directory-tree", "--sort", "name_asc",
+    "--exclude", "biobit/docs/site", "--exclude", "target", "--exclude", "resources", "--exclude", "obsolete",
+    "-O", "llm-context.md", "."
+]
+
 # [Common Python]
 [feature.python.dependencies]
 pixi-pycharm = "==0.0.8"

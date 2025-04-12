@@ -141,6 +141,5 @@ Cargo.lock
 .pixi
 *.egg-info
 
-# LLM context generation
-llm-ctx.py
-llm-ctx.txt
+# LLM context
+llm-context.md
