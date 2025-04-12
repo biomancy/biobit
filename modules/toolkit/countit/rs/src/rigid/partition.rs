@@ -1,6 +1,6 @@
 use ahash::HashMap;
 use biobit_collections_rs::interval_tree::Bits;
-use biobit_core_rs::loc::{Contig, Interval, IntervalOp, PerOrientation};
+use biobit_core_rs::loc::{Contig, Interval, PerOrientation};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
@@ -36,7 +36,7 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
         }
 
         // Build the partitions index
-        let prtindex = Bits::new(partitions.iter().cloned().enumerate());
+        let prtindex = Bits::new(partitions.iter().cloned().enumerate().map(|(x, y)| (y, x)));
 
         // Map elements to partitions per orientation
         let mut elements_per_partition =
@@ -44,7 +44,7 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
         for (orientation, candidates) in candidates.into_iter() {
             for (elind, mut segments) in candidates {
                 for segment in Interval::merge(&mut segments) {
-                    for (_, prtind) in prtindex.query(segment.start(), segment.end()) {
+                    for (_, prtind) in prtindex.query(segment) {
                         elements_per_partition[*prtind]
                             .entry(elind)
                             .or_default()
@@ -68,7 +68,7 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
 
                     for (orientation, segments) in orientations {
                         for segment in segments {
-                            index.get_mut(orientation).push((ind, segment));
+                            index.get_mut(orientation).push((segment, ind));
                         }
                     }
                 }
