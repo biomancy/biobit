@@ -1,9 +1,9 @@
 use biobit_core_py::loc::{IntervalOp, PyInterval};
+use biobit_core_py::utils::type_hint_class_getitem;
 pub use biobit_countit_rs::{Counts, PartitionMetrics, ResolutionOutcomes};
 use derive_more::{From, Into};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyType};
-use std::ffi::CString;
+use pyo3::types::PyType;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[pyclass(frozen, eq, hash, name = "ResolutionOutcome")]
@@ -109,22 +109,8 @@ impl From<Counts<'_, String, usize, f64, PyObject, PyObject>> for PyCounts {
 #[pymethods]
 impl PyCounts {
     #[classmethod]
-    pub fn __class_getitem__(
-        cls: &Bound<PyType>,
-        args: PyObject,
-        py: Python,
-    ) -> PyResult<PyObject> {
-        let locals = PyDict::new(py);
-        locals.set_item("cls", cls)?;
-        locals.set_item("args", args)?;
-
-        py.run(
-            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
-            None,
-            Some(&locals),
-        )?;
-
-        Ok(locals.get_item("result")?.unwrap().unbind())
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 
     // pub fn __hash__(&self, py: Python) -> u64 {
