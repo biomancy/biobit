@@ -80,8 +80,8 @@ def test_bits_batch_intersection(bits: Bits[str]):
     assert len(bhits) == 3
     assert bhits.intervals(0) == [Interval(10, 20)]
     assert bhits.data(0) == [DATA_A]
-    assert bhits.intervals(1) == [Interval(15, 25)]
-    assert bhits.data(1) == [DATA_B]
+    assert bhits.intervals(1) == [Interval(10, 20), Interval(15, 25)]
+    assert bhits.data(1) == [DATA_A, DATA_B]
     assert bhits.intervals(2) == [Interval(50, 60)]
     assert bhits.data(2) == [DATA_D]
 
@@ -90,7 +90,7 @@ def test_bits_batch_intersection(bits: Bits[str]):
 
     assert list(bhits) == [
         ([Interval(10, 20)], [DATA_A]),
-        ([Interval(15, 25)], [DATA_B]),
+        ([Interval(10, 20), Interval(15, 25)], [DATA_A, DATA_B]),
         ([Interval(50, 60)], [DATA_D]),
     ]
 
@@ -107,7 +107,11 @@ def test_bits_batch_intersection(bits: Bits[str]):
     )]
 
     # Empty intersection
-    assert bits.batch_intersect_intervals([(0, 5)]) == BatchHits()
+    empty = bits.batch_intersect_intervals([(0, 5)], into=bhits)
+    assert len(empty) == 1
+    assert list(empty) == [
+        ([], [])
+    ]
 
     # Empty batch
     assert bits.batch_intersect_intervals([]) == BatchHits()

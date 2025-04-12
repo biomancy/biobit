@@ -20,7 +20,7 @@ enum Event<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> {
     QueryEnd(Idx),
 }
 
-impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Event<'tree, Idx, T> {
+impl<Idx: PrimInt, T: Eq + Hash + ?Sized> Event<'_, Idx, T> {
     fn pos(&self) -> Idx {
         match self {
             Event::QueryStart(p) => *p,
@@ -41,18 +41,18 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Event<'tree, Idx, T> {
     }
 }
 
-impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> PartialEq for Event<'tree, Idx, T> {
+impl<Idx: PrimInt, T: Eq + Hash + ?Sized> PartialEq for Event<'_, Idx, T> {
     fn eq(&self, other: &Self) -> bool {
         self.pos() == other.pos() && self.priority() == other.priority()
     }
 }
-impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> PartialOrd for Event<'tree, Idx, T> {
+impl<Idx: PrimInt, T: Eq + Hash + ?Sized> PartialOrd for Event<'_, Idx, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Ord for Event<'tree, Idx, T> {
+impl<Idx: PrimInt, T: Eq + Hash + ?Sized> Ord for Event<'_, Idx, T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.pos()
             .cmp(&other.pos())
@@ -140,8 +140,8 @@ fn sweep_line_into<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized>(
     }
 
     // There must be at least one segment at this point.
-    debug_assert!(segments.len() >= 1);
-    debug_assert!(segdata.len() >= 1);
+    debug_assert!(!segments.is_empty());
+    debug_assert!(!segdata.is_empty());
 
     // If there are no more events, we're done
     if evind == events.len() {
@@ -242,7 +242,7 @@ pub struct HitSegments<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> {
     data: Vec<HashSet<&'tree T>>,
 }
 
-impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Default for HitSegments<'tree, Idx, T> {
+impl<Idx: PrimInt, T: Eq + Hash + ?Sized> Default for HitSegments<'_, Idx, T> {
     fn default() -> Self {
         Self {
             segments: Vec::new(),
@@ -276,9 +276,9 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
     ///
     /// # Arguments
     /// * `query` – Intervals defining the regions of interest for segmentation.
-    ///             Segments will only be generated within these intervals.
+    ///   Segments will only be generated within these intervals.
     /// * `hits` – A reference to the `Hits` object containing the overlaps (intervals
-    ///            and associated data references `&'tree T`) found by querying an interval tree.
+    ///   and associated data references `&'tree T`) found by querying an interval tree.
     pub fn build<Query>(&mut self, query: Query, hits: &Hits<'tree, Idx, T>) -> Result<()>
     where
         Query: IntoIterator<Item: Borrow<Interval<Idx>>>,
@@ -286,8 +286,8 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> HitSegments<'tree, Idx, T> {
         self.clear();
         sweep_line_into(
             query.into_iter(),
-            hits.intervals().into_iter(),
-            hits.data().into_iter(),
+            hits.intervals().iter(),
+            hits.data().iter(),
             &mut self.segments,
             &mut self.data,
         )
@@ -401,7 +401,7 @@ pub struct BatchHitSegments<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> {
     index: Vec<usize>,
 }
 
-impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> Default for BatchHitSegments<'tree, Idx, T> {
+impl<Idx: PrimInt, T: Eq + Hash + ?Sized> Default for BatchHitSegments<'_, Idx, T> {
     #[inline]
     fn default() -> Self {
         Self {
@@ -443,8 +443,8 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> BatchHitSegments<'tree, Idx, T>
     /// # Arguments
     /// * `queries` – Intervals defining the regions of interest for each query.
     /// * `hits` – A reference to the `Hits` object containing the overlaps between query regions
-    ///            and hits (intervals and associated data references `&'tree T`) found by querying
-    ///            an interval tree.
+    ///   and hits (intervals and associated data references `&'tree T`) found by querying
+    ///   an interval tree.
     pub fn build<Queries>(
         &mut self,
         queries: Queries,
@@ -459,8 +459,8 @@ impl<'tree, Idx: PrimInt, T: Eq + Hash + ?Sized> BatchHitSegments<'tree, Idx, T>
         for (q, h) in queries.by_ref().zip(hits.iter()) {
             sweep_line_into(
                 q.into_iter(),
-                h.0.into_iter(),
-                h.1.into_iter(),
+                h.0.iter(),
+                h.1.iter(),
                 &mut self.segments,
                 &mut self.data,
             )?;

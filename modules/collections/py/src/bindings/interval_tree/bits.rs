@@ -3,8 +3,9 @@ use biobit_collections_rs::interval_tree::{Bits, BitsBuilder, Builder, ITree};
 use biobit_core_py::loc::{IntoPyInterval, PyInterval};
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
-use pyo3::types::PyList;
+use pyo3::types::{PyDict, PyList, PyType};
 use pyo3::PyTypeInfo;
+use std::ffi::CString;
 
 #[pyclass(name = "BitsBuilder")]
 #[derive(Default, Dissolve)]
@@ -67,11 +68,7 @@ impl PyBits {
     }
 
     pub fn intervals<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyList>> {
-        let intervals = self
-            .tree
-            .intervals()
-            .into_iter()
-            .map(|x| PyInterval::from(x));
+        let intervals = self.tree.intervals().map(PyInterval::from);
         let pylist = PyList::empty(py);
         for interval in intervals {
             pylist.append(interval)?;
@@ -158,6 +155,21 @@ impl PyBits {
             }
             Ok(true)
         })
+    }
+
+    #[classmethod]
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject, py: Python) -> PyResult<PyObject> {
+        let locals = PyDict::new(py);
+        locals.set_item("cls", cls)?;
+        locals.set_item("args", args)?;
+
+        py.run(
+            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
+            None,
+            Some(&locals),
+        )?;
+
+        Ok(locals.get_item("result")?.unwrap().unbind())
     }
 
     #[staticmethod]

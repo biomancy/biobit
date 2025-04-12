@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Iterator
+from typing import Any, Iterator, Iterable
 
 from biobit.core.loc import Interval, IntoInterval
 from .segments import HitSegments, BatchHitSegments
@@ -15,6 +15,18 @@ class Hits[T]:
 
     def __init__(self) -> None:
         """Create a new, empty Hits container."""
+        ...
+
+    def append(self, interval: IntoInterval, data: T) -> None:
+        """
+        Append a single hit (interval and data).
+        """
+        ...
+
+    def extend(self, items: Iterable[tuple[IntoInterval, T]]) -> None:
+        """
+        Extend the list of hits from an iterable of (interval, data) pairs.
+        """
         ...
 
     def intervals(self) -> list[Interval]:
@@ -134,6 +146,18 @@ class BatchHits[T]:
 
         Raises:
             IndexError: If the query index `i` is out of bounds.
+        """
+        ...
+
+    def append(self, intervals: Iterable[IntoInterval], data: Iterable[T]) -> None:
+        """
+        Append results for a single new query to the end of the batch.
+        """
+        ...
+
+    def extend(self, queries: Iterable[tuple[Iterable[IntoInterval], Iterable[T]]]) -> None:
+        """
+        Extend the batch with results from multiple queries provided via an iterable.
         """
         ...
 

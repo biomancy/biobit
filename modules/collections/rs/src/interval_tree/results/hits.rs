@@ -27,7 +27,7 @@ pub struct Hits<'tree, Idx: PrimInt, T: ?Sized> {
 
 // Manual Clone implementation: Required because derive(Clone) would incorrectly
 // require T: Clone. We only need to clone the Interval<Idx> and the reference &'tree T.
-impl<'tree, Idx: PrimInt + Clone, T: ?Sized> Clone for Hits<'tree, Idx, T> {
+impl<Idx: PrimInt + Clone, T: ?Sized> Clone for Hits<'_, Idx, T> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
@@ -39,7 +39,7 @@ impl<'tree, Idx: PrimInt + Clone, T: ?Sized> Clone for Hits<'tree, Idx, T> {
     }
 }
 
-impl<'tree, Idx: PrimInt, T: ?Sized> Default for Hits<'tree, Idx, T> {
+impl<Idx: PrimInt, T: ?Sized> Default for Hits<'_, Idx, T> {
     /// Creates a new, empty `Hits` collection with no pre-allocated capacity.
     #[inline]
     fn default() -> Self {
@@ -167,7 +167,7 @@ pub struct BatchHits<'tree, Idx: PrimInt, T: ?Sized> {
 }
 
 // Manual Clone implementation to circumvent the derive requirement for T: Clone
-impl<'tree, Idx: PrimInt + Clone, T: ?Sized> Clone for BatchHits<'tree, Idx, T> {
+impl<Idx: PrimInt + Clone, T: ?Sized> Clone for BatchHits<'_, Idx, T> {
     fn clone(&self) -> Self {
         Self {
             intervals: self.intervals.clone(),
@@ -177,7 +177,7 @@ impl<'tree, Idx: PrimInt + Clone, T: ?Sized> Clone for BatchHits<'tree, Idx, T> 
     }
 }
 
-impl<'tree, Idx: PrimInt, T: ?Sized> Default for BatchHits<'tree, Idx, T> {
+impl<Idx: PrimInt, T: ?Sized> Default for BatchHits<'_, Idx, T> {
     /// Creates a new, empty `BatchHits` collection.
     #[inline]
     fn default() -> Self {
@@ -240,9 +240,7 @@ impl<'tree, Idx: PrimInt, T: ?Sized> BatchHits<'tree, Idx, T> {
 
     /// Returns iterator over all intervals overlapping each query in the batch.
     pub fn intervals_iter(&self) -> impl ExactSizeIterator<Item = &[Interval<Idx>]> {
-        (0..self.index.len() - 1)
-            .into_iter()
-            .map(|i| &self.intervals[self.index[i]..self.index[i + 1]])
+        (0..self.index.len() - 1).map(|i| &self.intervals[self.index[i]..self.index[i + 1]])
     }
 
     /// Returns all data references associated with intervals overlapping the `i`-th query in batch
@@ -258,16 +256,14 @@ impl<'tree, Idx: PrimInt, T: ?Sized> BatchHits<'tree, Idx, T> {
     /// Returns iterator over all data references associated with intervals overlapping each query
     /// in the batch.
     pub fn data_iter(&self) -> impl ExactSizeIterator<Item = &[&'tree T]> {
-        (0..self.index.len() - 1)
-            .into_iter()
-            .map(|i| &self.data[self.index[i]..self.index[i + 1]])
+        (0..self.index.len() - 1).map(|i| &self.data[self.index[i]..self.index[i + 1]])
     }
 
     /// Returns an iterator over the results (intervals and data) for each query.
     /// Yields tuples `(&[Interval<Idx>], &[&'tree T])`, one tuple per query.
     /// Empty slices are yielded for queries with zero hits.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (&[Interval<Idx>], &[&'tree T])> {
-        (0..self.index.len() - 1).into_iter().map(|i| {
+        (0..self.index.len() - 1).map(|i| {
             (
                 &self.intervals[self.index[i]..self.index[i + 1]],
                 &self.data[self.index[i]..self.index[i + 1]],

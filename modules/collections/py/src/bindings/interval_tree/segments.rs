@@ -20,10 +20,10 @@ impl PyHitSegments {
         self.cache.take().unwrap_or_default().recycle()
     }
 
-    pub fn reset<'py, 'tree, T: Hash + Eq + Deref<Target = PyObject>>(
+    pub fn reset<T: Hash + Eq + Deref<Target = PyObject>>(
         &mut self,
-        py: Python<'py>,
-        segments: HitSegments<'tree, i64, T>,
+        py: Python<'_>,
+        segments: HitSegments<'_, i64, T>,
     ) -> PyResult<()> {
         self.segments.clear();
         self.data.clear();
@@ -99,7 +99,7 @@ impl PyHitSegments {
 }
 
 #[pyclass(name = "BatchHitSegments")]
-#[derive(Default, Dissolve)]
+#[derive(Dissolve)]
 pub struct PyBatchHitSegments {
     cache: Option<BatchHitSegments<'static, i64, usize>>,
     segments: Vec<PyInterval>,
@@ -107,15 +107,21 @@ pub struct PyBatchHitSegments {
     index: Vec<usize>,
 }
 
+impl Default for PyBatchHitSegments {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PyBatchHitSegments {
     pub fn take<'tree, T: Hash + Eq>(&mut self) -> BatchHitSegments<'tree, i64, T> {
         self.cache.take().unwrap_or_default().recycle()
     }
 
-    pub fn reset<'py, 'tree, T: Hash + Eq + Deref<Target = PyObject>>(
+    pub fn reset<T: Hash + Eq + Deref<Target = PyObject>>(
         &mut self,
-        py: Python<'py>,
-        segments: BatchHitSegments<'tree, i64, T>,
+        py: Python<'_>,
+        segments: BatchHitSegments<'_, i64, T>,
     ) -> PyResult<()> {
         self.clear();
 
@@ -140,7 +146,12 @@ impl PyBatchHitSegments {
 impl PyBatchHitSegments {
     #[new]
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            cache: None,
+            segments: Vec::new(),
+            data: Vec::new(),
+            index: vec![0],
+        }
     }
 
     pub fn segments<'a>(&self, py: Python<'a>, i: usize) -> PyResult<Bound<'a, PyList>> {
@@ -210,7 +221,7 @@ impl PyBatchHitSegments {
         py: Python<'a>,
     ) -> PyResult<(Bound<'a, PyList>, Bound<'a, PyList>, Bound<'a, PyList>)> {
         Ok((
-            PyList::new(py, self.segments.iter().map(|x| PyInterval::from(*x)))?,
+            PyList::new(py, self.segments.iter().cloned())?,
             PyList::new(py, self.data.iter())?,
             PyList::new(py, self.index.iter())?,
         ))

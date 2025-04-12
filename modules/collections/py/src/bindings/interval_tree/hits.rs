@@ -36,6 +36,27 @@ impl PyHits {
         Self::default()
     }
 
+    fn append(&mut self, py: Python, interval: IntoPyInterval, data: PyObject) {
+        self.intervals.push(interval.extract_py(py).rs);
+        self.data.push(data);
+    }
+
+    fn extend(&mut self, items: PyObject) -> PyResult<()> {
+        let before = self.intervals.len();
+        Python::with_gil(|py| {
+            for item_bound in items.bind(py).try_iter()? {
+                let (interval, data) = item_bound?.extract::<(IntoPyInterval, PyObject)>()?;
+                self.intervals.push(interval.extract_py(py).rs);
+                self.data.push(data);
+            }
+            Ok(())
+        })
+        .inspect_err(|_| {
+            self.intervals.truncate(before);
+            self.data.truncate(before);
+        })
+    }
+
     pub fn intervals<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyList>> {
         PyList::new(py, self.intervals.iter().map(|x| PyInterval::from(*x)))
     }
@@ -61,7 +82,7 @@ impl PyHits {
 
             // Run the segmentation.
             let query = query.into_iter().map(|x| x.extract_py(py).rs);
-            let data = slf.data.iter().map(|x| ByPyPointer::from_ref(x));
+            let data = slf.data.iter().map(ByPyPointer::from_ref);
 
             segments.build_from_parts(query, &slf.intervals, data)?;
             borrow.reset(py, segments)?;
@@ -105,6 +126,11 @@ impl PyHits {
         })
     }
 
+    pub fn __repr__(&self) -> String {
+        let len = self.intervals.len();
+        format!("<Hits(len={})>", len)
+    }
+
     pub fn __getstate__<'a>(&self, py: Python<'a>) -> PyResult<(Vec<u8>, Bound<'a, PyList>)> {
         Ok((pickle::to_bytes(&self.intervals), self.data(py)?))
     }
@@ -117,12 +143,18 @@ impl PyHits {
 }
 
 #[pyclass(name = "BatchHits")]
-#[derive(Default, Dissolve)]
+#[derive(Dissolve)]
 pub struct PyBatchHits {
     cache: Option<BatchHits<'static, i64, PyObject>>,
     intervals: Vec<PyInterval>,
     hits: Vec<PyObject>,
     index: Vec<usize>,
+}
+
+impl Default for PyBatchHits {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PyBatchHits {
@@ -148,7 +180,12 @@ impl PyBatchHits {
 impl PyBatchHits {
     #[new]
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            cache: None,
+            intervals: Vec::new(),
+            hits: Vec::new(),
+            index: vec![0],
+        }
     }
 
     pub fn intervals<'a>(&self, py: Python<'a>, i: usize) -> PyResult<Bound<'a, PyList>> {
@@ -174,6 +211,45 @@ impl PyBatchHits {
         } else {
             PyList::new(py, self.hits[self.index[i]..self.index[i + 1]].iter())
         }
+    }
+
+    pub fn append(&mut self, intervals: PyObject, data: PyObject) -> PyResult<()> {
+        let before = self.intervals.len();
+        Python::with_gil(|py| {
+            let (mut intervals, mut data) = (intervals.bind(py).try_iter()?, data.bind(py).try_iter()?);
+            for (interval, data) in intervals.by_ref().zip(data.by_ref()) {
+                let interval = interval?.extract::<IntoPyInterval>()?.extract_py(py);
+                let data = data?.extract::<PyObject>()?;
+
+                self.intervals.push(interval);
+                self.hits.push(data);
+            }
+
+            if intervals.next().is_some() || data.next().is_some() {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "Mismatch between number of intervals and data objects for the query being appended.",
+                ));
+            }
+            self.index.push(self.intervals.len());
+            Ok(())
+        }).inspect_err(|_| {
+            self.intervals.truncate(before);
+            self.hits.truncate(before);
+        })
+    }
+
+    pub fn extend(&mut self, queries: Bound<PyAny>) -> PyResult<()> {
+        let before = self.intervals.len();
+        let index = self.index.len();
+        for query in queries.try_iter()? {
+            let (intervals, data) = query?.extract::<(PyObject, PyObject)>()?;
+            self.append(intervals, data).inspect_err(|_| {
+                self.intervals.truncate(before);
+                self.hits.truncate(before);
+                self.index.truncate(index);
+            })?;
+        }
+        Ok(())
     }
 
     #[pyo3(signature = (query, into = None))]
@@ -203,7 +279,7 @@ impl PyBatchHits {
             let data = (0..slf.index.len() - 1).map(|i| {
                 slf.hits[slf.index[i]..slf.index[i + 1]]
                     .iter()
-                    .map(|x| ByPyPointer::from_ref(x))
+                    .map(ByPyPointer::from_ref)
             });
 
             segments.build_from_parts(query, intervals, data)?;
@@ -248,6 +324,12 @@ impl PyBatchHits {
             }
             Ok(true)
         })
+    }
+
+    pub fn __repr__(&self) -> String {
+        let len = self.__len__();
+        let total_hits = self.intervals.len();
+        format!("<BatchHits(queries={len}, total_hits={total_hits})>")
     }
 
     pub fn __getstate__<'a>(

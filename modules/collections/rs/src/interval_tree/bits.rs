@@ -50,12 +50,12 @@ impl<Idx: PrimInt, Data> Builder for BitsBuilder<Idx, Data> {
             ),
         >,
     ) -> Self {
-        self.records.extend(records.into_iter());
+        self.records.extend(records);
         self
     }
 
     fn build(self) -> Self::Target {
-        Bits::new(self.records.into_iter())
+        Bits::new(self.records)
     }
 }
 
@@ -103,6 +103,8 @@ impl<Idx: PrimInt, Data> Bits<Idx, Data> {
     }
 
     /// Creates a new `Bits` interval tree from an iterator of `(Interval, Data)` pairs.
+    ///
+    /// # Safety
     /// The intervals must be sorted by their start coordinates. Use `new` for unsorted data.
     pub unsafe fn new_unchecked(iter: impl IntoIterator<Item = (Interval<Idx>, Data)>) -> Self {
         let iter = iter.into_iter();
@@ -309,9 +311,7 @@ impl<Idx: PrimInt, Data> ITree for Bits<Idx, Data> {
         buffer: &mut Hits<'hits, Self::Idx, Self::Data>,
     ) {
         buffer.clear();
-
-        let mut query = self.query(*interval);
-        while let Some((interval, element)) = query.next() {
+        for (interval, element) in self.query(*interval) {
             buffer.push(interval, element)
         }
     }
@@ -324,9 +324,8 @@ impl<Idx: PrimInt, Data> ITree for Bits<Idx, Data> {
         buffer.clear();
 
         for query in intervals {
-            let mut query = self.query(*query);
             let mut hits = buffer.add_hits();
-            while let Some((interval, element)) = query.next() {
+            for (interval, element) in self.query(*query) {
                 hits.add(interval, element);
             }
             hits.push();
