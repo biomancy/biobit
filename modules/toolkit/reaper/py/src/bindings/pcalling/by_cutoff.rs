@@ -4,7 +4,9 @@ use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use eyre::Result;
-use pyo3::{pyclass, pymethods, PyRefMut};
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use pyo3::{pyclass, pymethods, Bound, PyRefMut};
 
 #[pyclass(eq, name = "ByCutoff")]
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
@@ -38,7 +40,7 @@ impl PyByCutoff {
         pickle::to_bytes(&self.rs)
     }
 
-    fn __setstate__(&mut self, state: Vec<u8>) -> Result<()> {
-        pickle::from_bytes(&state).map(|rs| self.rs = rs)
+    fn __setstate__(&mut self, state: Bound<PyBytes>) -> Result<()> {
+        pickle::from_bytes(state.as_bytes()).map(|rs| self.rs = rs)
     }
 }

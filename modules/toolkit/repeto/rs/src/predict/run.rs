@@ -5,7 +5,7 @@ use biobit_alignment_rs::alignable::Reversed;
 use biobit_alignment_rs::pairwise::alignment::Alignment;
 use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
 use biobit_collections_rs::interval_tree::{BitsBuilder, Builder};
-use biobit_core_rs::loc::{Interval, IntervalOp};
+use biobit_core_rs::loc::Interval;
 
 use crate::predict::filtering::Filter;
 use crate::predict::scoring::Scoring;
@@ -88,7 +88,7 @@ pub fn run<S: scoring::Score>(
 
         let mut index = BitsBuilder::default();
         for roi in filter.rois() {
-            index = index.addi(roi, ());
+            index = index.add(*roi, ());
         }
         (index.build(), filter)
     };
@@ -118,7 +118,7 @@ pub fn run<S: scoring::Score>(
                     .unwrap();
 
                     for seg in [&left, &right] {
-                        for (overlap, _) in rois.query(seg.start(), seg.end()) {
+                        for (overlap, _) in rois.query(*seg) {
                             let overlap = seg.intersection_length(&overlap);
                             stats.in_roi.max_len = stats.in_roi.max_len.max(overlap);
                             stats.in_roi.total_len += overlap;

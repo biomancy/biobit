@@ -6,7 +6,7 @@ use std::collections::hash_map::Entry;
 
 use crate::result::{PartitionMetrics, ResolutionOutcomes};
 use crate::rigid::{resolution, Partition};
-use biobit_collections_rs::interval_tree::{overlap, ITree};
+use biobit_collections_rs::interval_tree;
 use biobit_core_rs::{
     loc::{Contig, IntervalOp},
     num::{Float, PrimInt},
@@ -40,7 +40,7 @@ pub struct Worker<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> {
     buffer: Vec<CountingResult<Ctg, Idx, Cnts>>,
 
     // Cache for the overlap calculation
-    overlaps: Vec<overlap::Elements<Idx, usize>>,
+    itree_hits: Option<interval_tree::BatchHits<'static, Idx, usize>>,
 
     // Resolution strategy
     resolution: Box<dyn resolution::Resolution<Idx, Cnts, Elt>>,
@@ -49,10 +49,10 @@ pub struct Worker<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> {
 impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Default for Worker<Ctg, Idx, Cnts, Elt> {
     fn default() -> Self {
         Self {
-            accumulator: HashMap::default(),
+            accumulator: Default::default(),
             cache: AnyMap::new(),
             buffer: Vec::new(),
-            overlaps: Vec::new(),
+            itree_hits: Default::default(),
             resolution: Box::new(resolution::AnyOverlap::default()),
         }
     }
@@ -62,9 +62,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
     pub fn new(resolution: Box<dyn resolution::Resolution<Idx, Cnts, Elt>>) -> Self {
         Self {
             accumulator: HashMap::default(),
-            cache: AnyMap::new(),
-            buffer: Vec::new(),
-            overlaps: Vec::new(),
+            cache: Default::default(),
+            buffer: Default::default(),
+            itree_hits: Default::default(),
             resolution,
         }
     }
@@ -113,8 +113,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
         source.populate_caches(&mut self.cache);
         self.resolution.reset(elts, partition.eltinds());
 
-        let launched_at = std::time::Instant::now();
         let mut outcomes = ResolutionOutcomes::default();
+        let mut itree_hits = self.itree_hits.take().unwrap_or_default().recycle();
+        let launched_at = std::time::Instant::now();
 
         // Run the counting
         {
@@ -130,29 +131,27 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
 
             while let Some(blocks) = iterator.next() {
                 let blocks = blocks?;
+                itree_hits.clear();
 
-                // Populate the overlap
-                if self.overlaps.len() < blocks.len() {
-                    self.overlaps
-                        .resize(blocks.len(), overlap::Elements::default());
-                }
-                for ((segments, orientation, _), overlap) in
-                    blocks.iter().zip(self.overlaps.iter_mut())
-                {
-                    overlap.clear(); // Clear the previous overlap
-                    partition
-                        .index()
-                        .get(orientation)
-                        .overlap_single_element(segments, overlap); // Set the new one
+                for (segments, orientation, _) in blocks.iter() {
+                    let tree = partition.index().get(orientation);
+
+                    let mut hits = itree_hits.add_hits();
+                    for segment in segments {
+                        for h in tree.query(*segment) {
+                            hits.add(h.0, h.1);
+                        }
+                    }
+                    hits.push();
                 }
 
                 // Resolve the overlaps
                 self.resolution.resolve(
                     blocks,
-                    &mut self.overlaps[0..blocks.len()],
+                    &mut itree_hits,
                     &mut counts.cnts,
                     &mut outcomes,
-                );
+                )?;
             }
 
             // Save the statistics
@@ -163,7 +162,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 outcomes,
             };
         }
+
         source.release_caches(&mut self.cache);
+        self.itree_hits = Some(itree_hits.recycle());
         Ok(())
     }
 

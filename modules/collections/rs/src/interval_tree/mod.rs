@@ -1,8 +1,16 @@
 pub use bits::{Bits, BitsBuilder};
-pub use traits::{Builder, ITree, Record};
+pub use results::{BatchHitSegments, BatchHits, HitSegments, Hits};
+pub use tree::{Builder, ITree};
 
 mod bits;
-pub mod overlap;
-pub mod traits;
+mod results;
+pub mod tree;
 
-// If I want to use a bundle for the IntervalTree, it should be called Forest.
+#[cfg(test)]
+pub(crate) mod test_stand;
+
+// If I ever want to use a bundle for the IntervalTree, it should be called Forest.
+// Re-working the module will require:
+// * Support for caching allocations (required for hits/segments construction and trees)
+// * Clearly defined primitives for intervals/pairs/chains/locations/etc
+// * Guarantees about non-overlapping and sorted nature of input intervals.

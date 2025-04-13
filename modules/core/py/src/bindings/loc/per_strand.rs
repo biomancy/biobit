@@ -1,12 +1,12 @@
 use derive_more::{From, Into};
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyTuple, PyType};
-use std::ffi::CString;
+use pyo3::types::{PyTuple, PyType};
 
 use biobit_core_rs::loc::PerStrand;
 
 use crate::loc::IntoPyStrand;
+use crate::utils::type_hint_class_getitem;
 
 #[pyclass(name = "PerStrand")]
 #[derive(Debug, Clone, From, Into)]
@@ -50,22 +50,8 @@ impl PyPerStrand {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(
-        cls: &Bound<PyType>,
-        args: PyObject,
-        py: Python,
-    ) -> PyResult<PyObject> {
-        let locals = PyDict::new(py);
-        locals.set_item("cls", cls)?;
-        locals.set_item("args", args)?;
-
-        py.run(
-            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
-            None,
-            Some(&locals),
-        )?;
-
-        Ok(locals.get_item("result")?.unwrap().unbind())
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 
     pub fn __getitem__(&self, strand: IntoPyStrand) -> PyObject {

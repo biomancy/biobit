@@ -1,15 +1,14 @@
+use crate::rigid::PyEngine;
 use biobit_core_py::loc::{Interval, IntervalOp, IntoPyInterval, IntoPyOrientation};
 use biobit_core_py::parallelism;
+use biobit_core_py::utils::type_hint_class_getitem;
+pub use biobit_countit_rs::rigid::EngineBuilder;
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use eyre::WrapErr;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyType};
+use pyo3::types::PyType;
 use rayon::ThreadPoolBuilder;
-use std::ffi::CString;
-
-use crate::rigid::PyEngine;
-pub use biobit_countit_rs::rigid::EngineBuilder;
 
 #[pyclass(name = "EngineBuilder")]
 #[repr(transparent)]
@@ -84,21 +83,7 @@ impl PyEngineBuilder {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(
-        cls: &Bound<PyType>,
-        args: PyObject,
-        py: Python,
-    ) -> PyResult<PyObject> {
-        let locals = PyDict::new(py);
-        locals.set_item("cls", cls)?;
-        locals.set_item("args", args)?;
-
-        py.run(
-            &CString::new(r#"import types;result = types.GenericAlias(cls, args);"#)?,
-            None,
-            Some(&locals),
-        )?;
-
-        Ok(locals.get_item("result")?.unwrap().unbind())
+    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+        type_hint_class_getitem(cls, args)
     }
 }
