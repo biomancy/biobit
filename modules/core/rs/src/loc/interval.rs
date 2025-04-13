@@ -99,6 +99,18 @@ impl<Idx: PrimInt> Interval<Idx> {
         Self { start, end }
     }
 
+    /// # Safety
+    /// The caller must ensure that the resulting interval is correct and its start < end.
+    pub unsafe fn set_start(&mut self, start: Idx) {
+        self.start = start;
+    }
+
+    /// # Safety
+    /// The caller must ensure that the resulting interval is correct and its start < end.
+    pub unsafe fn set_end(&mut self, end: Idx) {
+        self.end = end;
+    }
+
     pub fn extend<T: Unsigned + NumCast>(&mut self, left: T, right: T) -> Option<&mut Self> {
         match (num::cast(left), num::cast(right)) {
             (Some(left), Some(right)) => {

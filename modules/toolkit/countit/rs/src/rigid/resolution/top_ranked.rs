@@ -1,8 +1,9 @@
 use super::Resolution;
 pub use crate::result::ResolutionOutcomes;
-use biobit_collections_rs::interval_tree::overlap::Elements;
+use biobit_collections_rs::interval_tree::BatchHits;
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_io_rs::bam::SegmentedAlignment;
+use eyre::Result;
 
 #[derive(Clone, Debug)]
 pub struct TopRanked<Ranker, Elt>
@@ -38,17 +39,16 @@ where
 
     fn resolve(
         &mut self,
-        _alignment: &SegmentedAlignment<Idx>,
-        overlap: &mut [Elements<Idx, usize>],
+        alignment: &SegmentedAlignment<Idx>,
+        overlap: &mut BatchHits<Idx, usize>,
         counts: &mut [Cnts],
         outcome: &mut ResolutionOutcomes<Cnts>,
-    ) {
-        for overlap in overlap.iter() {
+    ) -> Result<()> {
+        debug_assert_eq!(alignment.len(), overlap.len());
+
+        for (_, data) in overlap.iter() {
             // Select the element with the top rank
-            let minrank = overlap
-                .annotations()
-                .flat_map(|x| x.iter().map(|elt| (self.ranks[*elt], *elt)))
-                .min();
+            let minrank = data.iter().map(|x| (self.ranks[**x], **x)).min();
             match minrank {
                 None => {
                     outcome.discarded = outcome.discarded + Cnts::one();
@@ -59,5 +59,6 @@ where
                 }
             }
         }
+        Ok(())
     }
 }

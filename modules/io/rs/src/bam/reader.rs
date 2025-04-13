@@ -20,7 +20,7 @@ use super::query::{Cache, Query};
 #[derive(Dissolve, Getters, Constructor)]
 pub struct Reader {
     filename: PathBuf,
-    inner: IndexedReader<bgzf::reader::Reader<File>>,
+    inner: IndexedReader<bgzf::io::reader::Reader<File>>,
     header: sam::header::Header,
     cache: Option<Cache>,
     batch_size: usize,
@@ -86,7 +86,7 @@ impl Core for Reader {
 }
 
 impl Source for Reader {
-    type Iter = For!(<'borrow> = Query<'borrow, bgzf::reader::Reader<File>>);
+    type Iter = For!(<'borrow> = Query<'borrow, bgzf::io::reader::Reader<File>>);
 
     #[allow(clippy::needless_lifetimes)]
     fn fetch<'borrow, 'args>(

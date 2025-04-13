@@ -18,5 +18,4 @@ path = "src/bindings/lib.rs"
 pyo3 = { workspace = true }
 biobit-collections-rs = { path = "../rs" }
 biobit-core-py = { path = "../../core/py" }
-derive_more = { workspace = true }
 derive-getters = { workspace = true }
