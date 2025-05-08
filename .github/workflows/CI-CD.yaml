@@ -133,7 +133,7 @@ jobs:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         with:
           command: upload
-          args: --non-interactive --skip-existing *
+          args: --non-interactive --skip-existing dist/*.whl
 
   deploy-docs:
     name: Deploy Documentation to GitHub Pages
