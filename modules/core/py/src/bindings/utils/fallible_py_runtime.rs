@@ -1,6 +1,6 @@
 use derive_getters::Dissolve;
-use pyo3::prelude::*;
 use pyo3::PyAny;
+use pyo3::prelude::*;
 use std::hash::{Hash, Hasher};
 
 #[derive(Dissolve, Clone, Debug)]

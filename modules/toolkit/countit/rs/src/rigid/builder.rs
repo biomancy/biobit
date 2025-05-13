@@ -1,13 +1,13 @@
-use crate::rigid::partition::Partition;
 use crate::rigid::Engine;
+use crate::rigid::partition::Partition;
 use ahash::AHashMap;
 use biobit_core_rs::loc::{Interval, Orientation, PerOrientation};
 use biobit_core_rs::{
     loc::Contig,
     num::{Float, PrimInt},
 };
-use rayon::prelude::*;
 use rayon::ThreadPool;
+use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
 pub struct EngineBuilder<Ctg: Contig, Idx: PrimInt, Elt> {

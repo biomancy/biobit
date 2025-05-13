@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 use pyo3::prelude::*;
 use rayon::ThreadPoolBuilder;
 
 use biobit_core_py::ngs::PyLayout;
 use biobit_core_py::parallelism;
-use biobit_io_py::bam::{utils::SegmentedAlignmentSource, IntoPyReader};
+use biobit_io_py::bam::{IntoPyReader, utils::SegmentedAlignmentSource};
 use biobit_reaper_rs::Reaper;
 
 use crate::PyHarvest;

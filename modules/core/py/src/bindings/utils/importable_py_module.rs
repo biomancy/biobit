@@ -1,7 +1,7 @@
 use eyre::ContextCompat;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyNone};
-use pyo3::{ffi, PyClass};
+use pyo3::{PyClass, ffi};
 use std::ffi::CString;
 
 pub struct ImportablePyModuleBuilder<'py> {
@@ -100,7 +100,9 @@ impl<'py> ImportablePyModuleBuilder<'py> {
         } else {
             let err = format!(
                 "Class {} is attached to module {} but its __module__ attribute is already set to {}",
-                type_object.name()? , __name__, __module__
+                type_object.name()?,
+                __name__,
+                __module__
             );
             Err(PyErr::new::<pyo3::exceptions::PyImportError, _>(err))
         }

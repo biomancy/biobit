@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ::impl_tools::autoimpl;
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 
 use biobit_core_rs::num::PrimUInt;
 

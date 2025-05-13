@@ -3,7 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
-use eyre::{eyre, OptionExt, Result};
+use eyre::{OptionExt, Result, eyre};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
 
@@ -187,7 +187,7 @@ impl PyInvRepeat {
             brange,
             name.to_owned(),
             score,
-            orientation.0 .0,
+            orientation.0.0,
             brange,
             rgb,
             blocks,

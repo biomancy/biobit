@@ -33,7 +33,7 @@ impl<'py> FromPyObject<'py> for IntoPyOrientation {
                     return Err(PyValueError::new_err(format!(
                         "Unknown orientation: {}",
                         obj
-                    )))
+                    )));
                 }
             }
         } else if obj.is_instance_of::<PyString>() {
@@ -46,7 +46,7 @@ impl<'py> FromPyObject<'py> for IntoPyOrientation {
                     return Err(PyValueError::new_err(format!(
                         "Unknown orientation: {}",
                         value
-                    )))
+                    )));
                 }
             }
         } else {

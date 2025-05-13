@@ -1,11 +1,11 @@
 use std::cell::RefCell;
-use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
 
 use ahash::HashMap;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 use higher_kinded_types::prelude::*;
 use rayon::ThreadPool;
 use thread_local::ThreadLocal;
@@ -59,9 +59,9 @@ where
     ) -> Result<Vec<Harvest<Ctg, Idx, Cnts, Tag>>>
     where
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         self.reset();
 

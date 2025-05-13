@@ -4,7 +4,7 @@ use biobit_core_py::utils::type_hint_class_getitem;
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
 use pyo3::types::{PyFrozenSet, PyIterator, PyList, PyType};
-use pyo3::{pyclass, pymethods, Py, PyObject, PyResult, Python};
+use pyo3::{Py, PyObject, PyResult, Python, pyclass, pymethods};
 use std::hash::Hash;
 use std::ops::Deref;
 

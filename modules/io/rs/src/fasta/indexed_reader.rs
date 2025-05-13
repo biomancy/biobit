@@ -2,7 +2,7 @@ use crate::compression::decode;
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::{Dissolve, Getters};
-use eyre::{ensure, eyre, Context, Result};
+use eyre::{Context, Result, ensure, eyre};
 use impl_tools::autoimpl;
 use std::collections::HashMap;
 use std::fs::File;
@@ -74,7 +74,7 @@ impl IndexedReader<()> {
                     "Unsupported compression {:?} for an Indexed FASTA file: {}",
                     compression,
                     path.display()
-                ))
+                ));
             }
         };
 

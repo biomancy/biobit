@@ -1,6 +1,6 @@
-use crate::rigid::resolution::IntoPyResolution;
-use crate::rigid::PyEngineBuilder;
 use crate::PyCounts;
+use crate::rigid::PyEngineBuilder;
+use crate::rigid::resolution::IntoPyResolution;
 use biobit_core_py::ngs::PyLayout;
 use biobit_core_py::utils::type_hint_class_getitem;
 pub use biobit_countit_rs::rigid::Engine;

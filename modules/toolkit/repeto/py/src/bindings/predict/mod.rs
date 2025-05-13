@@ -4,7 +4,7 @@ use eyre::{OptionExt, Result};
 pub use filtering::PyFilter;
 use pyo3::prelude::*;
 use pyo3::prelude::{PyModule, PyModuleMethods};
-use pyo3::{wrap_pyfunction, Bound, PyResult};
+use pyo3::{Bound, PyResult, wrap_pyfunction};
 pub use scoring::PyScoring;
 
 use crate::repeats::PyInvRepeat;

@@ -1,15 +1,15 @@
 use crate::worker::RleIdentical;
 use biobit_collections_rs::rle_vec::RleVec;
+use biobit_core_rs::LendingIterator;
 use biobit_core_rs::loc::{
     ChainInterval, Contig, Interval, IntervalOp, Orientation, PerOrientation,
 };
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_core_rs::source::{AnyMap, Source};
-use biobit_core_rs::LendingIterator;
 use biobit_io_rs::bam::SegmentedAlignment;
 use derive_getters::{Dissolve, Getters};
 use derive_more::Into;
-use eyre::{eyre, OptionExt, Report, Result};
+use eyre::{OptionExt, Report, Result, eyre};
 use higher_kinded_types::prelude::*;
 
 #[cfg(feature = "bitcode")]
@@ -213,9 +213,9 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Idx: PrimInt,
         Ctg: Contig,
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         let (start_usize, end_usize) = (query.1.to_usize().unwrap(), query.2.to_usize().unwrap());
         let (start, end) = (query.1, query.2);
@@ -291,9 +291,9 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Ctg: Contig,
         Idx: PrimInt,
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         let counts = self.pileup(query, sources, caches, counts)?;
         let mut rle = self.rlencode(&counts, rle)?;
@@ -380,9 +380,9 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Ctg: Contig,
         Idx: PrimInt,
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         let counts = self.pileup(query, sources, caches, counts)?;
         // Build the control model

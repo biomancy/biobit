@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
 use crate::utils::ImportablePyModuleBuilder;
-pub use biobit_core_rs::{num, parallelism, source, LendingIterator};
+pub use biobit_core_rs::{LendingIterator, num, parallelism, source};
 
 pub mod loc;
 pub mod ngs;

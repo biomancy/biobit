@@ -1,7 +1,7 @@
 use super::interval::{Interval, IntervalOp};
 use crate::num::PrimInt;
 use derive_getters::Dissolve;
-use eyre::{eyre, Report, Result};
+use eyre::{Report, Result, eyre};
 use std::fmt::{Debug, Display};
 
 #[cfg(feature = "bitcode")]

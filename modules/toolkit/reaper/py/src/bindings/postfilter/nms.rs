@@ -1,6 +1,6 @@
 use biobit_core_py::loc::{IntoPyChainInterval, IntoPyOrientation};
 use biobit_core_py::pickle;
-use biobit_reaper_rs::postfilter::{NMSRegions, NMS};
+use biobit_reaper_rs::postfilter::{NMS, NMSRegions};
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use eyre::{OptionExt, Result};
@@ -67,7 +67,7 @@ impl PyNMS {
             uniform_baseline,
         )?;
 
-        slf.rs.add_regions(orientation.0 .0, regions);
+        slf.rs.add_regions(orientation.0.0, regions);
         Ok(slf)
     }
 

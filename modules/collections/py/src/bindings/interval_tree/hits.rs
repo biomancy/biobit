@@ -2,11 +2,11 @@ use crate::interval_tree::{PyBatchHitSegments, PyHitSegments};
 use biobit_collections_rs::interval_tree::{BatchHits, Hits};
 use biobit_core_py::loc::{Interval, IntoPyInterval, PyInterval};
 use biobit_core_py::pickle;
-use biobit_core_py::utils::{type_hint_class_getitem, ByPyPointer};
+use biobit_core_py::utils::{ByPyPointer, type_hint_class_getitem};
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyIterator, PyList, PyType};
-use pyo3::{pyclass, pymethods, PyObject};
+use pyo3::{PyObject, pyclass, pymethods};
 
 #[pyclass(name = "Hits")]
 #[derive(Default, Dissolve)]

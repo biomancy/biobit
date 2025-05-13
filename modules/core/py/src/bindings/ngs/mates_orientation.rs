@@ -22,7 +22,7 @@ impl<'py> FromPyObject<'py> for IntoPyMatesOrientation {
                     return Err(PyValueError::new_err(format!(
                         "Unknown mates orientation: {}",
                         obj
-                    )))
+                    )));
                 }
             }
         } else {

@@ -4,7 +4,7 @@ use ahash::{HashMap, HashMapExt};
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::Dissolve;
-use eyre::{ensure, Result};
+use eyre::{Result, ensure};
 use itertools::izip;
 use std::borrow::Borrow;
 use std::cmp::Ordering;

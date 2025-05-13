@@ -7,7 +7,7 @@ use crate::num::PrimInt;
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
-use eyre::{eyre, Report, Result};
+use eyre::{Report, Result, eyre};
 use impl_tools::autoimpl;
 use num::{NumCast, Unsigned};
 
@@ -129,8 +129,10 @@ impl<Idx: PrimInt> Interval<Idx> {
         left: T,
         right: T,
     ) -> &mut Self {
-        self.start = self.start - num::cast(left).unwrap_unchecked();
-        self.end = self.end + num::cast(right).unwrap_unchecked();
+        unsafe {
+            self.start = self.start - num::cast(left).unwrap_unchecked();
+            self.end = self.end + num::cast(right).unwrap_unchecked();
+        }
         self
     }
 
@@ -148,9 +150,11 @@ impl<Idx: PrimInt> Interval<Idx> {
     ///
     /// This function is unsafe because it doesn't check if the resulting interval is valid.
     pub unsafe fn extended_unchecked<T: Unsigned + NumCast>(&self, left: T, right: T) -> Self {
-        Self {
-            start: self.start - num::cast(left).unwrap_unchecked(),
-            end: self.end + num::cast(right).unwrap_unchecked(),
+        unsafe {
+            Self {
+                start: self.start - num::cast(left).unwrap_unchecked(),
+                end: self.end + num::cast(right).unwrap_unchecked(),
+            }
         }
     }
 

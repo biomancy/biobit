@@ -4,8 +4,8 @@ use derive_getters::Dissolve;
 use higher_kinded_types::prelude::*;
 use noodles::bam;
 
-use biobit_core_rs::source::{AnyMap, Transform};
 use biobit_core_rs::LendingIterator;
+use biobit_core_rs::source::{AnyMap, Transform};
 use bundle::Bundler;
 
 mod bundle;

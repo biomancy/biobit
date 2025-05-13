@@ -1,9 +1,9 @@
+use crate::WriteRecord;
 use crate::bed::{
-    Bed12, Bed12Op, Bed3, Bed3Op, Bed4, Bed4Op, Bed5, Bed5Op, Bed6, Bed6Op, Bed8, Bed8Op, Bed9,
-    Bed9Op,
+    Bed3, Bed3Op, Bed4, Bed4Op, Bed5, Bed5Op, Bed6, Bed6Op, Bed8, Bed8Op, Bed9, Bed9Op, Bed12,
+    Bed12Op,
 };
 use crate::compression::encode;
-use crate::WriteRecord;
 use biobit_core_rs::loc::{IntervalOp, Orientation};
 use eyre::Result;
 use flate2::write::{DeflateEncoder, GzEncoder};
@@ -126,9 +126,9 @@ impl_write_record!(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ReadRecord;
     use crate::bed::Reader;
     use crate::compression::decode;
-    use crate::ReadRecord;
     use std::io::{Cursor, Read};
     use std::path::PathBuf;
 

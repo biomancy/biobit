@@ -2,9 +2,9 @@ use derive_getters::Dissolve;
 
 use tracers::Tracers;
 
+use crate::Alignable;
 use crate::pairwise::sw::{algo, storage, traceback};
 use crate::pairwise::{alignment, scoring};
-use crate::Alignable;
 
 mod tracers;
 

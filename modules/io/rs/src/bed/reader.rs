@@ -1,9 +1,9 @@
 use super::record::*;
-use crate::compression::decode;
 use crate::ReadRecord;
+use crate::compression::decode;
 use biobit_core_rs::loc::{Interval, Orientation};
 use eyre::OptionExt;
-use eyre::{bail, ensure, Context, Result};
+use eyre::{Context, Result, bail, ensure};
 use flate2::read::{DeflateDecoder, MultiGzDecoder};
 use noodles::bgzf;
 use std::fs::File;
@@ -465,13 +465,13 @@ mod test {
             ),
         ] {
             expected.push(Bed12::new(
-                fields.0.to_string(),                     // seqid
-                Interval::new(fields.1 .0, fields.1 .1)?, // interval
-                fields.2.to_string(),                     // name
-                fields.3,                                 // score
-                fields.4,                                 // orientation
-                Interval::new(fields.5 .0, fields.5 .1)?, // thick
-                fields.6,                                 // rgb
+                fields.0.to_string(),                   // seqid
+                Interval::new(fields.1.0, fields.1.1)?, // interval
+                fields.2.to_string(),                   // name
+                fields.3,                               // score
+                fields.4,                               // orientation
+                Interval::new(fields.5.0, fields.5.1)?, // thick
+                fields.6,                               // rgb
                 fields
                     .7
                     .iter()

@@ -1,7 +1,7 @@
 use bitcode::{Decode, Encode};
 use derive_getters::Getters;
 use derive_more::Into;
-use eyre::{bail, Result};
+use eyre::{Result, bail};
 use std::num::NonZeroUsize;
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]

@@ -3,9 +3,9 @@ use biobit_collections_rs::interval_tree::{Bits, BitsBuilder, Builder, ITree};
 use biobit_core_py::loc::{IntoPyInterval, PyInterval};
 use biobit_core_py::utils::type_hint_class_getitem;
 use derive_getters::Dissolve;
+use pyo3::PyTypeInfo;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyType};
-use pyo3::PyTypeInfo;
 
 #[pyclass(name = "BitsBuilder")]
 #[derive(Default, Dissolve)]

@@ -1,12 +1,12 @@
 use std::io;
 
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 use higher_kinded_types::prelude::*;
 use pyo3::Python;
 
+use biobit_core_py::LendingIterator;
 use biobit_core_py::ngs::{MatesOrientation, PyLayout, Strandedness};
 use biobit_core_py::source::{DynSource, Source};
-use biobit_core_py::LendingIterator;
 use biobit_io_rs::bam::SegmentedAlignment;
 use biobit_io_rs::bam::{strdeductor, transform};
 
@@ -14,10 +14,10 @@ use super::reader::IntoPyReader;
 
 pub type SegmentedAlignmentBatch = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 pub type SegmentedAlignmentSource = dyn Source<
-    Args = For!(<'args> = (&'args String, usize, usize)),
-    Item = SegmentedAlignmentBatch,
-    Iter = For!(<'borrow> = Box<dyn 'borrow + LendingIterator<Item = SegmentedAlignmentBatch>>),
->;
+        Args = For!(<'args> = (&'args String, usize, usize)),
+        Item = SegmentedAlignmentBatch,
+        Iter = For!(<'borrow> = Box<dyn 'borrow + LendingIterator<Item = SegmentedAlignmentBatch>>),
+    >;
 
 pub fn to_alignment_segments(
     py: Python,

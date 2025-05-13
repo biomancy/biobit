@@ -6,7 +6,7 @@ use derive_more::{Constructor, From, Into};
 use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use pyo3::{pyclass, pymethods, PyRefMut, PyResult};
+use pyo3::{PyRefMut, PyResult, pyclass, pymethods};
 
 #[pyclass(eq, name = "RNAPileup")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
@@ -49,7 +49,7 @@ impl PyRNAPileup {
             .collect::<Option<Vec<_>>>()
             .ok_or_eyre("Failed to cast regions to usize")?;
         let model = ControlModel::new(regions, uniform_baseline, winsizes)?;
-        slf.rs.add_control_model(orientation.0 .0, model);
+        slf.rs.add_control_model(orientation.0.0, model);
         Ok(slf)
     }
 

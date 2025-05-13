@@ -65,9 +65,9 @@ impl<W: Write> WriteRecord for Writer<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ReadRecord;
     use crate::compression::decode;
     use crate::fasta::Reader;
-    use crate::ReadRecord;
     use std::io::{Cursor, Read};
     use std::path::PathBuf;
 

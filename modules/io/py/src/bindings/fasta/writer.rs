@@ -1,10 +1,10 @@
-pub use biobit_io_rs::fasta::{Writer, DEFAULT_LINE_WIDTH};
+pub use biobit_io_rs::fasta::{DEFAULT_LINE_WIDTH, Writer};
 use std::num::NonZeroUsize;
 
 use super::record::PyRecord;
+use biobit_io_rs::WriteRecord;
 use biobit_io_rs::compression::encode;
 use biobit_io_rs::fasta::Record;
-use biobit_io_rs::WriteRecord;
 use derive_more::Into;
 use eyre::{OptionExt, Result};
 use pyo3::prelude::*;

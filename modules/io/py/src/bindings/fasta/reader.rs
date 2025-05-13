@@ -1,7 +1,7 @@
 use super::record::PyRecord;
+use biobit_io_rs::ReadRecord;
 use biobit_io_rs::compression::decode;
 use biobit_io_rs::fasta::Record;
-use biobit_io_rs::ReadRecord;
 use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;

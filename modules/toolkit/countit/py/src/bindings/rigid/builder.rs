@@ -53,7 +53,7 @@ impl PyEngineBuilder {
                                 .unwrap()
                         })
                         .collect();
-                    (contig, orientation.0 .0, segments)
+                    (contig, orientation.0.0, segments)
                 })
                 .collect();
             (element, segments)

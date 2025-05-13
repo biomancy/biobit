@@ -44,11 +44,7 @@ impl<S: Score, Symbol: PartialEq> PosInvariantScorer for Equality<S, Symbol> {
 
     #[inline(always)]
     fn score(&self, a: &Self::Symbol, b: &Self::Symbol) -> Self::SymScore {
-        if a == b {
-            self.equal
-        } else {
-            self.different
-        }
+        if a == b { self.equal } else { self.different }
     }
 }
 

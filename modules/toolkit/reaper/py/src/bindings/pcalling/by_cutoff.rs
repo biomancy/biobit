@@ -6,7 +6,7 @@ use derive_more::{Constructor, From, Into};
 use eyre::Result;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use pyo3::{pyclass, pymethods, Bound, PyRefMut};
+use pyo3::{Bound, PyRefMut, pyclass, pymethods};
 
 #[pyclass(eq, name = "ByCutoff")]
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]

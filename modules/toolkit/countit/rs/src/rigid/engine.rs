@@ -1,6 +1,6 @@
+use crate::Counts;
 use crate::rigid::resolution::Resolution;
 use crate::rigid::{EngineBuilder, Partition, Worker};
-use crate::Counts;
 use biobit_core_rs::loc::Contig;
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_core_rs::source::Source;
@@ -42,9 +42,9 @@ where
     where
         SrcTag: Send,
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         let (tags, sources): (Vec<_>, Vec<_>) = sources.unzip();
         match self.thread_pool.take() {
@@ -82,9 +82,9 @@ where
     ) -> eyre::Result<()>
     where
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         // Soft-reset all workers
         for w in self.workers.iter_mut() {

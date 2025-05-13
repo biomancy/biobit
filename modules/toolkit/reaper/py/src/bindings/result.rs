@@ -5,8 +5,8 @@ use std::fmt::Debug;
 use derive_getters::Dissolve;
 use derive_more::Constructor;
 use itertools::Itertools;
-use pyo3::prelude::*;
 use pyo3::IntoPyObjectExt;
+use pyo3::prelude::*;
 
 use biobit_core_py::loc::{PyInterval, PyOrientation};
 use biobit_core_py::{
