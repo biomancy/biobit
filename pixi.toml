@@ -4,18 +4,20 @@ name = "biobit"
 platforms = ["linux-64"]
 
 [environments]
-rust = ["rust", "py-3-13t"]
-docs = ["docs", "py-3-13t"]
-dev = ["docs", "rust", "python", "py-3-13t"]
+default = ["docs", "rust", "python", "py-3-13t"]   # Full development environment with the latest Python
+docs = ["docs", "py-3-13t"]                        # Minimal env for documentation
+rust = ["rust", "py-3-13t"]                        # Rust-only environment
 
-# Interpreter-specific environments
+# Python-specific environments
 py-3-13t = ["rust", "python", "py-3-13t"]
 
 # Common tasks
 [tasks]
-ci = { depends-on = ["build-docs", "rs-ci", "py-ci"] }
+ci = { depends-on = ["build-docs", "rs-ci", "py-ci"] }  # Run all CI tasks
 
-# [Docs]
+########################################################################################################################
+# Docs [mkdocs]
+########################################################################################################################
 [feature.docs.pypi-dependencies]
 mkdocs = "==1.6.1"
 mkdocs-material = ">=9.6.11, <10"
@@ -23,7 +25,9 @@ mkdocs-material = ">=9.6.11, <10"
 [feature.docs.tasks]
 build-docs = { cmd = "mkdocs build", cwd = "biobit/docs" }
 
-# [Rust]
+########################################################################################################################
+# Rust
+########################################################################################################################
 [feature.rust.dependencies]
 rust = "==1.86.0"               # .pixi/envs/dev/bin
 rust-src = "==1.86.0"           # .pixi/envs/dev/lib/rustlib/src/rust
@@ -40,10 +44,13 @@ rs-ci = { depends-on = ["rs-ci-fmt", "rs-ci-check", "rs-ci-clippy", "rs-ci-test"
 cmd = [
     "code2prompt", "--full-directory-tree", "--sort", "name_asc",
     "--exclude", "biobit/docs/site", "--exclude", "target", "--exclude", "resources", "--exclude", "obsolete",
+    "--exclude", "pixi.lock", "--exclude", "llm-context.md",
     "-O", "llm-context.md", "."
 ]
 
-# [Common Python]
+########################################################################################################################
+# Python
+########################################################################################################################
 [feature.python.dependencies]
 pixi-pycharm = "==0.0.8"
 pip = "==25.0.1"
@@ -67,6 +74,5 @@ PyYAML = "==6.0.2"
 pandas = "==2.2.3"
 pandas-stubs = "==2.2.3.241126"
 
-# [Python 3.13]
 [feature.py-3-13t.dependencies]
 python-freethreading = "3.13.*"
