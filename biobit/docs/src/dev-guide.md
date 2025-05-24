@@ -27,21 +27,23 @@ The overall workspace structure is defined in the main `biobit/Cargo.toml` file.
 
 ## Resource Management
 
-Static assets like test files and example data are centralized in the top-level `resources/` directory to ensure easy
-access and consistent organization. Commonly used data files (e.g., FASTA, BAM, BED) shared across multiple tests or
-modules are also housed here. It's generally encouraged to reuse these files in individual modules
-to avoid duplication and maintain consistency.
+Only static resources shared between modules are hosted in the top-level `resources/` directory to ensure easy access
+and consistent organization. All data used exclusively by tests and benchmarks in individual modules is stored in the
+corresponding per-module `module/resources` folder, which links to required shared files from the top-level
+`resources/`. This approach avoids duplication while maintaining module-specific data separation.
 
 ### Resources Inventory
 
-A comprehensive inventory and description of all data files within the `resources/` folder **must** be
-maintained in `resources/README.md`. This document serves as the definitive guide to understanding the purpose,
-origin, and structure of each resource, ensuring they are discoverable and well-understood.
+A comprehensive inventory and description of all data files within the top-level and per-module `resources/` folders
+**must** be maintained in linked `README.md` files. This documentation serves as the definitive guide to understanding
+the purpose, origin, and structure of each resource, ensuring they are discoverable and well-understood.
 
 ### Accessing Resources in Tests
 
-Resources folder is defined via an environment variable in the project configuration, allowing tests from all languages
-to access the same resources without hardcoding paths:
+The top-level resources folder is defined via an environment variable in the project configuration, allowing tests from
+all languages to access the same resources without hardcoding paths:
 
-* **Rust**: `env!("BIOBIT_RESOURCES")`.
-* **Python**: `os.environ['BIOBIT_RESOURCES']`.
+* **Rust**: `env!("BIOBIT_RESOURCES")`
+* **Python**: `os.environ['BIOBIT_RESOURCES']`
+
+TODO: Add a note on how to access per-module resources in tests.
