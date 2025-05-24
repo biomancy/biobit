@@ -5,4 +5,5 @@ theme:
 
 nav:
   - Home: index.md
-  - Development Notes: dev_notes.md
+  - Development Notes: notes.md
+  - Developer Guide: dev-guide.md
