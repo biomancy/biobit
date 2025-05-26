@@ -2,7 +2,9 @@
 members = [
     # Umbrella project for all modules
     "biobit/py",
-    # Core modules
+    ###################################################################
+    # Core - fundamental primitives and data structures
+    ###################################################################
     "modules/core/rs",
     "modules/core/py",
     "modules/io/rs",
@@ -10,10 +12,18 @@ members = [
     "modules/alignment/rs",
     "modules/collections/rs",
     "modules/collections/py",
-    # Toolkit
-    "modules/toolkit/countit/*",
+    ###################################################################
+    # Toolkit - modules addressing specific but very common tasks
+    ###################################################################
+    # CountIt
+    "modules/toolkit/countit/py",
+    "modules/toolkit/countit/rs",
+    "modules/toolkit/countit/benches",
+    # SeqProj
     "modules/toolkit/seqproj/*",
+    # Reaper
     "modules/toolkit/reaper/*",
+    # Repeto
     "modules/toolkit/repeto/*",
 ]
 resolver = "3"
@@ -21,7 +31,7 @@ resolver = "3"
 [workspace.package]
 version = "0.0.9-rc1"
 edition = "2024"
-rust-version = "1.86.0"
+rust-version = "1.87.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"

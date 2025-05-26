@@ -1,3 +1,4 @@
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use derive_getters::Getters;
 use derive_more::Into;

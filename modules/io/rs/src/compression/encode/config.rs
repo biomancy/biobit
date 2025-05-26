@@ -1,5 +1,6 @@
 use super::algorithm::Algorithm;
 use super::params;
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use std::path::Path;
 
