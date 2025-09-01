@@ -28,7 +28,7 @@ impl<Idx: PrimInt + TryInto<i64>, Cnts: Float> From<Peak<Idx, Cnts>> for PyPeak 
     fn from(peak: Peak<Idx, Cnts>) -> Self {
         let (interval, value, summit) = peak.dissolve();
         let interval = interval.cast::<i64>().unwrap();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             PyPeak::new(
                 Py::new(py, PyInterval::from(interval)).unwrap(),
                 value.to_f64().unwrap(),
@@ -60,7 +60,7 @@ where
     fn from(value: HarvestRegion<Ctg, Idx, Cnts>) -> Self {
         let (contig, orientation, interval, signal, control, model, peaks, nms) = value.dissolve();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let contig = contig.into();
             let orientation = orientation.into();
             let interval = interval.cast::<i64>().unwrap().into();
@@ -105,7 +105,7 @@ where
 #[pyclass(get_all, name = "Harvest")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
 pub struct PyHarvest {
-    comparison: PyObject,
+    comparison: Py<PyAny>,
     regions: Vec<Py<PyHarvestRegion>>,
 }
 
@@ -118,7 +118,7 @@ where
 {
     fn from(value: Harvest<Ctg, Idx, Cnts, Tag>) -> Self {
         let (cmp, regions) = value.dissolve();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let regions = regions
                 .into_iter()
                 .map(|x| {

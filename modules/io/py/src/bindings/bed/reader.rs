@@ -100,7 +100,7 @@ macro_rules! impl_bed_reader {
                 self.rs.read_to_end(&mut result)?;
 
                 let iterator = result.into_iter().map(|x| $PyBed::from(x));
-                Python::with_gil(|py| -> PyResult<_> {
+                Python::attach(|py| -> PyResult<_> {
                     PyList::new(py, iterator).map(|x| x.unbind())
                 })
             }

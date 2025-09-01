@@ -8,8 +8,8 @@ pub enum Stream<R: Read + Send + Sync + 'static> {
     Raw(R),
     Deflate(flate2::read::DeflateDecoder<R>),
     Gzip(flate2::read::MultiGzDecoder<R>),
-    Bgzf(bgzf::Reader<R>),
-    MultithreadedBgzf(bgzf::MultithreadedReader<R>),
+    Bgzf(bgzf::io::Reader<R>),
+    MultithreadedBgzf(bgzf::io::MultithreadedReader<R>),
 }
 
 impl<R: Read + Send + Sync + 'static> Stream<R> {
@@ -22,10 +22,10 @@ impl<R: Read + Send + Sync + 'static> Stream<R> {
             Config::Gzip => Ok(Stream::Gzip(flate2::read::MultiGzDecoder::new(inner))),
             Config::Bgzf(params) => {
                 if params.threads().get() == 1 {
-                    Ok(Stream::Bgzf(bgzf::Reader::new(inner)))
+                    Ok(Stream::Bgzf(bgzf::io::Reader::new(inner)))
                 } else {
                     Ok(Stream::MultithreadedBgzf(
-                        bgzf::MultithreadedReader::with_worker_count(*params.threads(), inner),
+                        bgzf::io::MultithreadedReader::with_worker_count(*params.threads(), inner),
                     ))
                 }
             }

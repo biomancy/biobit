@@ -38,19 +38,19 @@ impl PyOverlapWeighted {
 #[pyclass(name = "TopRanked")]
 #[repr(transparent)]
 #[derive(Dissolve, From, Into)]
-pub struct PyTopRanked(pub Box<dyn Resolution<usize, f64, PyObject>>);
+pub struct PyTopRanked(pub Box<dyn Resolution<usize, f64, Py<PyAny>>>);
 
 #[pymethods]
 impl PyTopRanked {
     #[new]
-    pub fn new(priority: Vec<PyObject>) -> Self {
+    pub fn new(priority: Vec<Py<PyAny>>) -> Self {
         let priority = Arc::new(priority);
 
         PyTopRanked(Box::new(TopRanked::new(
-            move |mut ranks, elements: &[PyObject], partition: &[usize]| {
+            move |mut ranks, elements: &[Py<PyAny>], partition: &[usize]| {
                 ranks.clear();
                 println!("TRYING TO ACQUIRE GIL!!");
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let ranking: HashMap<_, usize> = priority
                         .iter()
                         .enumerate()
@@ -77,7 +77,7 @@ impl PyTopRanked {
 #[pyclass(name = "IntoResolution")]
 #[repr(transparent)]
 #[derive(From, Into)]
-pub struct IntoPyResolution(pub Box<dyn Resolution<usize, f64, PyObject>>);
+pub struct IntoPyResolution(pub Box<dyn Resolution<usize, f64, Py<PyAny>>>);
 
 impl<'py> FromPyObject<'py> for IntoPyResolution {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {

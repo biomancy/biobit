@@ -1,12 +1,13 @@
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
 use core::ptr;
-use pyo3::PyObject;
+
+use pyo3::{Py, PyAny};
 use std::ops::{Deref, DerefMut};
 
 /// Wrapper for python objects types that implements by-pointer comparison.
 #[repr(transparent)]
-pub struct ByPyPointer(pub PyObject);
+pub struct ByPyPointer(pub Py<PyAny>);
 
 impl ByPyPointer {
     #[inline(always)]
@@ -15,8 +16,8 @@ impl ByPyPointer {
     }
 
     #[inline(always)]
-    pub fn from_ref(r: &PyObject) -> &Self {
-        unsafe { &*(r as *const PyObject as *const Self) }
+    pub fn from_ref(r: &Py<PyAny>) -> &Self {
+        unsafe { &*(r as *const Py<PyAny> as *const Self) }
     }
 }
 
@@ -45,7 +46,7 @@ impl Hash for ByPyPointer {
 }
 
 impl Deref for ByPyPointer {
-    type Target = PyObject;
+    type Target = Py<PyAny>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

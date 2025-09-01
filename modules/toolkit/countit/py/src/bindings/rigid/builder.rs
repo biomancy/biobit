@@ -13,7 +13,7 @@ use rayon::ThreadPoolBuilder;
 #[pyclass(name = "EngineBuilder")]
 #[repr(transparent)]
 #[derive(Default, Dissolve, From, Into)]
-pub struct PyEngineBuilder(pub EngineBuilder<String, usize, PyObject>);
+pub struct PyEngineBuilder(pub EngineBuilder<String, usize, Py<PyAny>>);
 
 #[pymethods]
 impl PyEngineBuilder {
@@ -36,7 +36,7 @@ impl PyEngineBuilder {
     pub fn add_elements(
         mut slf: PyRefMut<Self>,
         elements: Vec<(
-            PyObject,
+            Py<PyAny>,
             Vec<(String, IntoPyOrientation, Vec<IntoPyInterval>)>,
         )>,
     ) -> PyRefMut<Self> {
@@ -83,7 +83,7 @@ impl PyEngineBuilder {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 }

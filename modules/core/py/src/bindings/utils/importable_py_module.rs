@@ -86,7 +86,7 @@ impl<'py> ImportablePyModuleBuilder<'py> {
         // attached to multiple modules. This is a fairly rare use case, not used in this project.
         // Therefore, we set the __module__ attribute to the name of the module and simply err if
         // it is already set to a different value.
-        let type_object = T::lazy_type_object().get_or_init(self.inner.py());
+        let type_object = T::lazy_type_object().get_or_try_init(self.inner.py())?;
 
         let __module__ = type_object.getattr("__module__")?.extract::<String>()?;
         if __module__ == "builtins" {

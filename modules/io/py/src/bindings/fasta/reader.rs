@@ -52,7 +52,7 @@ impl PyReader {
         self.rs.read_to_end(&mut result)?;
 
         let iterator = result.into_iter().map(PyRecord::from);
-        Python::with_gil(|py| -> PyResult<_> { PyList::new(py, iterator).map(|x| x.unbind()) })
+        Python::attach(|py| -> PyResult<_> { PyList::new(py, iterator).map(|x| x.unbind()) })
     }
 
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {

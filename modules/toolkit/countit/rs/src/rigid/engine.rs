@@ -5,7 +5,6 @@ use biobit_core_rs::loc::Contig;
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_core_rs::source::Source;
 use biobit_io_rs::bam::SegmentedAlignment;
-use higher_kinded_types::extra_arities::For;
 use rayon::ThreadPool;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -14,6 +13,7 @@ use thread_local::ThreadLocal;
 use ahash::HashMap;
 use derive_more::Constructor;
 use eyre::eyre;
+use higher_kinded_types::ForLt;
 use std::io;
 use std::sync::atomic::AtomicBool;
 
@@ -38,12 +38,12 @@ where
         &mut self,
         sources: impl Iterator<Item = (SrcTag, Src)>,
         resolution: Box<dyn Resolution<Idx, Cnts, Elt>>,
-    ) -> eyre::Result<Vec<Counts<Ctg, Idx, Cnts, Elt, SrcTag>>>
+    ) -> eyre::Result<Vec<Counts<'_, Ctg, Idx, Cnts, Elt, SrcTag>>>
     where
         SrcTag: Send,
         Src: Source<
-                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-                Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
+                Args = ForLt!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = ForLt!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
             >,
     {
         let (tags, sources): (Vec<_>, Vec<_>) = sources.unzip();
@@ -82,8 +82,8 @@ where
     ) -> eyre::Result<()>
     where
         Src: Source<
-                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-                Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
+                Args = ForLt!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = ForLt!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
             >,
     {
         // Soft-reset all workers

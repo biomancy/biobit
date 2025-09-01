@@ -62,7 +62,7 @@ impl PyRecord {
         pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
     }
 
-    pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+    pub fn __reduce__(&self, py: Python) -> Result<(Py<PyAny>, (Vec<u8>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
             (pickle::to_bytes(self),),

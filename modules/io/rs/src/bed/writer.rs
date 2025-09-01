@@ -27,8 +27,8 @@ impl Writer<(), ()> {
         Writer<File, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
         Writer<DeflateEncoder<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
         Writer<GzEncoder<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
-        Writer<bgzf::Writer<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
-        Writer<bgzf::MultithreadedWriter<File>, Bed>:
+        Writer<bgzf::io::Writer<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
+        Writer<bgzf::io::MultithreadedWriter<File>, Bed>:
             WriteRecord<Record = Bed> + Send + Sync + 'static,
     {
         let file = File::create(path.as_ref())?;

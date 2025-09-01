@@ -20,7 +20,7 @@ ci = { depends-on = ["build-docs", "rs-ci", "py-ci"] }  # Run all CI tasks
 ########################################################################################################################
 [feature.docs.pypi-dependencies]
 mkdocs = "==1.6.1"
-mkdocs-material = ">=9.6.11, <10"
+mkdocs-material = ">=9.6.18, <10"
 
 [feature.docs.tasks]
 build-docs = { cmd = "mkdocs build", cwd = "biobit/docs" }
@@ -29,8 +29,8 @@ build-docs = { cmd = "mkdocs build", cwd = "biobit/docs" }
 # Rust
 ########################################################################################################################
 [feature.rust.dependencies]
-rust = "==1.87.0"               # .pixi/envs/default/bin
-rust-src = "==1.87.0"           # .pixi/envs/default/lib/rustlib/src/rust
+rust = "==1.89.0"               # .pixi/envs/default/bin
+rust-src = "==1.89.0"           # .pixi/envs/default/lib/rustlib/src/rust
 
 [feature.rust.tasks]
 rs-upgrade = "cargo upgrade --incompatible allow && cargo update"
@@ -44,7 +44,7 @@ rs-ci = { depends-on = ["rs-ci-fmt", "rs-ci-check", "rs-ci-clippy", "rs-ci-test"
 cmd = [
     "code2prompt", "--full-directory-tree", "--sort", "name_asc",
     "--exclude", "biobit/docs/site", "--exclude", "target", "--exclude", "resources", "--exclude", "obsolete",
-    "--exclude", "pixi.lock", "--exclude", "llm-context.md",
+    "--exclude", "pixi.lock",  "--exclude", "Cargo.lock", "--exclude", "llm-context.md",
     "-O", "llm-context.md", "."
 ]
 
@@ -53,7 +53,7 @@ cmd = [
 ########################################################################################################################
 [feature.python.dependencies]
 pixi-pycharm = "==0.0.8"
-pip = "==25.0.1"
+pip = "==25.2.0"
 
 [feature.python.tasks]
 py-ci-ruff = "ruff check"
@@ -63,16 +63,16 @@ py-ci-test = { cmd = "pytest -v -x biobit/py", depends-on = ["py-ci-build"] }
 py-ci = { depends-on = ["py-ci-test"] }
 
 [feature.python.pypi-dependencies]
-mypy = "==1.15.0"
-ruff = "==0.11.2"
-maturin = ">=1.8,<2.0"
-pytest = "==8.3.5"
+mypy = "==1.17.1"
+ruff = "==0.12.1"
+maturin = ">=1.9,<2.0"
+pytest = "==8.4.1"
 pytest-env = ">=1.1.5,<2"
 attrs = "==25.3.0"
-cattrs = { version = "==24.1.2", extras = ["pyyaml"] }
+cattrs = { version = "==25.2.0", extras = ["pyyaml"] }
 PyYAML = "==6.0.2"
-pandas = "==2.2.3"
-pandas-stubs = "==2.2.3.241126"
+pandas = "==2.3.2"
+pandas-stubs = "==2.3.2.250827"
 
 [feature.py-3-13t.dependencies]
 python-freethreading = "3.13.*"

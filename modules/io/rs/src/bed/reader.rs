@@ -234,8 +234,8 @@ impl Reader<(), ()> {
         Reader<BufReader<File>, Bed>: ReadRecord<Record = Bed>,
         Reader<BufReader<MultiGzDecoder<File>>, Bed>: ReadRecord<Record = Bed>,
         Reader<BufReader<DeflateDecoder<File>>, Bed>: ReadRecord<Record = Bed>,
-        Reader<BufReader<bgzf::Reader<File>>, Bed>: ReadRecord<Record = Bed>,
-        Reader<BufReader<bgzf::MultithreadedReader<File>>, Bed>: ReadRecord<Record = Bed>,
+        Reader<BufReader<bgzf::io::Reader<File>>, Bed>: ReadRecord<Record = Bed>,
+        Reader<BufReader<bgzf::io::MultithreadedReader<File>>, Bed>: ReadRecord<Record = Bed>,
     {
         let file = File::open(path.as_ref())?;
         let slf: Box<dyn ReadRecord<Record = Bed> + Send + Sync + 'static> =

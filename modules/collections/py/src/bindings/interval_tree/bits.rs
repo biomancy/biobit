@@ -10,7 +10,7 @@ use pyo3::types::{PyList, PyType};
 #[pyclass(name = "BitsBuilder")]
 #[derive(Default, Dissolve)]
 pub struct PyBitsBuilder {
-    builder: BitsBuilder<i64, PyObject>,
+    builder: BitsBuilder<i64, Py<PyAny>>,
 }
 
 #[pymethods]
@@ -24,7 +24,7 @@ impl PyBitsBuilder {
         mut slf: PyRefMut<'a, Self>,
         py: Python<'a>,
         interval: IntoPyInterval,
-        data: PyObject,
+        data: Py<PyAny>,
     ) -> PyRefMut<'a, Self> {
         let interval = interval.extract_py(py).rs;
         slf.builder = std::mem::take(&mut slf.builder).add(interval, data);
@@ -37,7 +37,7 @@ impl PyBitsBuilder {
         data: Bound<'a, PyAny>,
     ) -> PyResult<PyRefMut<'a, Self>> {
         for item in data.try_iter()? {
-            let (interval, data) = item?.extract::<(IntoPyInterval, PyObject)>()?;
+            let (interval, data) = item?.extract::<(IntoPyInterval, Py<PyAny>)>()?;
             let interval = interval.extract_py(py).rs;
             slf.builder = std::mem::take(&mut slf.builder).add(interval, data);
         }
@@ -50,7 +50,7 @@ impl PyBitsBuilder {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 }
@@ -58,7 +58,7 @@ impl PyBitsBuilder {
 #[pyclass(name = "Bits")]
 #[derive(Dissolve)]
 pub struct PyBits {
-    tree: Bits<i64, PyObject>,
+    tree: Bits<i64, Py<PyAny>>,
 }
 
 #[pymethods]
@@ -152,7 +152,7 @@ impl PyBits {
             return Ok(false);
         }
 
-        Python::with_gil(|py| -> PyResult<bool> {
+        Python::attach(|py| -> PyResult<bool> {
             for (l, r) in self.tree.data().iter().zip(other.tree.data().iter()) {
                 if !l.bind(py).eq(r.bind(py))? {
                     return Ok(false);
@@ -163,7 +163,7 @@ impl PyBits {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 
@@ -171,7 +171,7 @@ impl PyBits {
     pub fn _from_pickle(state: Bound<PyAny>) -> PyResult<Self> {
         let mut builder = BitsBuilder::default();
         for item in state.try_iter()? {
-            let (interval, data) = item?.extract::<(IntoPyInterval, PyObject)>()?;
+            let (interval, data) = item?.extract::<(IntoPyInterval, Py<PyAny>)>()?;
             let interval = interval.extract_py(state.py()).rs;
             builder = builder.add(interval, data);
         }
@@ -179,7 +179,7 @@ impl PyBits {
         Ok(Self { tree })
     }
 
-    pub fn __reduce__(&self, py: Python) -> PyResult<(PyObject, (Py<PyList>,))> {
+    pub fn __reduce__(&self, py: Python) -> PyResult<(Py<PyAny>, (Py<PyList>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
             (self.records(py)?.unbind(),),

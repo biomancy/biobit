@@ -17,12 +17,12 @@ use super::workload::PyWorkload;
 pub struct PyReaper {
     // PyObjects are not oredered/hashable, which is required for all Ripper sample tags
     // Workaround: store the tags in a Vec and search for them when needed
-    samples: Vec<PyObject>,
-    reaper: Reaper<String, usize, f32, usize, PyObject, Box<SegmentedAlignmentSource>>,
+    samples: Vec<Py<PyAny>>,
+    reaper: Reaper<String, usize, f32, usize, Py<PyAny>, Box<SegmentedAlignmentSource>>,
 }
 
 impl PyReaper {
-    fn find_sample(&mut self, tag: &PyObject, py: Python) -> Result<Option<usize>> {
+    fn find_sample(&mut self, tag: &Py<PyAny>, py: Python) -> Result<Option<usize>> {
         for (ind, sample) in self.samples.iter().enumerate() {
             if sample.bind(py).compare(tag)? == Ordering::Equal {
                 return Ok(Some(ind));
@@ -31,7 +31,7 @@ impl PyReaper {
         Ok(None)
     }
 
-    fn find_or_insert_sample(&mut self, tag: PyObject, py: Python) -> Result<usize> {
+    fn find_or_insert_sample(&mut self, tag: Py<PyAny>, py: Python) -> Result<usize> {
         match self.find_sample(&tag, py)? {
             Some(ind) => Ok(ind),
             None => {
@@ -58,7 +58,7 @@ impl PyReaper {
 
     pub fn add_source(
         mut slf: PyRefMut<Self>,
-        tag: PyObject,
+        tag: Py<PyAny>,
         source: IntoPyReader,
         layout: PyLayout,
     ) -> PyResult<PyRefMut<Self>> {
@@ -73,7 +73,7 @@ impl PyReaper {
 
     pub fn add_sources(
         mut slf: PyRefMut<Self>,
-        sample: PyObject,
+        sample: Py<PyAny>,
         sources: Vec<IntoPyReader>,
         layout: PyLayout,
     ) -> PyResult<PyRefMut<Self>> {
@@ -91,9 +91,9 @@ impl PyReaper {
 
     pub fn add_comparison(
         mut slf: PyRefMut<Self>,
-        tag: PyObject,
-        signal: PyObject,
-        control: PyObject,
+        tag: Py<PyAny>,
+        signal: Py<PyAny>,
+        control: Py<PyAny>,
         workload: PyWorkload,
     ) -> PyResult<PyRefMut<Self>> {
         let py = slf.py();

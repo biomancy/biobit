@@ -159,9 +159,9 @@ macro_rules! impl_bed_writer {
 
             fn __exit__(
                 slf: PyRefMut<Self>,
-                _exc_type: PyObject,
-                _exc_value: PyObject,
-                _traceback: PyObject,
+                _exc_type: Py<PyAny>,
+                _exc_value: Py<PyAny>,
+                _traceback: Py<PyAny>,
             ) -> Result<()> {
                 Self::close(slf)?;
                 Ok(())

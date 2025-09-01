@@ -76,11 +76,11 @@ impl PyWorkload {
         slf
     }
 
-    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+    fn __getstate__(&self, py: Python) -> PyResult<Py<PyAny>> {
         self.regions.clone().into_pyobject(py).map(|x| x.unbind())
     }
 
-    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+    fn __setstate__(&mut self, py: Python, state: Py<PyAny>) -> PyResult<()> {
         self.regions = state.extract(py)?;
         Ok(())
     }
