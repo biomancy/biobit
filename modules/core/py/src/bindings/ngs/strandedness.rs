@@ -24,7 +24,7 @@ impl<'py> FromPyObject<'py> for IntoPyStrandness {
                     return Err(PyValueError::new_err(format!(
                         "Unknown strandedness: {}",
                         obj
-                    )))
+                    )));
                 }
             }
         } else {

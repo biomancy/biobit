@@ -3,9 +3,9 @@ pub use biobit_io_rs::fasta::{Record, RecordMutOp, RecordOp};
 use bitcode::{Decode, Encode};
 use derive_more::{From, Into};
 use eyre::Result;
+use pyo3::PyTypeInfo;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use pyo3::PyTypeInfo;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -62,7 +62,7 @@ impl PyRecord {
         pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
     }
 
-    pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+    pub fn __reduce__(&self, py: Python) -> Result<(Py<PyAny>, (Vec<u8>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
             (pickle::to_bytes(self),),

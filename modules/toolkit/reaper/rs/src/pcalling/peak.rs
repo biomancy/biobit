@@ -1,5 +1,5 @@
 use derive_getters::{Dissolve, Getters};
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 
 use biobit_core_rs::loc::Interval;
 use biobit_core_rs::num::{Float, PrimInt};

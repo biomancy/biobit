@@ -2,8 +2,8 @@ use std::borrow::Borrow;
 
 use biobit_core_rs::num::PrimUInt;
 
-use crate::pairwise::{scoring, Op, Step};
 use crate::Alignable;
+use crate::pairwise::{Op, Step, scoring};
 
 use super::step::StepWithOffset;
 

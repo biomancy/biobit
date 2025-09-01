@@ -10,7 +10,7 @@ classifiers = [
 dynamic = ["version", "description", "license", "authors", "readme", "urls"]
 dependencies = [
     "attrs == 25.3.0",
-    "cattrs[pyyaml] == 24.1.2",
+    "cattrs[pyyaml] == 25.2.0",
     "PyYAML == 6.0.2",
     #    "pandas == 2.2.3",
 ]

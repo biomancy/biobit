@@ -2,7 +2,7 @@ use super::{record::Record, validate};
 use crate::compression::decode;
 use crate::traits::ReadRecord;
 use derive_getters::Dissolve;
-use eyre::{ensure, Result};
+use eyre::{Result, ensure};
 use memchr;
 use std::io::BufRead;
 use std::path::Path;

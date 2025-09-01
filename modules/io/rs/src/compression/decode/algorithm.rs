@@ -1,3 +1,4 @@
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]

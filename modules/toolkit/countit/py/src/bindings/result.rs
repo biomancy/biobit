@@ -49,7 +49,7 @@ impl From<PartitionMetrics<String, usize, f64>> for PyPartitionMetrics {
             .expect("Failed to convert interval");
         let alignments: PyResolutionOutcome = alignments.into();
 
-        Python::with_gil(|py| PyPartitionMetrics {
+        Python::attach(|py| PyPartitionMetrics {
             contig,
             interval: Py::new(py, interval).expect("Failed to convert interval"),
             time_s,
@@ -81,16 +81,16 @@ impl PyPartitionMetrics {
 #[pyclass(get_all, name = "Counts")]
 #[derive(Clone, Debug, From, Into)]
 pub struct PyCounts {
-    source: PyObject,
-    elements: Vec<PyObject>,
+    source: Py<PyAny>,
+    elements: Vec<Py<PyAny>>,
     counts: Vec<f64>,
     partitions: Vec<Py<PyPartitionMetrics>>,
 }
 
-impl From<Counts<'_, String, usize, f64, PyObject, PyObject>> for PyCounts {
-    fn from(counts: Counts<String, usize, f64, PyObject, PyObject>) -> Self {
+impl From<Counts<'_, String, usize, f64, Py<PyAny>, Py<PyAny>>> for PyCounts {
+    fn from(counts: Counts<String, usize, f64, Py<PyAny>, Py<PyAny>>) -> Self {
         let (source, elements, counts, stats) = counts.into();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let partitions: Vec<Py<PyPartitionMetrics>> = stats
                 .into_iter()
                 .map(|x| Py::new(py, PyPartitionMetrics::from(x)))
@@ -109,7 +109,7 @@ impl From<Counts<'_, String, usize, f64, PyObject, PyObject>> for PyCounts {
 #[pymethods]
 impl PyCounts {
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 

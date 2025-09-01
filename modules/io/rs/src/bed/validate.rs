@@ -1,5 +1,5 @@
 use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
-use eyre::{ensure, Result};
+use eyre::{Result, ensure};
 
 pub fn seqid(s: &str) -> Result<()> {
     ensure!(!s.is_empty(), "BED seqid can't be empty");

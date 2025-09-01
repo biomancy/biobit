@@ -1,8 +1,8 @@
-use super::record::{PyBed12, PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9};
-pub use biobit_io_rs::bed::Writer;
-use biobit_io_rs::bed::{Bed12, Bed3, Bed4, Bed5, Bed6, Bed8, Bed9};
-use biobit_io_rs::compression::encode;
+use super::record::{PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9, PyBed12};
 use biobit_io_rs::WriteRecord;
+pub use biobit_io_rs::bed::Writer;
+use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12};
+use biobit_io_rs::compression::encode;
 use derive_more::Into;
 use eyre::OptionExt;
 use eyre::Result;
@@ -159,9 +159,9 @@ macro_rules! impl_bed_writer {
 
             fn __exit__(
                 slf: PyRefMut<Self>,
-                _exc_type: PyObject,
-                _exc_value: PyObject,
-                _traceback: PyObject,
+                _exc_type: Py<PyAny>,
+                _exc_value: Py<PyAny>,
+                _traceback: Py<PyAny>,
             ) -> Result<()> {
                 Self::close(slf)?;
                 Ok(())

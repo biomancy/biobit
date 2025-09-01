@@ -1,10 +1,10 @@
-pub use biobit_io_rs::fasta::{Writer, DEFAULT_LINE_WIDTH};
+pub use biobit_io_rs::fasta::{DEFAULT_LINE_WIDTH, Writer};
 use std::num::NonZeroUsize;
 
 use super::record::PyRecord;
+use biobit_io_rs::WriteRecord;
 use biobit_io_rs::compression::encode;
 use biobit_io_rs::fasta::Record;
-use biobit_io_rs::WriteRecord;
 use derive_more::Into;
 use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
@@ -81,9 +81,9 @@ impl PyWriter {
 
     fn __exit__(
         slf: PyRefMut<Self>,
-        _exc_type: PyObject,
-        _exc_value: PyObject,
-        _traceback: PyObject,
+        _exc_type: Py<PyAny>,
+        _exc_value: Py<PyAny>,
+        _traceback: Py<PyAny>,
     ) -> Result<()> {
         Self::close(slf)?;
         Ok(())

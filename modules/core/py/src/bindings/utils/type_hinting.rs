@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
 use std::ffi::CString;
 
-pub fn type_hint_class_getitem(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+pub fn type_hint_class_getitem(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
     let py = cls.py();
     let locals = PyDict::new(py);
     locals.set_item("cls", cls)?;

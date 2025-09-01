@@ -1,7 +1,7 @@
-use super::record::{PyBed12, PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9};
-use biobit_io_rs::bed::{Bed12, Bed3, Bed4, Bed5, Bed6, Bed8, Bed9};
-use biobit_io_rs::compression::decode;
+use super::record::{PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9, PyBed12};
 use biobit_io_rs::ReadRecord;
+use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12};
+use biobit_io_rs::compression::decode;
 use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;
@@ -92,11 +92,7 @@ macro_rules! impl_bed_reader {
                 };
 
                 let success = self.rs.read_record(&mut into.borrow_mut(py).rs)?;
-                if success {
-                    Ok(Some(into))
-                } else {
-                    Ok(None)
-                }
+                if success { Ok(Some(into)) } else { Ok(None) }
             }
 
             pub fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
@@ -104,7 +100,7 @@ macro_rules! impl_bed_reader {
                 self.rs.read_to_end(&mut result)?;
 
                 let iterator = result.into_iter().map(|x| $PyBed::from(x));
-                Python::with_gil(|py| -> PyResult<_> {
+                Python::attach(|py| -> PyResult<_> {
                     PyList::new(py, iterator).map(|x| x.unbind())
                 })
             }

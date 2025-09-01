@@ -68,9 +68,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
     ) -> Result<()>
     where
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         assert_eq!(
             query.1,

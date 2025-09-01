@@ -4,7 +4,7 @@ use biobit_core_py::utils::type_hint_class_getitem;
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
 use pyo3::types::{PyFrozenSet, PyIterator, PyList, PyType};
-use pyo3::{pyclass, pymethods, Py, PyObject, PyResult, Python};
+use pyo3::{PyResult, Python, pyclass, pymethods};
 use std::hash::Hash;
 use std::ops::Deref;
 
@@ -21,7 +21,7 @@ impl PyHitSegments {
         self.cache.take().unwrap_or_default().recycle()
     }
 
-    pub fn reset<T: Hash + Eq + Deref<Target = PyObject>>(
+    pub fn reset<T: Hash + Eq + Deref<Target = Py<PyAny>>>(
         &mut self,
         py: Python<'_>,
         segments: HitSegments<'_, i64, T>,
@@ -75,7 +75,7 @@ impl PyHitSegments {
             return Ok(false);
         }
 
-        Python::with_gil(|py| -> PyResult<bool> {
+        Python::attach(|py| -> PyResult<bool> {
             for (i, j) in self.data.iter().zip(other.data.iter()) {
                 if !i.bind(py).eq(j.bind(py))? {
                     return Ok(false);
@@ -86,7 +86,7 @@ impl PyHitSegments {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 
@@ -124,7 +124,7 @@ impl PyBatchHitSegments {
         self.cache.take().unwrap_or_default().recycle()
     }
 
-    pub fn reset<T: Hash + Eq + Deref<Target = PyObject>>(
+    pub fn reset<T: Hash + Eq + Deref<Target = Py<PyAny>>>(
         &mut self,
         py: Python<'_>,
         segments: BatchHitSegments<'_, i64, T>,
@@ -212,7 +212,7 @@ impl PyBatchHitSegments {
             return Ok(false);
         }
 
-        Python::with_gil(|py| -> PyResult<bool> {
+        Python::attach(|py| -> PyResult<bool> {
             for (i, j) in self.data.iter().zip(other.data.iter()) {
                 if !i.bind(py).eq(j.bind(py))? {
                     return Ok(false);
@@ -223,7 +223,7 @@ impl PyBatchHitSegments {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 

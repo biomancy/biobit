@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 
 use crate::pairwise::sw::algo::{BestOrientationTracer, GapTracer, Tracer};
 use crate::pairwise::sw::traceback::{TraceMat, TracedAlignment};
-use crate::pairwise::{scoring, Op, Step};
+use crate::pairwise::{Op, Step, scoring};
 
 // TODO: implement to use only 2 bits
 #[repr(u8)]

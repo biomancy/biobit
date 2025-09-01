@@ -29,7 +29,7 @@ pub fn __biobit_initialize_complex_enum__(
 
 #[pymethods]
 impl PyLayout {
-    fn __getnewargs__(&self, py: Python) -> PyResult<PyObject> {
+    fn __getnewargs__(&self, py: Python) -> PyResult<Py<PyAny>> {
         Ok(match self {
             PyLayout::Single { file } => (file,).into_pyobject(py)?.unbind().into(),
             PyLayout::Paired { orientation, files } => {

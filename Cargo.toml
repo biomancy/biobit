@@ -2,7 +2,9 @@
 members = [
     # Umbrella project for all modules
     "biobit/py",
-    # Core modules
+    ###################################################################
+    # Core - fundamental primitives and data structures
+    ###################################################################
     "modules/core/rs",
     "modules/core/py",
     "modules/io/rs",
@@ -10,19 +12,26 @@ members = [
     "modules/alignment/rs",
     "modules/collections/rs",
     "modules/collections/py",
-    # Toolkit
-    "modules/toolkit/countit/*",
+    ###################################################################
+    # Toolkit - modules addressing specific but very common tasks
+    ###################################################################
+    # CountIt
+    "modules/toolkit/countit/py",
+    "modules/toolkit/countit/rs",
+    "modules/toolkit/countit/benches",
+    # SeqProj
     "modules/toolkit/seqproj/*",
+    # Reaper
     "modules/toolkit/reaper/*",
+    # Repeto
     "modules/toolkit/repeto/*",
 ]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
-version = "0.0.8"
-edition = "2021"
-#edition = "2024"
-rust-version = "1.86.0"
+version = "0.0.9-rc1"
+edition = "2024"
+rust-version = "1.87.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"
@@ -39,20 +48,20 @@ itertools = "0.14.0"
 num = "0.4.3"
 eyre = "0.6.12"
 by_address = "1.2.1"
-rayon = "1.10.0"
-pyo3 = { version = "0.24.1", features = ["full"] }
-noodles = { version = "0.96.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
-thread_local = "1.1.8"
-higher-kinded-types = "0.2.0"
-impl-tools = "0.10.3"
-dyn-clone = "1.0.19"
-flate2 = { version = "1.1.1", features = ["zlib-rs"], default-features = false }
+rayon = "1.11.0"
+pyo3 = { version = "0.26.0", features = ["full"] }
+noodles = { version = "0.101.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+thread_local = "1.1.9"
+higher-kinded-types = "0.3.0-rc1"
+impl-tools = "0.11.2"
+dyn-clone = "1.0.20"
+flate2 = { version = "1.1.2", features = ["zlib-rs"], default-features = false }
 dhat = "0.3.3"
-ahash = "0.8.11"
+ahash = "0.8.12"
 anymap3 = "1.0.1"
 rstar = "0.12.2"
 log = "0.4.27"
-bitcode = { version = "=0.6.6" }
-memchr = "2.7.4"
+bitcode = { version = "=0.6.7" }
+memchr = "2.7.5"
 infer = "0.19.0"
 paste = "1.0.15"

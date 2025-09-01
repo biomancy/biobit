@@ -2,18 +2,18 @@ use crate::interval_tree::{PyBatchHitSegments, PyHitSegments};
 use biobit_collections_rs::interval_tree::{BatchHits, Hits};
 use biobit_core_py::loc::{Interval, IntoPyInterval, PyInterval};
 use biobit_core_py::pickle;
-use biobit_core_py::utils::{type_hint_class_getitem, ByPyPointer};
+use biobit_core_py::utils::{ByPyPointer, type_hint_class_getitem};
 use derive_getters::Dissolve;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyIterator, PyList, PyType};
-use pyo3::{pyclass, pymethods, PyObject};
+use pyo3::{pyclass, pymethods};
 
 #[pyclass(name = "Hits")]
 #[derive(Default, Dissolve)]
 pub struct PyHits {
-    cache: Option<Hits<'static, i64, PyObject>>,
+    cache: Option<Hits<'static, i64, Py<PyAny>>>,
     intervals: Vec<Interval<i64>>,
-    data: Vec<PyObject>,
+    data: Vec<Py<PyAny>>,
 }
 
 impl PyHits {
@@ -21,7 +21,8 @@ impl PyHits {
         self.cache.take().unwrap_or_default().recycle()
     }
 
-    pub fn reset(&mut self, py: Python, hits: Hits<i64, PyObject>) {
+    pub fn reset(&mut self, py: Python, hits: Hits<i64, Py<PyAny>>) {
+        self.clear();
         self.intervals.extend(hits.intervals());
         self.data
             .extend(hits.data().iter().map(|x| x.clone_ref(py)));
@@ -36,16 +37,16 @@ impl PyHits {
         Self::default()
     }
 
-    fn append(&mut self, py: Python, interval: IntoPyInterval, data: PyObject) {
+    fn append(&mut self, py: Python, interval: IntoPyInterval, data: Py<PyAny>) {
         self.intervals.push(interval.extract_py(py).rs);
         self.data.push(data);
     }
 
-    fn extend(&mut self, items: PyObject) -> PyResult<()> {
+    fn extend(&mut self, items: Py<PyAny>) -> PyResult<()> {
         let before = self.intervals.len();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             for item_bound in items.bind(py).try_iter()? {
-                let (interval, data) = item_bound?.extract::<(IntoPyInterval, PyObject)>()?;
+                let (interval, data) = item_bound?.extract::<(IntoPyInterval, Py<PyAny>)>()?;
                 self.intervals.push(interval.extract_py(py).rs);
                 self.data.push(data);
             }
@@ -116,7 +117,7 @@ impl PyHits {
             return Ok(false);
         }
 
-        Python::with_gil(|py| -> PyResult<bool> {
+        Python::attach(|py| -> PyResult<bool> {
             for (i, j) in self.data.iter().zip(other.data.iter()) {
                 if !i.bind(py).eq(j.bind(py))? {
                     return Ok(false);
@@ -127,7 +128,7 @@ impl PyHits {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 
@@ -140,7 +141,7 @@ impl PyHits {
         Ok((pickle::to_bytes(&self.intervals), self.data(py)?))
     }
 
-    pub fn __setstate__(&mut self, state: (Bound<PyBytes>, Vec<PyObject>)) -> PyResult<()> {
+    pub fn __setstate__(&mut self, state: (Bound<PyBytes>, Vec<Py<PyAny>>)) -> PyResult<()> {
         self.intervals = pickle::from_bytes(state.0.as_bytes())?;
         self.data = state.1;
         Ok(())
@@ -150,9 +151,9 @@ impl PyHits {
 #[pyclass(name = "BatchHits")]
 #[derive(Dissolve)]
 pub struct PyBatchHits {
-    cache: Option<BatchHits<'static, i64, PyObject>>,
+    cache: Option<BatchHits<'static, i64, Py<PyAny>>>,
     intervals: Vec<PyInterval>,
-    hits: Vec<PyObject>,
+    hits: Vec<Py<PyAny>>,
     index: Vec<usize>,
 }
 
@@ -163,11 +164,11 @@ impl Default for PyBatchHits {
 }
 
 impl PyBatchHits {
-    pub fn take<'tree>(&mut self) -> BatchHits<'tree, i64, PyObject> {
+    pub fn take<'tree>(&mut self) -> BatchHits<'tree, i64, Py<PyAny>> {
         self.cache.take().unwrap_or_default().recycle()
     }
 
-    pub fn reset(&mut self, py: Python, hits: BatchHits<i64, PyObject>) {
+    pub fn reset(&mut self, py: Python, hits: BatchHits<i64, Py<PyAny>>) {
         self.clear();
 
         for (intervals, hits) in hits.iter() {
@@ -218,13 +219,13 @@ impl PyBatchHits {
         }
     }
 
-    pub fn append(&mut self, intervals: PyObject, data: PyObject) -> PyResult<()> {
+    pub fn append(&mut self, intervals: Py<PyAny>, data: Py<PyAny>) -> PyResult<()> {
         let before = self.intervals.len();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let (mut intervals, mut data) = (intervals.bind(py).try_iter()?, data.bind(py).try_iter()?);
             for (interval, data) in intervals.by_ref().zip(data.by_ref()) {
                 let interval = interval?.extract::<IntoPyInterval>()?.extract_py(py);
-                let data = data?.extract::<PyObject>()?;
+                let data = data?.extract::<Py<PyAny>>()?;
 
                 self.intervals.push(interval);
                 self.hits.push(data);
@@ -247,7 +248,7 @@ impl PyBatchHits {
         let before = self.intervals.len();
         let index = self.index.len();
         for query in queries.try_iter()? {
-            let (intervals, data) = query?.extract::<(PyObject, PyObject)>()?;
+            let (intervals, data) = query?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
             self.append(intervals, data).inspect_err(|_| {
                 self.intervals.truncate(before);
                 self.hits.truncate(before);
@@ -321,7 +322,7 @@ impl PyBatchHits {
             return Ok(false);
         }
 
-        Python::with_gil(|py| -> PyResult<bool> {
+        Python::attach(|py| -> PyResult<bool> {
             for (i, j) in self.hits.iter().zip(other.hits.iter()) {
                 if !i.bind(py).eq(j.bind(py))? {
                     return Ok(false);
@@ -332,7 +333,7 @@ impl PyBatchHits {
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 
@@ -355,7 +356,7 @@ impl PyBatchHits {
 
     pub fn __setstate__(
         &mut self,
-        state: (Bound<PyBytes>, Vec<PyObject>, Bound<PyBytes>),
+        state: (Bound<PyBytes>, Vec<Py<PyAny>>, Bound<PyBytes>),
     ) -> PyResult<()> {
         self.intervals = pickle::from_bytes(state.0.as_bytes())?;
         self.hits = state.1;

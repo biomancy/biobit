@@ -1,5 +1,5 @@
 use eyre::Result;
-use rstar::{Envelope, RTree, RTreeObject, SelectionFunction, AABB};
+use rstar::{AABB, Envelope, RTree, RTreeObject, SelectionFunction};
 
 use biobit_alignment_rs::alignable::Reversed;
 use biobit_alignment_rs::pairwise::alignment::Alignment;

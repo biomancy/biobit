@@ -1,7 +1,7 @@
 use eyre::ContextCompat;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyNone};
-use pyo3::{ffi, PyClass};
+use pyo3::{PyClass, ffi};
 use std::ffi::CString;
 
 pub struct ImportablePyModuleBuilder<'py> {
@@ -86,7 +86,7 @@ impl<'py> ImportablePyModuleBuilder<'py> {
         // attached to multiple modules. This is a fairly rare use case, not used in this project.
         // Therefore, we set the __module__ attribute to the name of the module and simply err if
         // it is already set to a different value.
-        let type_object = T::lazy_type_object().get_or_init(self.inner.py());
+        let type_object = T::lazy_type_object().get_or_try_init(self.inner.py())?;
 
         let __module__ = type_object.getattr("__module__")?.extract::<String>()?;
         if __module__ == "builtins" {
@@ -100,7 +100,9 @@ impl<'py> ImportablePyModuleBuilder<'py> {
         } else {
             let err = format!(
                 "Class {} is attached to module {} but its __module__ attribute is already set to {}",
-                type_object.name()? , __name__, __module__
+                type_object.name()?,
+                __name__,
+                __module__
             );
             Err(PyErr::new::<pyo3::exceptions::PyImportError, _>(err))
         }

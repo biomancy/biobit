@@ -1,26 +1,26 @@
 use super::reader::{
-    PyBed12Reader, PyBed3Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader,
-    PyBed9Reader,
+    PyBed3Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader, PyBed9Reader,
+    PyBed12Reader,
 };
 use super::writer::{
-    PyBed12Writer, PyBed3Writer, PyBed4Writer, PyBed5Writer, PyBed6Writer, PyBed8Writer,
-    PyBed9Writer,
+    PyBed3Writer, PyBed4Writer, PyBed5Writer, PyBed6Writer, PyBed8Writer, PyBed9Writer,
+    PyBed12Writer,
 };
 use biobit_core_py::loc::{Interval, Orientation};
 use biobit_core_py::loc::{IntoPyInterval, IntoPyOrientation, PyInterval, PyOrientation};
 use biobit_core_py::pickle;
 pub use biobit_io_rs::bed::{
-    Bed12, Bed12MutOp, Bed12Op, Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp,
-    Bed5Op, Bed6, Bed6MutOp, Bed6Op, Bed8, Bed8MutOp, Bed8Op, Bed9, Bed9MutOp, Bed9Op,
+    Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp, Bed5Op, Bed6, Bed6MutOp,
+    Bed6Op, Bed8, Bed8MutOp, Bed8Op, Bed9, Bed9MutOp, Bed9Op, Bed12, Bed12MutOp, Bed12Op,
 };
 use bitcode::{Decode, Encode};
 use derive_more::{From, Into};
 use eyre::{OptionExt, Result};
 use paste::paste;
+use pyo3::PyTypeInfo;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::types::PyType;
-use pyo3::PyTypeInfo;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 const U64_TO_I64_CAST_ERROR: &str =
@@ -294,7 +294,7 @@ macro_rules! impl_pybed {
                     pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
                 }
 
-                pub fn __reduce__(&self, py: Python) -> Result<(PyObject, (Vec<u8>,))> {
+                pub fn __reduce__(&self, py: Python) -> Result<(Py<PyAny>, (Vec<u8>,))> {
                     Ok((
                         Self::type_object(py).getattr("_from_pickle")?.unbind(),
                         (pickle::to_bytes(self),),

@@ -7,8 +7,8 @@ use itertools::Itertools;
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 
-use super::trace::TraceCell;
 use super::InvRepeat;
+use super::trace::TraceCell;
 use super::{index, trace};
 
 // General rules:

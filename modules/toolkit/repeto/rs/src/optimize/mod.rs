@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 
 use biobit_core_rs::num::PrimInt;
 

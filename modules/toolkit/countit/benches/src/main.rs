@@ -8,7 +8,7 @@ use rayon::ThreadPoolBuilder;
 
 use biobit_core_rs::loc::{Interval, Orientation};
 use biobit_core_rs::{parallelism, source::Source};
-use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
+use biobit_io_rs::bam::{ReaderBuilder, strdeductor, transform};
 
 const THREADS: isize = -1;
 const BED: &str = "/home/alnfedorov/projects/biobit/resources/bed/GRCh38.bed";

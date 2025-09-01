@@ -44,7 +44,7 @@ impl TryInto<CachedRecord> for Record {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "No HIT_INDEX tag",
-                    ))
+                    ));
                 }
             };
             match hit_index {
@@ -54,7 +54,7 @@ impl TryInto<CachedRecord> for Record {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "HIT_INDEX tag must be an int8 or uint8",
-                    ))
+                    ));
                 }
             }
         };
@@ -108,7 +108,9 @@ impl Bundler {
 
         // If the record is already in the cache, log an error
         if !inserted {
-            log::error!("Double insert in the cache detected, check that read names and HIT_INDEX tags are unique");
+            log::error!(
+                "Double insert in the cache detected, check that read names and HIT_INDEX tags are unique"
+            );
             // println!("{:?}", rname);
         }
         debug_assert!(inserted);

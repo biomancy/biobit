@@ -2,8 +2,8 @@ use std::ops::Range;
 
 pub use tracemat::TraceMatrix;
 
-use crate::pairwise::sw::algo::Tracer;
 use crate::pairwise::Step;
+use crate::pairwise::sw::algo::Tracer;
 use eyre::Result;
 
 mod tracemat;

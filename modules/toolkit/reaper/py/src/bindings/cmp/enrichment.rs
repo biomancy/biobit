@@ -3,7 +3,7 @@ use biobit_reaper_rs::cmp::Enrichment;
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use eyre::Result;
-use pyo3::{pyclass, pymethods, PyRefMut};
+use pyo3::{PyRefMut, pyclass, pymethods};
 
 #[pyclass(eq, name = "Enrichment")]
 #[derive(Clone, Debug, PartialEq, Constructor, Dissolve, From, Into)]
