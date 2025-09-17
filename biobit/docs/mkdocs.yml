@@ -7,3 +7,4 @@ nav:
   - Home: index.md
   - Development Notes: notes.md
   - Developer Guide: dev-guide.md
+  - Apache Arrow: arrow.md
