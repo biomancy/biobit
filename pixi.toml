@@ -44,7 +44,7 @@ rs-ci = { depends-on = ["rs-ci-fmt", "rs-ci-check", "rs-ci-clippy", "rs-ci-test"
 cmd = [
     "code2prompt", "--full-directory-tree", "--sort", "name_asc",
     "--exclude", "biobit/docs/site", "--exclude", "target", "--exclude", "resources", "--exclude", "obsolete",
-    "--exclude", "pixi.lock",  "--exclude", "Cargo.lock", "--exclude", "llm-context.md",
+    "--exclude", "pixi.lock", "--exclude", "Cargo.lock", "--exclude", "llm-context.md",
     "-O", "llm-context.md", "."
 ]
 
