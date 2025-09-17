@@ -62,7 +62,7 @@ mod tests {
             transformed.push(InvRepeat::new(segments).unwrap());
         }
 
-        let expscore = tcase.expdsrna.iter().map(|x| scores[*x]).sum();
+        let expscore: Score = tcase.expdsrna.iter().map(|x| scores[*x]).sum();
         let (result, score) = run(&transformed, &scores).unwrap();
         let mut result = result.into_iter().map(|x| &transformed[x]).collect_vec();
         debug_assert!(score == expscore, "{msg}\nScore: {expscore} vs {score}");
