@@ -193,7 +193,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         orientation: Orientation,
         model: ControlModel<Idx>,
     ) -> &mut Self {
-        self.modeling.get_mut(orientation).push(model);
+        self.modeling[orientation].push(model);
         self
     }
 
@@ -232,7 +232,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
                 while let Some(blocks) = iter.next() {
                     for (intervals, orientation, n) in blocks?.iter() {
                         let weight = Cnts::one() / Cnts::from(n).unwrap();
-                        let saveto = counts.get_mut(orientation);
+                        let saveto = &mut counts[orientation];
 
                         for s in intervals {
                             if s.end() <= start || s.start() >= end {
@@ -262,7 +262,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         cache: PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>,
     ) -> Result<PerOrientation<RleVec<Cnts, u32, RleIdentical<Cnts>>>> {
         cache.try_map::<_, Report>(|o, rle| {
-            let cnts = counts.get(o);
+            let cnts = &counts[o];
             let rle = rle
                 .rebuild()
                 .with_identical(self.identical())
@@ -349,12 +349,12 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
             if covered_end != query.1 {
                 covered_cache.push(Interval::new(covered_start, covered_end)?);
             }
-            *covered.get_mut(o) = covered_cache;
+            covered[o] = covered_cache;
 
             if model_end != query.1 {
                 model_cache.push(Interval::new(model_start, model_end)?);
             }
-            *modeled.get_mut(o) = model_cache;
+            modeled[o] = model_cache;
 
             Ok::<(), Report>(())
         })?;
@@ -388,10 +388,10 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         // Build the control model
         model.try_apply(|o, x| {
             x.clear();
-            x.extend_from_slice(counts.get(o));
+            x.extend_from_slice(&counts[o]);
 
-            for m in self.modeling.get(o) {
-                m.apply(query.1, query.2, self.sensitivity, counts.get(o), x)?;
+            for m in &self.modeling[o] {
+                m.apply(query.1, query.2, self.sensitivity, &counts[o], x)?;
             }
             Ok::<(), Report>(())
         })?;
@@ -432,7 +432,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
             if covered_end != query.1 {
                 covered_cache.push(Interval::new(covered_start, covered_end)?);
             }
-            *covered.get_mut(o) = covered_cache;
+            covered[o] = covered_cache;
 
             Ok::<(), Report>(())
         })?;

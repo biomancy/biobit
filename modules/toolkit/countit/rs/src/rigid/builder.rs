@@ -41,11 +41,7 @@ where
             let ind = self.elements.len();
             self.elements.push(element);
             for (contig, orientation, segments) in segments {
-                self.annotation
-                    .entry(contig)
-                    .or_default()
-                    .get_mut(orientation)
-                    .push((ind, segments));
+                self.annotation.entry(contig).or_default()[orientation].push((ind, segments));
             }
         }
         self
@@ -67,7 +63,7 @@ where
     }
 
     pub fn _build(&mut self) -> Vec<Partition<Ctg, Idx>> {
-        // Prepare the workload for each thread
+        // Prepare the payload for each thread
         let mut workload = Vec::new();
         for (contig, segments) in std::mem::take(&mut self.partitions).into_iter() {
             // Select elements inside the partition

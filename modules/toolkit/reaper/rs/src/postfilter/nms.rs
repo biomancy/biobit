@@ -108,7 +108,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
     }
 
     pub fn add_regions(&mut self, orientation: Orientation, regions: NMSRegions<Idx>) -> &mut Self {
-        self.roi.get_mut(orientation).push(regions);
+        self.roi[orientation].push(regions);
         self
     }
 
@@ -324,7 +324,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         // Apply NMS filters
         let mut allowed = Vec::with_capacity(peaks.len());
 
-        for config in self.roi.get(orientation) {
+        for config in &self.roi[orientation] {
             for nms in &config.regions {
                 // Map the NMS region to the region coordinates
                 let nms = nms

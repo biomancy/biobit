@@ -45,10 +45,7 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
             for (elind, mut segments) in candidates {
                 for segment in Interval::merge(&mut segments) {
                     for (_, prtind) in prtindex.query(segment) {
-                        elements_per_partition[*prtind]
-                            .entry(elind)
-                            .or_default()
-                            .get_mut(orientation)
+                        elements_per_partition[*prtind].entry(elind).or_default()[orientation]
                             .push(segment);
                     }
                 }
@@ -68,15 +65,15 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
 
                     for (orientation, segments) in orientations {
                         for segment in segments {
-                            index.get_mut(orientation).push((segment, ind));
+                            index[orientation].push((segment, ind));
                         }
                     }
                 }
 
                 // Build the partition index for each orientation
-                let mut itree = PerOrientation::default();
+                let mut itree: PerOrientation<Bits<_, _>> = PerOrientation::default();
                 for (orientation, elements) in index {
-                    *itree.get_mut(orientation) = Bits::new(elements.into_iter());
+                    itree[orientation] = Bits::new(elements.into_iter());
                 }
 
                 Partition::new(contig.clone(), segment, itree, elements)

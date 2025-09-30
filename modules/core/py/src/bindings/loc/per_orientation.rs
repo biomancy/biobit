@@ -60,7 +60,7 @@ impl PyPerOrientation {
 
     pub fn get(&self, orientation: IntoPyOrientation) -> Py<PyAny> {
         let orientation = orientation.dissolve().0;
-        self.internal.get(orientation).clone()
+        self.internal[orientation].clone()
     }
 
     #[classmethod]
@@ -74,7 +74,7 @@ impl PyPerOrientation {
 
     pub fn __setitem__(&mut self, orientation: IntoPyOrientation, value: Py<PyAny>) {
         let orientation = orientation.dissolve().0;
-        self.internal.get_mut(orientation).clone_from(&value);
+        self.internal[orientation].clone_from(&value);
     }
 
     pub fn __hash__(&self, py: Python) -> PyResult<isize> {
