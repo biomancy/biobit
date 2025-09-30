@@ -25,6 +25,8 @@ members = [
     "modules/toolkit/reaper/*",
     # Repeto
     "modules/toolkit/repeto/*",
+    # REAT
+    "modules/toolkit/reat/*",
 ]
 resolver = "3"
 
@@ -64,3 +66,4 @@ log = "0.4.27"
 bitcode = { version = "=0.6.7" }
 memchr = "2.7.5"
 paste = "1.0.15"
+arrow = { version = "56.1.0", features = ["default", "ffi"] }
