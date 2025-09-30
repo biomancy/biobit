@@ -55,15 +55,15 @@ pyo3 = { version = "0.26.0", features = ["full"] }
 noodles = { version = "0.101.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
 thread_local = "1.1.9"
 higher-kinded-types = "0.3.0-rc1"
-impl-tools = "0.11.2"
+impl-tools = "0.11.4"
 dyn-clone = "1.0.20"
 flate2 = { version = "1.1.2", features = ["zlib-rs"], default-features = false }
 dhat = "0.3.3"
 ahash = "0.8.12"
 anymap3 = "1.0.1"
 rstar = "0.12.2"
-log = "0.4.27"
+log = "0.4.28"
 bitcode = { version = "=0.6.7" }
-memchr = "2.7.5"
+memchr = "2.7.6"
 paste = "1.0.15"
 arrow = { version = "56.1.0", features = ["default", "ffi"] }

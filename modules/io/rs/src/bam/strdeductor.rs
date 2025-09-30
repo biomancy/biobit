@@ -22,6 +22,11 @@ pub mod deduce {
         use super::*;
 
         #[inline(always)]
+        pub fn unstranded(_: &Record) -> Orientation {
+            Orientation::Dual
+        }
+
+        #[inline(always)]
         pub fn forward(record: &Record) -> Orientation {
             _forward(record.flags().is_reverse_complemented())
         }
@@ -50,6 +55,11 @@ pub mod deduce {
     }
     pub mod pe {
         use super::*;
+
+        #[inline(always)]
+        pub fn unstranded(_: &Record) -> Orientation {
+            Orientation::Dual
+        }
 
         #[inline(always)]
         pub fn forward(record: &Record) -> Orientation {
