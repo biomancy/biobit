@@ -5,6 +5,9 @@ use eyre::Report;
 pub use eyre::Result;
 use higher_kinded_types::prelude::*;
 
+use super::result::{Harvest, HarvestRegion};
+use super::workload::Config;
+use crate::pcalling::Peak;
 use biobit_collections_rs::rle_vec;
 use biobit_core_rs::loc::{Interval, PerOrientation};
 use biobit_core_rs::source::Source;
@@ -14,9 +17,6 @@ use biobit_core_rs::{
     source::AnyMap,
 };
 use biobit_io_rs::bam::SegmentedAlignment;
-
-use super::result::{Harvest, HarvestRegion};
-use super::workload::Config;
 
 #[derive(Debug, Default, Dissolve, Constructor)]
 pub struct RleIdentical<Cnts: Float> {
@@ -104,8 +104,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             .pop()
             .unwrap_or_default()
             .try_map::<_, Report>(|orientation, rle| {
-                let signal = signal.get(orientation);
-                let control = control.get(orientation);
+                let signal = &signal[orientation];
+                let control = &control[orientation];
 
                 config.cmp.calculate::<Idx, u32, RleIdentical<Cnts>>(
                     signal,
@@ -116,7 +116,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             })?;
 
         // 3. Call peaks
-        let mut peaks = PerOrientation::default();
+        let mut peaks: PerOrientation<Vec<Peak<_, _>>> = PerOrientation::default();
         let mut nms = PerOrientation::default();
 
         for (orientation, enrichment) in enrichment.iter() {
@@ -125,12 +125,12 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 orientation,
                 (query.1, query.2),
                 &_peaks,
-                sigcnts.get(orientation),
-                ccnts.get(orientation),
+                &sigcnts[orientation],
+                &ccnts[orientation],
             )?;
 
-            *peaks.get_mut(orientation) = _peaks;
-            *nms.get_mut(orientation) = _nms;
+            peaks[orientation] = _peaks;
+            nms[orientation] = _nms;
         }
 
         // Return signal/control memory to the cache
@@ -154,11 +154,11 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 query.0.clone(),
                 orientation,
                 interval,
-                std::mem::take(sigcov.get_mut(orientation)),
-                std::mem::take(cntcov.get_mut(orientation)),
+                std::mem::take(&mut sigcov[orientation]),
+                std::mem::take(&mut cntcov[orientation]),
                 model,
-                std::mem::take(peaks.get_mut(orientation)),
-                std::mem::take(nms.get_mut(orientation)),
+                std::mem::take(&mut peaks[orientation]),
+                std::mem::take(&mut nms[orientation]),
             ));
         }
 

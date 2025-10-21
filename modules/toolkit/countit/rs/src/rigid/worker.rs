@@ -134,7 +134,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 itree_hits.clear();
 
                 for (segments, orientation, _) in blocks.iter() {
-                    let tree = partition.index().get(orientation);
+                    let tree = &partition.index()[orientation];
 
                     let mut hits = itree_hits.add_hits();
                     for segment in segments {

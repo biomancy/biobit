@@ -44,9 +44,14 @@ pub fn to_alignment_segments(
                 .to_dynsrc()
                 .to_src()
                 .boxed(),
-            Strandedness::Unstranded => {
-                return Err(eyre!("Unstranded libraries are not supported by countit"))?;
-            }
+            Strandedness::Unstranded => source
+                .with_transform(
+                    transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::unstranded),
+                    (),
+                )
+                .to_dynsrc()
+                .to_src()
+                .boxed(),
         },
         PyLayout::Paired {
             strandedness,
@@ -81,9 +86,16 @@ pub fn to_alignment_segments(
                     .to_dynsrc()
                     .to_src()
                     .boxed(),
-                Strandedness::Unstranded => {
-                    return Err(eyre!("Unstranded libraries are not supported by countit"))?;
-                }
+                Strandedness::Unstranded => source
+                    .with_transform(
+                        transform::ExtractPairedAlignmentSegments::new(
+                            strdeductor::deduce::pe::unstranded,
+                        ),
+                        (),
+                    )
+                    .to_dynsrc()
+                    .to_src()
+                    .boxed(),
             }
         }
     };

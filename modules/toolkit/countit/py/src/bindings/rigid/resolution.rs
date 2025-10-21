@@ -79,14 +79,16 @@ impl PyTopRanked {
 #[derive(From, Into)]
 pub struct IntoPyResolution(pub Box<dyn Resolution<usize, f64, Py<PyAny>>>);
 
-impl<'py> FromPyObject<'py> for IntoPyResolution {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyResolution {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let resolution = if obj.is_instance_of::<PyAnyOverlap>() {
-            Box::new(obj.downcast::<PyAnyOverlap>()?.borrow().0.clone())
+            Box::new(obj.cast::<PyAnyOverlap>()?.borrow().0.clone())
         } else if obj.is_instance_of::<PyOverlapWeighted>() {
-            Box::new(obj.downcast::<PyOverlapWeighted>()?.borrow().0.clone())
+            Box::new(obj.cast::<PyOverlapWeighted>()?.borrow().0.clone())
         } else if obj.is_instance_of::<PyTopRanked>() {
-            let obj = obj.downcast::<PyTopRanked>()?.borrow();
+            let obj = obj.cast::<PyTopRanked>()?.borrow();
             dyn_clone::clone_box(&*obj.0)
         } else {
             return Err(PyValueError::new_err(format!(

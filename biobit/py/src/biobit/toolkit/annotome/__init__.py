@@ -1,4 +1,7 @@
 from . import transcriptome
-from .annotome import Annotome, read_pkl, preprocess_gff
+from .annotation import Annotation
+from .assembly import Assembly
+from .seqinfo import SeqInfo
+from .transcriptome import Transcriptome, preprocess_gff
 
-__all__ = ["Annotome", "read_pkl", "preprocess_gff", "transcriptome"]
+__all__ = ["Transcriptome", "preprocess_gff", "transcriptome", "Annotation", "Assembly", "SeqInfo"]

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Callable
 
 from biobit.toolkit import seqproj
+
 from . import descriptor
 
 __all__ = ["into_seqproj"]
@@ -18,7 +19,9 @@ def into_seqproj(
 
     The following attributes are added to each seqproj.Experiment:
     - __nfcore_rnaseq_bam__: Path to the BAM file
-    - __nfcore_rnaseq_bigwig_fwd__ & __nfcore_bigwig_rev__: Path to bigwig files (for the forward and reverse strands)
+    - __nfcore_rnaseq_resfolder__: Path to the results folder
+    - __nfcore_rnaseq_bigwig__: Path to bigwig file (for unstranded libraries)
+    - __nfcore_rnaseq_bigwig_{fwd,rev}__: Path to strand-specific bigwig files
     - __nfcore_rnaseq_salmon__: Path to the salmon expression file
 
     :param project: Source seqproj.Project used to generate the nf-core/rnaseq pipeline. Each experiment will be
@@ -45,16 +48,18 @@ def into_seqproj(
         exp.attributes["__nfcore_rnaseq_bam__"] = bam.as_posix()
 
         # Bigwig
-        if exp.library.strandedness in {seqproj.Strandedness.Unstranded, None}:
-            raise ValueError(
-                f"Unstranded experiments or experiments with unknown strandedness are not supported: {descriptor}"
-            )
+        if exp.library.strandedness is None:
+            raise ValueError(f"Experiments with unknown strandedness are not supported: {descriptor}")
+        elif exp.library.strandedness == seqproj.Strandedness.Unstranded:
+            bigwig = resfolder / "star_salmon" / "bigwig" / f"{descriptor}.unstranded.bigWig"
+            exp.attributes["__nfcore_rnaseq_bigwig__"] = bigwig.as_posix()
+        else:
+            assert exp.library.strandedness in (seqproj.Strandedness.Forward, seqproj.Strandedness.Reverse)
+            bigwig_fwd = resfolder / "star_salmon" / "bigwig" / f"{descriptor}.forward.bigWig"
+            exp.attributes["__nfcore_rnaseq_bigwig_fwd__"] = bigwig_fwd.as_posix()
 
-        bigwig_fwd = resfolder / "star_salmon" / "bigwig" / f"{descriptor}.forward.bigWig"
-        exp.attributes["__nfcore_rnaseq_bigwig_fwd__"] = bigwig_fwd.as_posix()
-
-        bigwig_rev = resfolder / "star_salmon" / "bigwig" / f"{descriptor}.reverse.bigWig"
-        exp.attributes["__nfcore_rnaseq_bigwig_rev__"] = bigwig_rev.as_posix()
+            bigwig_rev = resfolder / "star_salmon" / "bigwig" / f"{descriptor}.reverse.bigWig"
+            exp.attributes["__nfcore_rnaseq_bigwig_rev__"] = bigwig_rev.as_posix()
 
         # Salmon file
         salmon = resfolder / "star_salmon" / descriptor / "quant.sf"

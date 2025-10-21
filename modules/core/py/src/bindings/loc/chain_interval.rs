@@ -20,18 +20,20 @@ pub struct IntoPyChainInterval {
     pub py: PyChainInterval,
 }
 
-impl<'py> FromPyObject<'py> for IntoPyChainInterval {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyChainInterval {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let chain = if obj.is_instance_of::<PyChainInterval>() {
-            obj.downcast::<PyChainInterval>()?.borrow().clone()
+            obj.cast::<PyChainInterval>()?.borrow().clone()
         } else {
-            let seq = obj.downcast::<PySequence>().map_err(|err| {
+            let seq = obj.cast::<PySequence>().map_err(|err| {
                 PyValueError::new_err(format!("Invalid ChainInterval interval: {}", err))
             })?;
 
             let mut links = Vec::with_capacity(seq.len()?);
             for it in seq.try_iter()? {
-                let link = IntoPyInterval::extract_bound(&it?)?;
+                let link = IntoPyInterval::extract(it?.as_borrowed())?;
                 links.push(link.0.borrow(obj.py()).rs);
             }
 

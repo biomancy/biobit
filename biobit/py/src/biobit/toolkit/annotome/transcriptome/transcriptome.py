@@ -1,22 +1,22 @@
-import pickle
 from collections import defaultdict
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
 
-from .transcriptome import GeneBundle, RNABundle, CDSBundle, Location
+from .cds import CDSBundle
+from .core import Location
+from .gene import GeneBundle
+from .rna import RNABundle
 
 
-class Annotome[AttrGene, AttrRNA, AttrCDS]:
+class Transcriptome[AttrGene, AttrRNA, AttrCDS]:
     def __init__(
-            self, assembly: str, source: str,
+            self,
             genes: GeneBundle[AttrGene],
             rnas: RNABundle[AttrRNA],
             cds: CDSBundle[AttrCDS],
     ):
-        self.assembly: str = assembly
-        self.source: str = source
         self.genes: GeneBundle[AttrGene] = genes
         self.rnas: RNABundle[AttrRNA] = rnas
         self.cds: CDSBundle[AttrCDS] = cds
@@ -31,11 +31,6 @@ class Annotome[AttrGene, AttrRNA, AttrCDS]:
         for gid, tids in inferred_parents.items():
             if self.genes[gid].transcripts != tids:
                 raise ValueError(f"Gene {gid} has mismatched RNA transcripts: {tids} vs {self.genes[gid].transcripts}")
-
-
-def read_pkl[AttrGene, AttrRNA, AttrORF](path: str) -> Annotome[AttrGene, AttrRNA, AttrORF]:
-    with open(path, "rb") as f:
-        return pickle.load(f)
 
 
 def preprocess_gff(

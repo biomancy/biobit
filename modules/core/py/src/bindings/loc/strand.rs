@@ -16,25 +16,30 @@ use bitcode::{Decode, Encode};
 #[derive(Debug, Dissolve, Into, From)]
 pub struct IntoPyStrand(PyStrand);
 
-impl<'py> FromPyObject<'py> for IntoPyStrand {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyStrand {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let pystrand = if obj.is_instance_of::<PyStrand>() {
-            *obj.downcast::<PyStrand>()?.get()
+            *obj.cast::<PyStrand>()?.get()
         } else if obj.is_instance_of::<PyInt>() {
             match obj.extract::<i32>()? {
                 1 => PyStrand::Forward,
                 -1 => PyStrand::Reverse,
-                _ => return Err(PyValueError::new_err(format!("Unknown strand: {}", obj))),
+                x => return Err(PyValueError::new_err(format!("Unknown strand: {x}"))),
             }
         } else if obj.is_instance_of::<PyString>() {
             let value = obj.extract::<String>()?;
             match value.as_str() {
                 "+" => PyStrand::Forward,
                 "-" => PyStrand::Reverse,
-                _ => return Err(PyValueError::new_err(format!("Unknown strand: {}", value))),
+                x => return Err(PyValueError::new_err(format!("Unknown strand: {x}"))),
             }
         } else {
-            return Err(PyValueError::new_err(format!("Unknown strand: {}", obj)));
+            return Err(PyValueError::new_err(format!(
+                "Unknown strand: {}",
+                obj.str()?
+            )));
         };
         Ok(pystrand.into())
     }
