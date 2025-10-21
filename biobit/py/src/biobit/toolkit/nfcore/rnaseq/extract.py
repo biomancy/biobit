@@ -20,7 +20,7 @@ BamReader = Callable[[str, Layout], io.bam.Reader]
 
 def bam(experiment: seqproj.Experiment, /, factory: BamReader = default) -> tuple[io.bam.Reader, Layout]:
     if "__nfcore_rnaseq_bam__" not in experiment.attributes:
-        raise ValueError(f"Attribute '__nfcore_rnaseq_bam__' not found for the experimetn: {experiment}")
+        raise ValueError(f"Attribute '__nfcore_rnaseq_bam__' not found for the experiment: {experiment}")
     layout = experiment.ngs()
     return factory(experiment.attributes["__nfcore_rnaseq_bam__"], layout), layout
 
@@ -31,7 +31,7 @@ def bigwig(experiment: seqproj.Experiment, /) -> tuple[Path, Path] | Path:
 
     for attr in "__nfcore_rnaseq_bigwig_fwd__", "__nfcore_rnaseq_bigwig_rev__":
         if attr not in experiment.attributes:
-            raise ValueError(f"Attribute '{attr}' not found for the experimetn: {experiment}")
+            raise ValueError(f"Attribute '{attr}' not found for the experiment: {experiment}")
 
     fwd = Path(experiment.attributes["__nfcore_rnaseq_bigwig_fwd__"])
     rev = Path(experiment.attributes["__nfcore_rnaseq_bigwig_rev__"])

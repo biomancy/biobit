@@ -1,5 +1,6 @@
+from collections import Counter
 from itertools import chain
-from typing import Iterable, Counter
+from typing import Iterable
 
 
 class SeqInfo:

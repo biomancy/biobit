@@ -34,7 +34,7 @@ safety.
 
 Importantly, it's rarely possible to leverage CoW mechanism in bindings, because they don't destroy the original `Batch`
 when calling `.edit()` thus leading to a shared ownership between CoW buffers in the `BatchMut` and the original
-`Batch`. Or, even more often, the bindings will cache references to FFI-exposed buffers addresseed at least once,
+`Batch`. Or, even more often, the bindings will cache references to FFI-exposed buffers addressed at least once,
 which also leads to shared ownership. This means that any mutation will always trigger a copy, leading to suboptimal
 performance. See the [[Unsafe In-Place Mutation]] section for an escape hatch.
 

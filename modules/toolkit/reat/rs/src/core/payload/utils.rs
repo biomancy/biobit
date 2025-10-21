@@ -18,7 +18,7 @@ fn cmp<N: PrimInt>(this: &Interval<N>, other: &Interval<N>) -> Ordering {
     let len = this.end() - this.start();
     let otherlen = other.end() - other.start();
 
-    // Intervals with larget size must go first!
+    // Intervals with the largest size must go first!
     len.cmp(&otherlen).reverse()
 }
 
