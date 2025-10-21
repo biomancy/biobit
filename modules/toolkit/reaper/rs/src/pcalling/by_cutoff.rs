@@ -83,10 +83,10 @@ impl<Idx: PrimInt, Cnts: Float> ByCutoff<Idx, Cnts> {
             };
         }
 
-        if let Some(peak) = current {
-            if peak.1 - peak.0 > self.min_length {
-                saveto.push(Peak::new(peak.0, peak.1, peak.2, peak.3).unwrap());
-            }
+        if let Some(peak) = current
+            && peak.1 - peak.0 > self.min_length
+        {
+            saveto.push(Peak::new(peak.0, peak.1, peak.2, peak.3).unwrap());
         }
     }
 

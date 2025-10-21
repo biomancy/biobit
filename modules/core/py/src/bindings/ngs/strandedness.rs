@@ -11,26 +11,25 @@ use biobit_core_rs::ngs::Strandedness;
 #[derive(Debug, Into, From)]
 pub struct IntoPyStrandness(PyStrandedness);
 
-impl<'py> FromPyObject<'py> for IntoPyStrandness {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyStrandness {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let strandedness = if obj.is_instance_of::<PyStrandedness>() {
-            *obj.downcast::<PyStrandedness>()?.get()
+            *obj.cast::<PyStrandedness>()?.get()
         } else if obj.is_instance_of::<PyString>() {
             match obj.extract::<String>()?.as_str() {
                 "F" => PyStrandedness::Forward,
                 "R" => PyStrandedness::Reverse,
                 "U" => PyStrandedness::Unstranded,
-                _ => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown strandedness: {}",
-                        obj
-                    )));
+                x => {
+                    return Err(PyValueError::new_err(format!("Unknown strandedness: {x}")));
                 }
             }
         } else {
             return Err(PyValueError::new_err(format!(
                 "Unknown strandedness: {}",
-                obj
+                obj.str()?
             )));
         };
         Ok(strandedness.into())

@@ -1,7 +1,7 @@
 use super::utils;
+use biobit_core_rs::loc::Interval;
 use derive_getters::{Dissolve, Getters};
 use std::ops::Range;
-use biobit_core_rs::loc::Interval;
 
 #[derive(Clone, PartialEq, Debug, Getters, Dissolve)]
 pub struct Payload {

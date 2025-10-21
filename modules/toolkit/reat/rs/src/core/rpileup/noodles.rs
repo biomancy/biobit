@@ -13,7 +13,7 @@ pub struct HTSPileupEngine<Collider> {
 }
 
 impl<Collider: for<'a> ReadsCollider<'a, Record>> HTSPileupEngine<Collider> {
-    pub fn new(htsfiles: Vec<PathBuf>, collider: Collider) -> Self {
+    pub fn new(_htsfiles: Vec<PathBuf>, _collider: Collider) -> Self {
         // let htsreaders: Vec<IndexedReader> = htsfiles
         //     .iter()
         //     .map(|hts| {
@@ -40,7 +40,7 @@ impl<Collider: for<'a> ReadsCollider<'a, Record>> HTSPileupEngine<Collider> {
 impl<Collider: for<'a> ReadsCollider<'a, Record>> ReadsCollidingEngine<Record, Collider>
     for HTSPileupEngine<Collider>
 {
-    fn run(&mut self, cwork: <Collider as ReadsCollider<'_, Record>>::Workload) {
+    fn run(&mut self, _cwork: <Collider as ReadsCollider<'_, Record>>::Workload) {
         // let toread = self
         //     .htsreaders
         //     .iter_mut()

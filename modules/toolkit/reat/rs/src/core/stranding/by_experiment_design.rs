@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 
-use derive_more::Constructor;
-use biobit_core_rs::loc::Strand;
 use crate::core::read::AlignedRead;
+use biobit_core_rs::loc::Strand;
+use derive_more::Constructor;
 
 use super::StrandDeducer;
 

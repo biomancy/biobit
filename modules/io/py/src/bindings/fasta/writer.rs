@@ -55,7 +55,7 @@ impl PyWriter {
         let rs = slf.rs.as_mut().ok_or_eyre("Writing to a closed writer")?;
         for record in records.bind(py).try_iter()? {
             let record = record?;
-            let record = record.extract::<PyRecord>()?;
+            let record = record.extract::<PyRecord>().map_err(PyErr::from)?;
             rs.write_record(&record.rs)?;
         }
         Ok(slf)

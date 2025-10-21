@@ -1,7 +1,7 @@
 use crate::core::read::AlignedRead;
 
-pub mod noodles;
 pub mod ncounter;
+pub mod noodles;
 
 // Pileup engine
 pub trait ReadsCollidingEngine<R: AlignedRead, Collider>

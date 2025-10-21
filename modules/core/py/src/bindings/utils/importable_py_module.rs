@@ -24,7 +24,7 @@ impl<'py> ImportablePyModuleBuilder<'py> {
             let bound = Bound::from_borrowed_ptr_or_err(py, ptr)?;
 
             // Downcast to the PyModule type.
-            bound.downcast_into::<PyModule>()?
+            bound.cast_into::<PyModule>()?
         };
 
         // Technically, we don't need to add the __package__ attribute to the module because it is

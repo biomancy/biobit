@@ -20,20 +20,19 @@ use bitcode::{Decode, Encode};
 #[derive(Debug, Into, From, Dissolve)]
 pub struct IntoPyOrientation(pub PyOrientation);
 
-impl<'py> FromPyObject<'py> for IntoPyOrientation {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyOrientation {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let orientation = if obj.is_instance_of::<PyOrientation>() {
-            *obj.downcast::<PyOrientation>()?.get()
+            *obj.cast::<PyOrientation>()?.get()
         } else if obj.is_instance_of::<PyInt>() {
             match obj.extract::<i32>()? {
                 1 => PyOrientation::Forward,
                 -1 => PyOrientation::Reverse,
                 0 => PyOrientation::Dual,
-                _ => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown orientation: {}",
-                        obj
-                    )));
+                x => {
+                    return Err(PyValueError::new_err(format!("Unknown orientation: {x}")));
                 }
             }
         } else if obj.is_instance_of::<PyString>() {
@@ -42,17 +41,14 @@ impl<'py> FromPyObject<'py> for IntoPyOrientation {
                 "+" => PyOrientation::Forward,
                 "-" => PyOrientation::Reverse,
                 "=" => PyOrientation::Dual,
-                _ => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown orientation: {}",
-                        value
-                    )));
+                x => {
+                    return Err(PyValueError::new_err(format!("Unknown orientation: {x}")));
                 }
             }
         } else {
             return Err(PyValueError::new_err(format!(
                 "Unknown orientation: {}",
-                obj
+                obj.str()?
             )));
         };
         Ok(IntoPyOrientation(orientation))
