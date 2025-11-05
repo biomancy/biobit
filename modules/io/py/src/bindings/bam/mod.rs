@@ -1,6 +1,6 @@
 use biobit_core_py::utils::ImportablePyModuleBuilder;
 pub use biobit_io_rs::bam::{
-    strdeductor, transform, AlignmentSegments, Reader, ReaderBuilder, SegmentedAlignment,
+    AlignmentSegments, Reader, ReaderBuilder, SegmentedAlignment, strdeductor, transform,
 };
 use pyo3::prelude::*;
 pub use reader::{IntoPyReader, PyReader};

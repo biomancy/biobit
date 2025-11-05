@@ -1,0 +1,51 @@
+[package]
+name = "biobit-reat-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "TODO"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+#[dependencies]
+#biobit-io-rs = { path = "../../../io/rs" }
+#biobit-collections-rs = { path = "../../../collections/rs" }
+#derive_more = { workspace = true }
+#derive-getters = { workspace = true }
+#rayon = { workspace = true }
+#by_address = { workspace = true }
+#thread_local = { workspace = true }
+#higher-kinded-types = { workspace = true }
+#dyn-clone = { workspace = true }
+#flate2 = { workspace = true }
+#ahash = { workspace = true }
+#anymap3 = { workspace = true }
+#itertools = { workspace = true }
+#log = { workspace = true }
+#bitcode = { workspace = true, optional = true }
+#
+#[features]
+#bitcode = ["dep:bitcode"]
+
+[dependencies]
+biobit-core-rs = { path = "../../../core/rs" }
+biobit-io-rs = { path = "../../../io/rs" }
+biobit-collections-rs = { path = "../../../collections/rs" }
+eyre = { workspace = true }
+itertools = { workspace = true }
+derive-getters = { workspace = true }
+derive_more = { workspace = true }
+dyn-clone = { workspace = true }
+thread_local = { workspace = true }
+rayon = { workspace = true }
+noodles = { workspace = true }
+soa_derive = { git = "https://github.com/lumol-org/soa-derive", rev = "408affda60bc4b4cf65d461e164a88f16cdfdf06" }
+
+[dev-dependencies]
+mockall = "0.13.1"
+static_init = "1.0.3"

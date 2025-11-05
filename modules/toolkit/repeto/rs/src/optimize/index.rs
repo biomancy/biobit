@@ -37,10 +37,12 @@ impl<Idx: PrimInt> Index<Idx> {
             .iter()
             .map(|x| {
                 let blocks: Vec<_> = x.borrow().seqranges().cloned().collect();
-                debug_assert!(blocks
-                    .iter()
-                    .tuple_windows()
-                    .all(|(prv, nxt)| prv.end() <= nxt.start()));
+                debug_assert!(
+                    blocks
+                        .iter()
+                        .tuple_windows()
+                        .all(|(prv, nxt)| prv.end() <= nxt.start())
+                );
 
                 blocks
             })

@@ -2,7 +2,9 @@
 members = [
     # Umbrella project for all modules
     "biobit/py",
-    # Core modules
+    ###################################################################
+    # Core - fundamental primitives and data structures
+    ###################################################################
     "modules/core/rs",
     "modules/core/py",
     "modules/io/rs",
@@ -10,19 +12,28 @@ members = [
     "modules/alignment/rs",
     "modules/collections/rs",
     "modules/collections/py",
-    # Toolkit
-    "modules/toolkit/countit/*",
+    ###################################################################
+    # Toolkit - modules addressing specific but very common tasks
+    ###################################################################
+    # CountIt
+    "modules/toolkit/countit/py",
+    "modules/toolkit/countit/rs",
+    "modules/toolkit/countit/benches",
+    # SeqProj
     "modules/toolkit/seqproj/*",
+    # Reaper
     "modules/toolkit/reaper/*",
+    # Repeto
     "modules/toolkit/repeto/*",
+    # REAT - WIP
+    # "modules/toolkit/reat/*",
 ]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
-version = "0.0.8"
-edition = "2021"
-#edition = "2024"
-rust-version = "1.86.0"
+version = "0.0.9"
+edition = "2024"
+rust-version = "1.90.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"
@@ -33,26 +44,37 @@ license = "MIT"
 categories = ["science", "algorithms"]
 
 [workspace.dependencies]
+# Macros
 derive-getters = "0.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
-itertools = "0.14.0"
+paste = "1.0.15"
+impl-tools = "0.11.4"
+# Traits and type utilities
 num = "0.4.3"
-eyre = "0.6.12"
+higher-kinded-types = "0.3.0-rc2"
+dyn-clone = "1.0.20"
 by_address = "1.2.1"
-rayon = "1.10.0"
-pyo3 = { version = "0.24.1", features = ["full"] }
-noodles = { version = "0.96.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
-thread_local = "1.1.8"
-higher-kinded-types = "0.2.0"
-impl-tools = "0.10.3"
-dyn-clone = "1.0.19"
-flate2 = { version = "1.1.1", features = ["zlib-rs"], default-features = false }
-dhat = "0.3.3"
-ahash = "0.8.11"
+itertools = "0.14.0"
+# Parallelism
+rayon = "1.11.0"
+thread_local = "1.1.9"
+# Data structures
 anymap3 = "1.0.1"
 rstar = "0.12.2"
-log = "0.4.27"
-bitcode = { version = "=0.6.6" }
-memchr = "2.7.4"
-infer = "0.19.0"
-paste = "1.0.15"
+# Algorithms
+memchr = "2.7.6"
+ahash = "0.8.12"
+# I/O
+noodles = { version = "0.101.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+flate2 = { version = "1.1.5", features = ["zlib-rs"], default-features = false }
+# Logging and errors
+eyre = "0.6.12"
+log = "0.4.28"
+# Serialization
+bitcode = { version = "=0.6.7" }
+serde = { version = "1.0.228", features = ["rc", "serde_derive"] }
+# Bindings
+pyo3 = { version = "0.27.1", features = ["full"] }
+#arrow = { version = "56.1.0", features = ["default", "ffi"] }
+# Other
+dhat = "0.3.3"

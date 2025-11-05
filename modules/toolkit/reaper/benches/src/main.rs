@@ -6,7 +6,7 @@ use std::string::ToString;
 use biobit_core_rs::loc::{ChainInterval, Interval, Orientation};
 use biobit_core_rs::parallelism;
 use biobit_core_rs::source::Source;
-use biobit_io_rs::bam::{strdeductor, transform, ReaderBuilder};
+use biobit_io_rs::bam::{ReaderBuilder, strdeductor, transform};
 use biobit_reaper_rs as reaper;
 use rayon::ThreadPoolBuilder;
 
@@ -44,12 +44,18 @@ const TRANSCRIPTOME_MODEL: &str =
     "/home/alnfedorov/projects/biobit/resources/bed/CHM13v2_models.bed";
 
 const SOURCES: &[(&str, &[&str])] = &[
-    ("RNase", &[
-        "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.markdup.sorted.bam",
-    ]),
-    ("Input", &[
-        "/home/alnfedorov/projects/biobit/resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam"
-    ]),
+    (
+        "RNase",
+        &[
+            "/home/alnfedorov/projects/biobit/resources/bam/F1+THP-1_EMCV_RNase_3.markdup.sorted.bam",
+        ],
+    ),
+    (
+        "Input",
+        &[
+            "/home/alnfedorov/projects/biobit/resources/bam/G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam",
+        ],
+    ),
 ];
 
 const COMPARISONS: &[(&str, &str, &str)] = &[("RNase vs Input", "RNase", "Input")];

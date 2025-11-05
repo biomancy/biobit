@@ -11,14 +11,14 @@ use crate::utils::type_hint_class_getitem;
 #[pyclass(name = "PerOrientation")]
 #[derive(Debug, Clone, From, Into)]
 pub struct PyPerOrientation {
-    internal: PerOrientation<PyObject>,
+    internal: PerOrientation<Py<PyAny>>,
 }
 
 #[pymethods]
 impl PyPerOrientation {
     #[new]
     #[pyo3(signature = (/, forward, reverse, dual))]
-    pub fn new(forward: PyObject, reverse: PyObject, dual: PyObject) -> Self {
+    pub fn new(forward: Py<PyAny>, reverse: Py<PyAny>, dual: Py<PyAny>) -> Self {
         PyPerOrientation {
             internal: PerOrientation {
                 forward,
@@ -29,52 +29,52 @@ impl PyPerOrientation {
     }
 
     #[getter]
-    pub fn forward(&self) -> PyObject {
+    pub fn forward(&self) -> Py<PyAny> {
         self.internal.forward.clone()
     }
 
     #[setter]
-    pub fn set_forward(&mut self, value: PyObject) {
+    pub fn set_forward(&mut self, value: Py<PyAny>) {
         self.internal.forward = value;
     }
 
     #[getter]
-    pub fn reverse(&self) -> PyObject {
+    pub fn reverse(&self) -> Py<PyAny> {
         self.internal.reverse.clone()
     }
 
     #[setter]
-    pub fn set_reverse(&mut self, value: PyObject) {
+    pub fn set_reverse(&mut self, value: Py<PyAny>) {
         self.internal.reverse = value;
     }
 
     #[getter]
-    pub fn dual(&self) -> PyObject {
+    pub fn dual(&self) -> Py<PyAny> {
         self.internal.dual.clone()
     }
 
     #[setter]
-    pub fn set_dual(&mut self, value: PyObject) {
+    pub fn set_dual(&mut self, value: Py<PyAny>) {
         self.internal.dual = value;
     }
 
-    pub fn get(&self, orientation: IntoPyOrientation) -> PyObject {
+    pub fn get(&self, orientation: IntoPyOrientation) -> Py<PyAny> {
         let orientation = orientation.dissolve().0;
-        self.internal.get(orientation).clone()
+        self.internal[orientation].clone()
     }
 
     #[classmethod]
-    pub fn __class_getitem__(cls: Bound<PyType>, args: PyObject) -> PyResult<PyObject> {
+    pub fn __class_getitem__(cls: Bound<PyType>, args: Py<PyAny>) -> PyResult<Py<PyAny>> {
         type_hint_class_getitem(cls, args)
     }
 
-    pub fn __getitem__(&self, orientation: IntoPyOrientation) -> PyObject {
+    pub fn __getitem__(&self, orientation: IntoPyOrientation) -> Py<PyAny> {
         self.get(orientation)
     }
 
-    pub fn __setitem__(&mut self, orientation: IntoPyOrientation, value: PyObject) {
+    pub fn __setitem__(&mut self, orientation: IntoPyOrientation, value: Py<PyAny>) {
         let orientation = orientation.dissolve().0;
-        self.internal.get_mut(orientation).clone_from(&value);
+        self.internal[orientation].clone_from(&value);
     }
 
     pub fn __hash__(&self, py: Python) -> PyResult<isize> {
@@ -115,7 +115,7 @@ impl PyPerOrientation {
         slf.rich_compare(other, op)?.extract()
     }
 
-    pub fn __getnewargs__(&self) -> (PyObject, PyObject, PyObject) {
+    pub fn __getnewargs__(&self) -> (Py<PyAny>, Py<PyAny>, Py<PyAny>) {
         (
             self.internal.forward.clone(),
             self.internal.reverse.clone(),

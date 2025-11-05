@@ -3,21 +3,22 @@ use std::path::{Path, PathBuf};
 use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use pyo3::types::PyString;
-use pyo3::{exceptions::PyValueError, prelude::*};
+use pyo3::{BoundObject, exceptions::PyValueError, prelude::*};
 
 use biobit_io_rs::bam::{Reader, ReaderBuilder};
 
 #[derive(Debug, Into, From, Dissolve)]
 pub struct IntoPyReader(pub Py<PyReader>);
 
-impl<'py> FromPyObject<'py> for IntoPyReader {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let reader = if obj.is_instance_of::<PyReader>() {
-            obj.downcast::<PyReader>()?.clone().unbind()
+            obj.cast::<PyReader>()?.into_bound().unbind()
         } else if obj.is_instance_of::<PyString>() {
             let filename = obj.extract::<PathBuf>()?;
             let reader: PyReader = ReaderBuilder::new(filename).build()?.into();
-
             Py::new(obj.py(), reader)?
         } else {
             return Err(PyValueError::new_err(format!("Unknown reader: {:?}", obj)));

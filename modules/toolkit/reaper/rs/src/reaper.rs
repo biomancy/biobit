@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::io;
 
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 use higher_kinded_types::prelude::*;
 use rayon::ThreadPool;
 
@@ -37,9 +37,9 @@ where
     Ctg: Contig + Send + Sync,
     SmplTag: PartialOrd + Ord,
     Src: Source<
-        Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-        Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
-    >,
+            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+            Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<Idx>>),
+        >,
 {
     pub fn new(pool: ThreadPool) -> Self {
         Self {

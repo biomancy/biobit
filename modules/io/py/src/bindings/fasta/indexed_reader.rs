@@ -27,7 +27,7 @@ impl PyIndexedReader {
     }
 
     fn fetch(&mut self, seqid: &str, interval: IntoPyInterval) -> Result<String> {
-        let interval = Python::with_gil(|py| interval.0.borrow(py).rs.cast::<u64>())
+        let interval = Python::attach(|py| interval.0.borrow(py).rs.cast::<u64>())
             .wrap_err("Failed to cast interval to u64")?;
 
         let mut buffer = Vec::with_capacity(interval.len() as usize);

@@ -8,8 +8,8 @@ pub enum Stream<W: Write + Send + Sync + 'static> {
     Raw(W),
     Deflate(flate2::write::DeflateEncoder<W>),
     Gzip(flate2::write::GzEncoder<W>),
-    Bgzf(bgzf::Writer<W>),
-    MultithreadedBgzf(bgzf::MultithreadedWriter<W>),
+    Bgzf(bgzf::io::Writer<W>),
+    MultithreadedBgzf(bgzf::io::MultithreadedWriter<W>),
 }
 
 impl<W: Write + Send + Sync + 'static> Stream<W> {

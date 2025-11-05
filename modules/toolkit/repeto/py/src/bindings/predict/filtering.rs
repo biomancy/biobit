@@ -80,8 +80,8 @@ impl PyFilter {
         state: (i32, (usize, usize, usize, usize), Vec<PyInterval>),
     ) -> PyRefMut<Self> {
         slf.rs.set_min_score(state.0);
-        slf.rs.set_min_roi_overlap(state.1 .0, state.1 .1);
-        slf.rs.set_min_matches(state.1 .2, state.1 .3);
+        slf.rs.set_min_roi_overlap(state.1.0, state.1.1);
+        slf.rs.set_min_matches(state.1.2, state.1.3);
         let rois = state
             .2
             .into_iter()

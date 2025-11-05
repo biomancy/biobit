@@ -11,24 +11,25 @@ use biobit_core_rs::ngs::MatesOrientation;
 #[derive(Debug, Into, From)]
 pub struct IntoPyMatesOrientation(PyMatesOrientation);
 
-impl<'py> FromPyObject<'py> for IntoPyMatesOrientation {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyMatesOrientation {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let mates_orientation = if obj.is_instance_of::<PyMatesOrientation>() {
-            *obj.downcast::<PyMatesOrientation>()?.get()
+            *obj.cast::<PyMatesOrientation>()?.get()
         } else if obj.is_instance_of::<PyString>() {
             match obj.extract::<String>()?.as_str() {
                 "I" => PyMatesOrientation::Inward,
-                _ => {
+                x => {
                     return Err(PyValueError::new_err(format!(
-                        "Unknown mates orientation: {}",
-                        obj
-                    )))
+                        "Unknown mates orientation: {x}",
+                    )));
                 }
             }
         } else {
             return Err(PyValueError::new_err(format!(
                 "Unknown mates orientation: {}",
-                obj
+                obj.str()?
             )));
         };
         Ok(mates_orientation.into())

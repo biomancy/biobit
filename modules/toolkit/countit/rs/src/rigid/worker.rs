@@ -5,13 +5,13 @@ use higher_kinded_types::prelude::*;
 use std::collections::hash_map::Entry;
 
 use crate::result::{PartitionMetrics, ResolutionOutcomes};
-use crate::rigid::{resolution, Partition};
+use crate::rigid::{Partition, resolution};
 use biobit_collections_rs::interval_tree;
 use biobit_core_rs::{
+    LendingIterator,
     loc::{Contig, IntervalOp},
     num::{Float, PrimInt},
     source::{AnyMap, Source},
-    LendingIterator,
 };
 use biobit_io_rs::bam::SegmentedAlignment;
 
@@ -106,9 +106,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
     ) -> Result<()>
     where
         Src: Source<
-            Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
-            Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
-        >,
+                Args = For!(<'args> = (&'args Ctg, Idx, Idx)),
+                Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
+            >,
     {
         source.populate_caches(&mut self.cache);
         self.resolution.reset(elts, partition.eltinds());
@@ -134,7 +134,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> Worker<Ctg, Idx, Cnts, Elt> {
                 itree_hits.clear();
 
                 for (segments, orientation, _) in blocks.iter() {
-                    let tree = partition.index().get(orientation);
+                    let tree = &partition.index()[orientation];
 
                     let mut hits = itree_hits.add_hits();
                     for segment in segments {

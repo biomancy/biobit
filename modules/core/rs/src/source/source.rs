@@ -3,8 +3,8 @@ use eyre::Result;
 use higher_kinded_types::prelude::*;
 use impl_tools::autoimpl;
 
-use crate::source::dyn_source::DynSource;
 use crate::LendingIterator;
+use crate::source::dyn_source::DynSource;
 
 use super::{
     core::{AnyMap, Core},

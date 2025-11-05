@@ -1,13 +1,13 @@
-use crate::rigid::partition::Partition;
 use crate::rigid::Engine;
+use crate::rigid::partition::Partition;
 use ahash::AHashMap;
 use biobit_core_rs::loc::{Interval, Orientation, PerOrientation};
 use biobit_core_rs::{
     loc::Contig,
     num::{Float, PrimInt},
 };
-use rayon::prelude::*;
 use rayon::ThreadPool;
+use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
 pub struct EngineBuilder<Ctg: Contig, Idx: PrimInt, Elt> {
@@ -41,11 +41,7 @@ where
             let ind = self.elements.len();
             self.elements.push(element);
             for (contig, orientation, segments) in segments {
-                self.annotation
-                    .entry(contig)
-                    .or_default()
-                    .get_mut(orientation)
-                    .push((ind, segments));
+                self.annotation.entry(contig).or_default()[orientation].push((ind, segments));
             }
         }
         self
@@ -67,7 +63,7 @@ where
     }
 
     pub fn _build(&mut self) -> Vec<Partition<Ctg, Idx>> {
-        // Prepare the workload for each thread
+        // Prepare the payload for each thread
         let mut workload = Vec::new();
         for (contig, segments) in std::mem::take(&mut self.partitions).into_iter() {
             // Select elements inside the partition

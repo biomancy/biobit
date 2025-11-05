@@ -1,4 +1,4 @@
-use eyre::{ensure, Result};
+use eyre::{Result, ensure};
 
 pub fn id(id: &str) -> Result<()> {
     ensure!(!id.is_empty(), "FASTA ID cannot be empty");

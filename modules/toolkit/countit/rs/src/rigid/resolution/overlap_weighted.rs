@@ -5,7 +5,7 @@ use biobit_core_rs::loc::IntervalOp;
 use biobit_core_rs::num::{Float, PrimInt};
 use biobit_io_rs::bam::SegmentedAlignment;
 use eyre::Result;
-use itertools::{izip, Itertools};
+use itertools::{Itertools, izip};
 
 #[derive(Clone, Debug, Default)]
 pub struct OverlapWeighted<Idx: PrimInt> {

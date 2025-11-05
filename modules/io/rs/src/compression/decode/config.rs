@@ -1,7 +1,8 @@
 use super::algorithm::Algorithm;
 use super::params;
+#[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
-use eyre::{bail, Result};
+use eyre::{Result, bail};
 use std::path::Path;
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]

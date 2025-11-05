@@ -8,7 +8,7 @@ use crate::repeats::PyInvRepeat;
 #[pyfunction]
 pub fn run(ir: Vec<Py<PyInvRepeat>>, scores: Vec<i64>) -> PyResult<(Vec<Py<PyInvRepeat>>, i64)> {
     // Transform to an optimized Rust representation
-    let rs = Python::with_gil(|py| {
+    let rs = Python::attach(|py| {
         ir.iter()
             .map(|x| x.borrow(py).rs.clone())
             .collect::<Vec<_>>()
@@ -18,7 +18,7 @@ pub fn run(ir: Vec<Py<PyInvRepeat>>, scores: Vec<i64>) -> PyResult<(Vec<Py<PyInv
     let (solution, total_score) = ::biobit_repeto_rs::optimize::run(&rs, &scores)?;
 
     // Shallow copy solution repeats
-    let ir = Python::with_gil(|py| solution.into_iter().map(|x| ir[x].clone_ref(py)).collect());
+    let ir = Python::attach(|py| solution.into_iter().map(|x| ir[x].clone_ref(py)).collect());
 
     // Return the result
     Ok((ir, total_score))

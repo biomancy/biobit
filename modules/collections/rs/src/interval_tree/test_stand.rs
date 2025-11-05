@@ -3,8 +3,8 @@ use biobit_core_rs::num::PrimInt;
 use super::results::BatchHits;
 use super::*;
 use biobit_core_rs::loc::Interval;
-use itertools::izip;
 use itertools::Itertools;
+use itertools::izip;
 use std::fmt::Debug;
 use std::hash::Hash;
 

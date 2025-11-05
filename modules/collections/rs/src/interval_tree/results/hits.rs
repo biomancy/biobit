@@ -411,11 +411,12 @@ pub(crate) mod tests {
         assert_eq!(hits.intervals(), &intervals);
 
         assert_eq!(hits.data(), &[data[0], data[1]]);
-        assert!(hits
-            .data()
-            .iter()
-            .zip(data)
-            .all(|(h, d)| std::ptr::eq(*h, d)));
+        assert!(
+            hits.data()
+                .iter()
+                .zip(data)
+                .all(|(h, d)| std::ptr::eq(*h, d))
+        );
 
         assert_eq!(
             hits.iter().collect_vec(),
@@ -448,11 +449,12 @@ pub(crate) mod tests {
 
         let clone = hits.clone();
         assert_eq!(hits, clone);
-        assert!(hits
-            .data
-            .into_iter()
-            .zip(clone.data.into_iter())
-            .all(|(h, c)| std::ptr::eq(h, c)));
+        assert!(
+            hits.data
+                .into_iter()
+                .zip(clone.data.into_iter())
+                .all(|(h, c)| std::ptr::eq(h, c))
+        );
         Ok(())
     }
 

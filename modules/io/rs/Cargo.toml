@@ -23,7 +23,6 @@ eyre = { workspace = true }
 ahash = { workspace = true }
 log = { workspace = true }
 memchr = { workspace = true }
-infer = { workspace = true }
 flate2 = { workspace = true }
 impl-tools = { workspace = true }
 bitcode = { workspace = true, optional = true }

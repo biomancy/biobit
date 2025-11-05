@@ -11,19 +11,22 @@ use biobit_core_rs::loc::{Interval, IntervalOp};
 
 use biobit_core_rs::num::PrimInt;
 use bitcode::{Decode, Encode};
+use pyo3::BoundObject;
 
 #[pyclass]
 #[repr(transparent)]
 #[derive(Debug, Into, From, Dissolve)]
 pub struct IntoPyInterval(pub Py<PyInterval>);
 
-impl<'py> FromPyObject<'py> for IntoPyInterval {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyInterval {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let interval = if obj.is_instance_of::<PyInterval>() {
-            obj.downcast::<PyInterval>()?.clone().unbind()
+            obj.cast::<PyInterval>()?.into_bound().unbind()
         } else {
             let seq = obj
-                .downcast::<PySequence>()
+                .cast::<PySequence>()
                 .map_err(|err| PyValueError::new_err(format!("Unknown interval: {}", err)))?;
 
             if seq.len()? != 2 {

@@ -12,13 +12,13 @@ pub struct IndexedReader<R> {
     pub index: Box<dyn BinningIndex + Send + Sync>,
 }
 
-impl IndexedReader<bgzf::Reader<File>> {
+impl IndexedReader<bgzf::io::Reader<File>> {
     pub fn new(path: impl AsRef<Path>) -> io::Result<Self> {
         let mut index = OsString::from(path.as_ref());
         index.push(".");
         index.push("bai");
 
-        let index = bam::bai::read(index)?;
+        let index = bam::bai::fs::read(index)?;
         let file = File::open(path)?;
 
         Ok(Self {

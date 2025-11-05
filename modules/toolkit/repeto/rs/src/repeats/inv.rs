@@ -2,8 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 use derive_getters::{Dissolve, Getters};
 use derive_more::From;
-use eyre::{ensure, Result};
-use itertools::{chain, Itertools};
+use eyre::{Result, ensure};
+use itertools::{Itertools, chain};
 
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;

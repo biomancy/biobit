@@ -150,7 +150,7 @@ impl<Idx: PrimInt, Data> Bits<Idx, Data> {
     ///
     /// An iterator yielding `(Interval<Idx>, &'tree Data)` tuples for overlapping entries.
     #[inline]
-    pub fn query(&self, interval: Interval<Idx>) -> Iter<Idx, Data> {
+    pub fn query(&self, interval: Interval<Idx>) -> Iter<'_, Idx, Data> {
         let query_cursor = QueryCursor {
             query: interval,
             cursor: self.lower_bound(interval.start()),
@@ -173,7 +173,7 @@ impl<Idx: PrimInt, Data> Bits<Idx, Data> {
     /// # Returns
     ///
     /// An iterator yielding `(Interval<Idx>, &'tree mut Data)` tuples for overlapping entries.
-    pub fn query_mut(&mut self, interval: Interval<Idx>) -> IterMut<Idx, Data> {
+    pub fn query_mut(&mut self, interval: Interval<Idx>) -> IterMut<'_, Idx, Data> {
         let query_cursor = QueryCursor {
             query: interval,
             cursor: self.lower_bound(interval.start()),

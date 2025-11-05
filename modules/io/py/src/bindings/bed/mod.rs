@@ -6,19 +6,19 @@ mod record;
 mod writer;
 
 pub use record::{
-    Bed12, Bed12MutOp, Bed12Op, Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp,
-    Bed5Op, Bed6, Bed6MutOp, Bed6Op, Bed8, Bed8MutOp, Bed8Op, Bed9, Bed9MutOp, Bed9Op, PyBed12,
-    PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9,
+    Bed3, Bed3MutOp, Bed3Op, Bed4, Bed4MutOp, Bed4Op, Bed5, Bed5MutOp, Bed5Op, Bed6, Bed6MutOp,
+    Bed6Op, Bed8, Bed8MutOp, Bed8Op, Bed9, Bed9MutOp, Bed9Op, Bed12, Bed12MutOp, Bed12Op, PyBed3,
+    PyBed4, PyBed5, PyBed6, PyBed8, PyBed9, PyBed12,
 };
 
 pub use reader::{
-    PyBed12Reader, PyBed3Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader,
-    PyBed9Reader, PyReader, Reader,
+    PyBed3Reader, PyBed4Reader, PyBed5Reader, PyBed6Reader, PyBed8Reader, PyBed9Reader,
+    PyBed12Reader, PyReader, Reader,
 };
 
 pub use writer::{
-    PyBed12Writer, PyBed3Writer, PyBed4Writer, PyBed5Writer, PyBed6Writer, PyBed8Writer,
-    PyBed9Writer, PyWriter, Writer,
+    PyBed3Writer, PyBed4Writer, PyBed5Writer, PyBed6Writer, PyBed8Writer, PyBed9Writer,
+    PyBed12Writer, PyWriter, Writer,
 };
 
 pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {

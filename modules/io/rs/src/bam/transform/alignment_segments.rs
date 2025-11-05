@@ -4,14 +4,14 @@ use derive_getters::Dissolve;
 use dyn_clone::DynClone;
 use higher_kinded_types::prelude::*;
 use noodles::bam::record::Record;
-use noodles::sam::alignment::record::cigar::op::Kind;
 use noodles::sam::alignment::record::cigar::Op;
+use noodles::sam::alignment::record::cigar::op::Kind;
 use noodles::sam::alignment::record::data::field::{Tag, Value};
 
+use biobit_core_rs::LendingIterator;
 use biobit_core_rs::loc::{Interval, Orientation};
 use biobit_core_rs::num::PrimInt;
 use biobit_core_rs::source::{AnyMap, Transform};
-use biobit_core_rs::LendingIterator;
 
 use crate::bam::{alignment_segments::AlignmentSegments, strdeductor::StrDeductor};
 
@@ -344,7 +344,7 @@ pub fn extract_aln_hit_count(record: &Record) -> io::Result<i8> {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "No TOTAL_HIT_COUNT tag",
-            ))
+            ));
         }
     };
     match total_hits {
