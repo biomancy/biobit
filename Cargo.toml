@@ -44,26 +44,37 @@ license = "MIT"
 categories = ["science", "algorithms"]
 
 [workspace.dependencies]
+# Macros
 derive-getters = "0.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
-itertools = "0.14.0"
-num = "0.4.3"
-eyre = "0.6.12"
-by_address = "1.2.1"
-rayon = "1.11.0"
-pyo3 = { version = "0.27.0", features = ["full"] }
-noodles = { version = "0.101.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
-thread_local = "1.1.9"
-higher-kinded-types = "0.3.0-rc2"
+paste = "1.0.15"
 impl-tools = "0.11.4"
+# Traits and type utilities
+num = "0.4.3"
+higher-kinded-types = "0.3.0-rc2"
 dyn-clone = "1.0.20"
-flate2 = { version = "1.1.4", features = ["zlib-rs"], default-features = false }
-dhat = "0.3.3"
-ahash = "0.8.12"
+by_address = "1.2.1"
+itertools = "0.14.0"
+# Parallelism
+rayon = "1.11.0"
+thread_local = "1.1.9"
+# Data structures
 anymap3 = "1.0.1"
 rstar = "0.12.2"
-log = "0.4.28"
-bitcode = { version = "=0.6.7" }
+# Algorithms
 memchr = "2.7.6"
-paste = "1.0.15"
+ahash = "0.8.12"
+# I/O
+noodles = { version = "0.101.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+flate2 = { version = "1.1.5", features = ["zlib-rs"], default-features = false }
+# Logging and errors
+eyre = "0.6.12"
+log = "0.4.28"
+# Serialization
+bitcode = { version = "=0.6.7" }
+serde = { version = "1.0.228", features = ["rc"] }
+# Bindings
+pyo3 = { version = "0.27.1", features = ["full"] }
 #arrow = { version = "56.1.0", features = ["default", "ffi"] }
+# Other
+dhat = "0.3.3"
