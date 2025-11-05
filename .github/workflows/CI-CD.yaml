@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PIXI_VERSION: v0.57.0
+  PIXI_VERSION: v0.59.0
   RUST_VERSION: 1.90.0
   PYTHON_PACKAGE_PATH: biobit/py
   DOCS_OUTPUT_PATH: biobit/docs/site
@@ -87,7 +87,7 @@ jobs:
       fail-fast: true
       matrix:
         target: [ x86_64 ]
-        python: [ '3.14 3.14t' ]
+        python: [ '3.13t 3.14t' ]
     steps:
       - name: Setup the repository
         uses: actions/checkout@v4

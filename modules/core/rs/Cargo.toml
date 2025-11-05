@@ -22,6 +22,8 @@ dyn-clone = { workspace = true }
 eyre = { workspace = true }
 anymap3 = { workspace = true }
 bitcode = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 
 [features]
 bitcode = ["dep:bitcode"]
+serde = ["dep:serde"]

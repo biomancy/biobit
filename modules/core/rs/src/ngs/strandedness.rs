@@ -3,6 +3,7 @@ use std::fmt::Display;
 /// Strandedness of a sequencing library. Indicates the relationship between molecules in the
 /// library and their source DNA/RNA strand. DNA-based libraries  are typically unstranded,
 /// while RNA-based libraries can be either stranded or unstranded.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(i8)]
 pub enum Strandedness {
@@ -28,6 +29,6 @@ impl Strandedness {
 
 impl Display for Strandedness {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.symbol())
+        write!(f, "{:?}", self)
     }
 }

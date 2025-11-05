@@ -1,5 +1,4 @@
 use biobit_core_py::utils::ImportablePyModuleBuilder;
-pub use biobit_seqproj_rs::Layout;
 pub use layout::PyLayout;
 use pyo3::prelude::*;
 

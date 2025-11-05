@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 /// Orientation of reads in a paired-end library. For now, just a placeholder with a single variant.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(i8)]
 pub enum MatesOrientation {
@@ -19,6 +20,6 @@ impl MatesOrientation {
 
 impl Display for MatesOrientation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.symbol())
+        write!(f, "{:?}", self)
     }
 }
