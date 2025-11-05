@@ -1,0 +1,535 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../dev-guide/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Development Notes - biobit</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architecture-decisions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="biobit" class="md-header__button md-logo" aria-label="biobit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            biobit
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Development Notes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="biobit" class="md-nav__button md-logo" aria-label="biobit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    biobit
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Development Notes
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Notes
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#io-primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      IO primitives
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dev-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../arrow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Apache Arrow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#io-primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      IO primitives
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="architecture-decisions">Architecture Decisions</h1>
+<h2 id="io-primitives">IO primitives</h2>
+<p>TODO: Explain encode-decode pattern.</p>
+<p>Read operations commonly accept mutable buffers to promote efficient reuse and minimize repeated allocations.</p>
+<h1 id="rust">Rust</h1>
+<h2 id="module-public-api-modrs">Module Public API (<code>mod.rs</code>)</h2>
+<p>Each module's <code>mod.rs</code> file explicitly defines its public interface by re-exporting all intended public
+items (structs, enums, traits, functions, sub-modules) using <code>pub use</code>. This promotes clear discoverability (e.g.,
+accessing <code>fasta::Record</code> requires importing the <code>fasta</code> module only) and establishes a stable contract for the
+module's users.</p>
+<h2 id="optional-prelude-preluders">Optional Prelude (<code>prelude.rs</code>)</h2>
+<p>If a prelude module is used, its scope is strictly limited to re-exporting common <em>traits</em> anonymously
+(<code>pub use TraitName as _;</code>). This allows convenient access to trait extension methods via a single glob import
+(<code>use crate::prelude::*;</code>) without polluting the user's namespace with concrete type names, function names, or
+even trait names themselves, thereby encouraging explicit imports for types and enhancing code clarity. Adherence to
+this strict “traits-only, anonymous export” rule is crucial for effectiveness.</p>
+<h2 id="traits-and-structures">Traits And Structures</h2>
+<p>Core data types (e.g., <code>Interval</code>, <code>Record</code>) are defined as concrete structs. Functionality is defined by implementing
+fine-grained, <em>behavior-oriented</em> traits (e.g., <code>Spanning</code>, <code>Coverage</code>) directly on these structs. These traits define
+specific, composable capabilities.</p>
+<p>Common combinations of required traits are grouped using umbrella traits primarily to simplify trait bounds in generic
+Rust functions and types. These aliases <strong>must</strong> be named based on the collective capability they represent (e.g.,
+<code>ProcessableRead</code>, <code>AlignableSequence</code>) to promote abstraction and flexibility, not based on structural similarity to a
+specific type (i.e., avoid names like <code>RecordLike</code> or <code>IntervalLike</code>).</p>
+<p>Python bindings are created by wrapping concrete Rust structs (e.g., <code>PyInterval</code> wrapping <code>Interval</code>) using
+<code>#[pyclass]</code>. These Python wrappers provide methods that mirror the functionality of the core behavioral traits
+implemented by the underlying Rust struct, offering a Pythonic interface to capabilities like <code>Spanning</code> or <code>Coverage</code>.
+This design also ensures that Python structs can be used in generic Rust functions, enabling easier interoperability
+between Rust and Python.</p>
+<p>For simplicity, all Rust traits have Python protocol equivalents that are leveraged for typing in Python bindings.</p>
+<h2 id="ownership-management-across-ffi-boundaries">Ownership Management Across FFI Boundaries</h2>
+<p>Rust’s ownership rules prevent returning borrowed references across FFI boundaries. When a function must reference input
+features (e.g., pairing read counts with the original records), those references need to remain valid in FFI for an
+indefinite period—thus borrowing (<code>&amp;T</code>) is not feasible once data crosses the FFI boundary.</p>
+<p>We address this in two ways:</p>
+<ol>
+<li><strong>Move Owned Inputs (<code>T</code>):</strong> If the function takes ownership of <code>T</code>, it can directly return that owned <code>T</code>. This is
+   the most efficient option, but not always feasible if an algorithm must produce multiple or iterative results.</li>
+<li><strong>Create Owned Copies (<code>T</code>):</strong> An algorithm can produce multiple or iterative outputs for the same inputs by cloning
+   them internally. This requires <code>T: Clone</code>.</li>
+</ol>
+<p>The second option is used in some parts of the library. It does involve a performance penalty, but this can be mitigated
+by using smart pointers or partial copies in Rust. In return, it provides more flexible and FFI-friendly APIs.</p>
+<h1 id="python">Python</h1>
+<h2 id="send-and-sync-for-python-classes"><code>Send</code> and <code>Sync</code> for Python Classes</h2>
+<p>With the introduction of free-threaded Python, the library assumes all Python objects can be safely shared and
+transferred between threads without explicit Python-side synchronization. Consequently, Python objects are treated as
+<code>Send</code> and <code>Sync</code>, an assumption generally enforced by PyO3.</p>
+<h2 id="why-not-implement-clone-or-copy-for-all-python-classes">Why Not Implement <code>Clone</code> or <code>Copy</code> for All Python Classes?</h2>
+<p>This limitation is discussed in <a href="https://github.com/PyO3/pyo3/issues/4337">this PyO3 issue</a>. Once resolved, suitable
+Python classes will implement <code>Clone</code> and/or <code>Copy</code> traits.</p>
+<h2 id="organizing-python-code-per-submodule-eg-modulespy">Organizing Python Code per Submodule (e.g., <code>modules/*/py</code>)</h2>
+<p>Currently, dependencies among PyO3 modules are poorly supported (see
+<a href="https://github.com/PyO3/pyo3/issues/1444">this PyO3 issue</a>). Specifically, common dependencies may compile multiple
+times, resulting in incompatible class versions. A temporary workaround involves creating and populating all <code>PyModule</code>
+instances within a single umbrella <code>lib.rs</code> file.</p>
+<p>Local Python dependencies also present challenges (see
+<a href="https://stackoverflow.com/questions/75159453/specifying-local-relative-dependency-in-pyproject-toml">StackOverflow discussion</a>).
+Presently, the workaround is to symlink sources for each module within an overarching Python project.</p>
+<h1 id="future-ideas">Future Ideas</h1>
+<ul>
+<li>A long-term goal is to stimulate batch-oriented processing, particularly in Python wrappers.</li>
+</ul>
+<h2 id="the-bundle-trait">The <code>Bundle</code> Trait</h2>
+<p>Logical grouping of structures (e.g., by strand or seqid) is frequently required. Initially, a dedicated <code>Bundle&lt;T&gt;</code>
+struct was considered but had several drawbacks:</p>
+<ul>
+<li>Primarily functioned as a thin wrapper around collections like <code>HashMap</code> or <code>BTreeMap</code>, adding minimal additional
+  functionality.</li>
+<li>Lacked clear responsibilities beyond basic data storage.</li>
+<li>Was inconvenient for Python users, requiring interaction with specialized Rust structures instead of familiar Python
+  types like <code>dict</code>.</li>
+</ul>
+<p>Instead of creating a standalone struct, a <code>Bundle</code> trait has been implemented across multiple collection types
+(<code>HashMap</code>, <code>BTreeMap</code>, <code>Vec</code>, etc.). This trait provides standardized methods (<code>get</code>, <code>remove</code>, <code>iter</code>) for uniform
+data access and integrates smoothly with Python wrappers through the dedicated <code>IntoBundle</code> struct, which can be
+constructed directly from Python types (<code>dict</code>, <code>list</code>, <code>tuple</code>).</p>
+<h2 id="struct-buffer-builder-triangle">Struct-Buffer-Builder Triangle</h2>
+<p>In ideal circumstances, many library structures, especially those dealing with IO operations, should have three distinct
+states:</p>
+<ul>
+<li><strong>Structure:</strong> Fully defined, meets all invariants.</li>
+<li><strong>Buffer:</strong> A thread-safe, reference-erased memory buffer (<code>Send + Sync</code>) for efficient caching.</li>
+<li><strong>Builder:</strong> Fully typed but partially initialized structures.</li>
+</ul>
+<p>These variants should be memory-compatible to enable zero-cost conversions between states via
+<a href="https://github.com/rust-lang/rust/issues/99571">TransmuteFrom</a>. Currently, <code>transmutability</code> is far from stabilization,
+and a proper implementation of this pattern is not possible.</p>
+<h1 id="rejected-ideas">Rejected Ideas</h1>
+<h4 id="stitching-of-inverted-repeats">Stitching of Inverted Repeats</h4>
+<p><strong>Idea:</strong> Introduce a <code>stitch(max_gap: usize)</code> method for inverted repeats, enabling merging of adjacent repeats
+separated by gaps smaller than <code>max_gap</code>.</p>
+<p><strong>Reason:</strong> Impossible to implement without violating the underlying invariant. Stitching gaps will produce left/right
+sides of the inverted repeat that might not be of the same length.</p>
+<h4 id="data-field-for-fundamental-primitives">Data field for fundamental primitives</h4>
+<p><strong>Idea:</strong> Introduce a <code>data</code> field in fundamental structures (e.g., <code>Interval</code>) to store additional information. It
+could be generic with a default unit <code>()</code> type.</p>
+<p><strong>Reason:</strong> This would complicate the design and usage of these structures. For example, what should happen when merging
+two <code>Interval</code> objects with different <code>data</code> types? Should the <code>data</code> field be merged or discarded? In the face of such
+ambiguities, it is better to avoid the <code>data</code> field altogether.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
