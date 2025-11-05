@@ -59,17 +59,11 @@ impl Project {
         let buffer = [ind.as_str()];
         let allids = buffer
             .iter()
-            .map(|x| *x)
+            .copied()
             .chain(samples.iter().map(|x| x.ind()))
             .chain(libraries.iter().map(|x| x.ind()))
             .chain(experiments.iter().map(|x| x.ind()))
-            .chain(
-                experiments
-                    .iter()
-                    .map(|x| x.runs())
-                    .flatten()
-                    .map(|x| x.ind()),
-            );
+            .chain(experiments.iter().flat_map(|x| x.runs()).map(|x| x.ind()));
         validate::unique_ids("Project", allids)?;
 
         // Validate graph integrity (no dangling references to samples/libraries)
@@ -247,7 +241,7 @@ impl<'de> Deserialize<'de> for Project {
             .into_iter()
             .map(|x| {
                 x.finalize(&ind2libraries)
-                    .map(|x| Arc::new(x))
+                    .map(Arc::new)
                     .map_err(serde::de::Error::custom)
             })
             .collect::<std::result::Result<Vec<_>, _>>()?;

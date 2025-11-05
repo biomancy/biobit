@@ -1,5 +1,5 @@
-use eyre::ensure;
 use eyre::Result;
+use eyre::ensure;
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
 

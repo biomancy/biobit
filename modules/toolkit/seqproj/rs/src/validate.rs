@@ -4,7 +4,7 @@ use crate::library::Library;
 use crate::sample::Sample;
 use crate::storage::Storage;
 use biobit_core_rs::ngs;
-use eyre::{ensure, Result};
+use eyre::{Result, ensure};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 

@@ -44,7 +44,7 @@ impl Experiment {
     /// *  Ensures at least one `Run` is provided.
     /// *  Ensures all `Run` IDs within this experiment are unique.
     /// *  **Layout/Storage Bridge:** Validates that the `ngs::Layout` (the "what")
-    ///     is compatible with the `Storage` (the "how") of every `Run`.
+    ///    is compatible with the `Storage` (the "how") of every `Run`.
     pub fn new(
         ind: impl Into<String>,
         library: Arc<Library>,
