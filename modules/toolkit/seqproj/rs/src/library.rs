@@ -90,7 +90,7 @@ impl Library {
 
     /// Returns the `Strandedness` (if known).
     ///
-    /// Note that strandedness af a sequenced library may change depending on
+    /// Note that strandedness of a sequenced library may change depending on
     /// the sequencing protocol used. The final strandedness is recorded in the
     /// `Experiment::layout` derived from this `Library`.
     pub fn strandedness(&self) -> Option<Strandedness> {

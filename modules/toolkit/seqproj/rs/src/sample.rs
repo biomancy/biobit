@@ -147,7 +147,7 @@ mod tests {
         );
         assert_eq!(sample.description(), Some("Mock sample"));
 
-        // Ensure tha other mock samples can be created
+        // Ensure that other mock samples can be created
         Sample::dummies();
     }
 

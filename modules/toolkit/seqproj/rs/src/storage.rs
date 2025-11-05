@@ -47,7 +47,7 @@ impl Display for Storage {
 impl Storage {
     /// Returns `Ok(true)` if all paths point at an existing entity.
     ///
-    /// This function semantic follows thus of the [`std::path::Path::try_exists()`] function.
+    /// This function semantic follows that of the [`std::path::Path::try_exists()`] function.
     pub fn try_exists(&self) -> Result<bool> {
         match self {
             Storage::SingleFastq { file } => Ok(file.try_exists()?),
