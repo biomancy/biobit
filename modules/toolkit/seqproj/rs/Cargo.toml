@@ -13,14 +13,7 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
-biobit-core-rs = { path = "../../../core/rs" }
-biobit-io-rs = { path = "../../../io/rs" }
-biobit-collections-rs = { path = "../../../collections/rs" }
-derive_more = { workspace = true }
-derive-getters = { workspace = true }
-rayon = { workspace = true }
-by_address = { workspace = true }
-thread_local = { workspace = true }
-higher-kinded-types = { workspace = true }
+biobit-core-rs = { path = "../../../core/rs", features = ["serde"] }
 eyre = { workspace = true }
-dyn-clone = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
