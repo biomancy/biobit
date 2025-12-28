@@ -1,10 +1,10 @@
 use biobit_core_py::loc::{IntervalOp, IntoPyInterval};
-use biobit_io_rs::compression::decode;
-pub use biobit_io_rs::fasta::{IndexedReader, IndexedReaderMutOp};
+pub use biobit_io_rs::fasta::{EXTENSIONS, IndexedReader, IndexedReaderMutOp};
 use derive_more::Into;
 use eyre::{ContextCompat, Result};
 use pyo3::prelude::*;
 use std::path::PathBuf;
+use substratum_compress::Decoder;
 
 #[pyclass(name = "IndexedReader")]
 #[derive(Into)]
@@ -17,7 +17,8 @@ pub struct PyIndexedReader {
 impl PyIndexedReader {
     #[new]
     fn new(path: PathBuf) -> Result<Self> {
-        let rs = IndexedReader::from_path(&path, &decode::Config::infer_from_path(&path))?;
+        let decoder = Decoder::from_path(&path, EXTENSIONS)?;
+        let rs = IndexedReader::from_path(&path, &decoder)?;
         Ok(Self { path, rs })
     }
 

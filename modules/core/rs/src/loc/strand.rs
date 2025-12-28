@@ -5,10 +5,11 @@ use super::orientation::Orientation;
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(i8)]
 pub enum Strand {
     /// The forward strand, also known as the positive strand or Watson strand.
+    #[default]
     Forward = 1,
     /// The reverse strand, also known as the negative strand or Crick strand.
     Reverse = -1,
@@ -92,12 +93,6 @@ impl TryFrom<Orientation> for Strand {
             Orientation::Reverse => Ok(Self::Reverse),
             Orientation::Dual => Err(()),
         }
-    }
-}
-
-impl Default for Strand {
-    fn default() -> Self {
-        Self::Forward
     }
 }
 

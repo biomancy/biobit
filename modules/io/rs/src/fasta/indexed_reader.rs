@@ -1,4 +1,3 @@
-use crate::compression::decode;
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::{Dissolve, Getters};
@@ -8,6 +7,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, Read, Seek};
 use std::path::Path;
+use substratum_compress::Decoder;
 
 /// An indexed FASTA reader that can fetch sequences by reference sequence ID and interval.
 #[autoimpl(for<T: trait + ?Sized> Box<T>)]
@@ -35,7 +35,7 @@ pub struct IndexedReader<R> {
 impl IndexedReader<()> {
     pub fn from_path(
         fasta: impl AsRef<Path>,
-        compression: &decode::Config,
+        compression: &Decoder,
     ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
         let mut path = fasta.as_ref().to_owned();
         let fname = path
@@ -43,30 +43,20 @@ impl IndexedReader<()> {
             .and_then(|x| x.to_str())
             .unwrap_or_default()
             .to_string();
-        let file = decode::Stream::new(File::open(&path)?, compression)?;
+        let file = File::open(&path)?;
 
         path.set_file_name(format!("{fname}.fai"));
         ensure!(path.exists(), "fai index does not exist: {:?}", path);
         let fai = std::io::BufReader::new(File::open(&path)?);
 
-        let boxed: Box<dyn IndexedReaderMutOp + Send + Sync + 'static> = match file {
-            decode::Stream::Raw(fasta) => Box::new(IndexedReader::new(fasta, fai)?),
-            decode::Stream::Bgzf(fasta) => {
+        let boxed: Box<dyn IndexedReaderMutOp + Send + Sync + 'static> = match compression {
+            Decoder::Identity(_) => Box::new(IndexedReader::new(file, fai)?),
+            Decoder::Bgzf(_) => {
                 path.set_file_name(format!("{fname}.gzi"));
                 ensure!(path.exists(), "gzi index does not exist: {:?}", path);
                 let gzi = noodles::bgzf::gzi::fs::read(&path)?;
 
-                let reader =
-                    noodles::bgzf::io::indexed_reader::IndexedReader::new(fasta.into_inner(), gzi);
-                Box::new(IndexedReader::new(reader, fai)?)
-            }
-            decode::Stream::MultithreadedBgzf(mut fasta) => {
-                path.set_file_name(format!("{fname}.gzi"));
-                ensure!(path.exists(), "gzi index does not exist: {:?}", path);
-                let gzi = noodles::bgzf::gzi::fs::read(&path)?;
-
-                let reader =
-                    noodles::bgzf::io::indexed_reader::IndexedReader::new(fasta.finish()?, gzi);
+                let reader = noodles::bgzf::io::indexed_reader::IndexedReader::new(file, gzi);
                 Box::new(IndexedReader::new(reader, fai)?)
             }
             _ => {
@@ -531,7 +521,7 @@ mod tests {
                 .join(path);
             test(IndexedReader::from_path(
                 &path,
-                &decode::Config::infer_from_path(&path),
+                &Decoder::from_path(&path, crate::fasta::EXTENSIONS).unwrap(),
             )?)?
         }
 

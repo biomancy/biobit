@@ -23,11 +23,11 @@ eyre = { workspace = true }
 ahash = { workspace = true }
 log = { workspace = true }
 memchr = { workspace = true }
-flate2 = { workspace = true }
 impl-tools = { workspace = true }
 bitcode = { workspace = true, optional = true }
 paste = { workspace = true }
 itertools = { workspace = true }
+substratum-compress = { workspace = true }
 
 [features]
 bitcode = ["dep:bitcode"]

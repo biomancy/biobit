@@ -1,12 +1,12 @@
 use super::record::{PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9, PyBed12};
 use biobit_io_rs::ReadRecord;
-use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12};
-use biobit_io_rs::compression::decode;
+use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, EXTENSIONS};
 use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::path::PathBuf;
+use substratum_compress::Decoder;
 
 pub use biobit_io_rs::bed::Reader;
 
@@ -73,9 +73,9 @@ macro_rules! impl_bed_reader {
             #[pyo3(signature = (path, compression=None))]
             pub fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
                 let config = match compression {
-                    None => decode::Config::infer_from_path(&path),
-                    Some(x) => decode::Config::infer_from_nickname(x)?,
-                };
+                    None => Decoder::from_path(&path, EXTENSIONS),
+                    Some(x) => Decoder::from_extension(x, EXTENSIONS),
+                }?;
                 let rs = Reader::from_path::<$Bed>(&path, &config)?;
                 Ok(Self { path, rs })
             }

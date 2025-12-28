@@ -1,15 +1,13 @@
 use super::record::*;
 use crate::ReadRecord;
-use crate::compression::decode;
 use biobit_core_rs::loc::{Interval, Orientation};
 use eyre::OptionExt;
 use eyre::{Context, Result, bail, ensure};
-use flate2::read::{DeflateDecoder, MultiGzDecoder};
-use noodles::bgzf;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::BufRead;
 use std::marker::PhantomData;
 use std::path::Path;
+use substratum_compress::{Decoder, adapter::BoxedSync, decode::DecodeReadIntoBufRead};
 
 pub mod parse {
     use super::*;
@@ -227,27 +225,16 @@ impl Reader<(), ()> {
     /// The compression is automatically detected based on the file extension and the internal file signature.
     pub fn from_path<Bed>(
         path: impl AsRef<Path>,
-        compression: &decode::Config,
+        decoder: &Decoder,
     ) -> Result<Box<dyn ReadRecord<Record = Bed> + Send + Sync + 'static>>
     where
         Bed: Send + Sync + 'static,
-        Reader<BufReader<File>, Bed>: ReadRecord<Record = Bed>,
-        Reader<BufReader<MultiGzDecoder<File>>, Bed>: ReadRecord<Record = Bed>,
-        Reader<BufReader<DeflateDecoder<File>>, Bed>: ReadRecord<Record = Bed>,
-        Reader<BufReader<bgzf::io::Reader<File>>, Bed>: ReadRecord<Record = Bed>,
-        Reader<BufReader<bgzf::io::MultithreadedReader<File>>, Bed>: ReadRecord<Record = Bed>,
+        Reader<Box<dyn BufRead + Send + Sync + 'static>, Bed>:
+            ReadRecord<Record = Bed> + Send + Sync + 'static,
     {
         let file = File::open(path.as_ref())?;
-        let slf: Box<dyn ReadRecord<Record = Bed> + Send + Sync + 'static> =
-            match decode::Stream::new(file, compression)? {
-                decode::Stream::Raw(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
-                decode::Stream::Deflate(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
-                decode::Stream::Gzip(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
-                decode::Stream::Bgzf(x) => Box::new(Reader::<_, Bed>::new(BufReader::new(x))?),
-                decode::Stream::MultithreadedBgzf(x) => {
-                    Box::new(Reader::<_, Bed>::new(BufReader::new(x))?)
-                }
-            };
+        let src = decoder.decode_read_into_bufread(file, BoxedSync)?;
+        let slf = Box::new(Reader::<_, Bed>::new(src)?);
         Ok(slf)
     }
 }
@@ -330,8 +317,9 @@ impl_reader!(
 mod test {
     use super::*;
     use itertools::Itertools;
-    use std::io::{Cursor, Read};
+    use std::io::{BufReader, Cursor, Read};
     use std::path::PathBuf;
+    use substratum_compress::decode::DecodeReadIntoRead;
 
     fn test_reader(parts: impl Read, expected: &[Bed12]) -> Result<()> {
         let lines = BufReader::new(parts)
@@ -487,12 +475,13 @@ mod test {
 
             // Directly test the file
             let mut buffer: Vec<Bed12> = Vec::new();
-            Reader::from_path(&file, &decode::Config::infer_from_path(&file))?
-                .read_to_end(&mut buffer)?;
+            let decoder = Decoder::from_path(&file, crate::bed::EXTENSIONS).unwrap();
+
+            Reader::from_path(&file, &decoder)?.read_to_end(&mut buffer)?;
             assert_eq!(buffer, expected);
 
             // Test all Bed combinations
-            let read = decode::infer_from_path(&file)?.boxed();
+            let read = decoder.decode_read_into_read(File::open(&file)?, BoxedSync)?;
             test_reader(read, &expected)?;
         }
 

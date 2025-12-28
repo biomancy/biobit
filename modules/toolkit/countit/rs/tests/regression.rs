@@ -1,6 +1,7 @@
 use ahash::{HashMap, HashMapExt};
 use rayon::ThreadPoolBuilder;
-use std::io::{BufRead, BufReader};
+use std::fs::File;
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::string::ToString;
 
@@ -11,10 +12,10 @@ use biobit_io_rs::{
     bam::{ReaderBuilder, strdeductor, transform},
     bed,
     bed::{Bed3Op, Bed4Op, Bed6Op, Bed12Op},
-    compression,
 };
 use eyre::{Result, ensure, eyre};
 use itertools::Itertools;
+use substratum_compress::{Decoder, adapter::BoxedSync, decode::DecodeReadIntoBufRead};
 
 const THREADS: isize = -1;
 const EPSILON: f64 = 1e-6;
@@ -59,7 +60,7 @@ fn regression() -> Result<()> {
 
     // Define the target annotation
     let bed = get_resource_path("regression-tests/annotation.bed.bgz")?;
-    let compression = compression::decode::Config::infer_from_path(&bed);
+    let compression = Decoder::from_path(&bed, &["bed"]).unwrap();
 
     let mut records = Vec::new();
     let mut reader = bed::Reader::from_path::<bed::Bed12>(&bed, &compression)?;
@@ -185,7 +186,9 @@ fn regression() -> Result<()> {
     // }
 
     // Check the results against the expected output
-    let mut lines = BufReader::new(compression::decode::infer_from_path(&output)?.boxed()).lines();
+    let compression = Decoder::from_path(&output, &["csv", "tsv"]).unwrap();
+    let reader = compression.decode_read_into_bufread(File::open(&output)?, BoxedSync)?;
+    let mut lines = reader.lines();
     assert_eq!(lines.next().unwrap()?, "element,PE-reads,SE-reads");
 
     let mut row = 0;
