@@ -3,28 +3,34 @@ pub use biobit_io_rs::fasta::{EXTENSIONS, IndexedReader, IndexedReaderMutOp};
 use derive_more::Into;
 use eyre::{ContextCompat, Result};
 use pyo3::prelude::*;
+use std::io;
 use std::path::PathBuf;
 use substratum_compress::Decoder;
 
 #[pyclass(name = "IndexedReader")]
 #[derive(Into)]
 pub struct PyIndexedReader {
-    pub path: PathBuf,
+    pub paths: Vec<PathBuf>,
     pub rs: Box<dyn IndexedReaderMutOp + Send + Sync + 'static>,
 }
 
 #[pymethods]
 impl PyIndexedReader {
     #[new]
-    fn new(path: PathBuf) -> Result<Self> {
-        let decoder = Decoder::from_path(&path, EXTENSIONS)?;
-        let rs = IndexedReader::from_path(&path, &decoder)?;
-        Ok(Self { path, rs })
-    }
-
-    #[getter]
-    fn path(&self) -> &PathBuf {
-        &self.path
+    fn new(path: Bound<PyAny>) -> Result<Self> {
+        // Could be either a single path or a list of paths
+        let paths = if let Ok(path) = path.extract::<PathBuf>() {
+            vec![path]
+        } else {
+            path.extract::<Vec<PathBuf>>()?
+        };
+        let decoders = paths
+            .iter()
+            .map(|x| Decoder::from_path(x, EXTENSIONS))
+            .collect::<Result<Vec<_>, io::Error>>()?;
+        let indexed: Vec<_> = paths.iter().zip(decoders).collect();
+        let rs = IndexedReader::from_paths(&indexed)?;
+        Ok(Self { paths, rs })
     }
 
     fn fetch(&mut self, seqid: &str, interval: IntoPyInterval) -> Result<String> {
