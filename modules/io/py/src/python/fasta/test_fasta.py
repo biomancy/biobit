@@ -71,30 +71,26 @@ def test_indexed_fasta_reader(path):
     allrecords = {record.id: record.seq for record in reader}
 
     # Compare with indexed reader
-    reader = IndexedReader(path.as_posix())
-    assert reader.path == path
+    reader = IndexedReader(path)
+    for id, seq in allrecords.items():
+        assert reader.fetch_full_seq(id) == seq
 
-    # Create a reader from a pathlib.Path
-    for reader in IndexedReader(path):
-        for id, seq in allrecords.items():
-            assert reader.fetch_full_seq(id) == seq
+        for start, end in [(0, 1), (10, 20), (10, len(seq))]:
+            assert reader.fetch(id, (start, end)) == seq[start:end]
 
-            for start, end in [(0, 1), (10, 20), (10, len(seq))]:
-                assert reader.fetch(id, (start, end)) == seq[start:end]
-
-            for start, end in [(10, 2_000), (-1, 1), (10, len(seq) + 1)]:
-                with pytest.raises(Exception):
-                    reader.fetch(id, (start, end))
+        for start, end in [(10, 2_000), (-1, 1), (10, len(seq) + 1)]:
+            with pytest.raises(Exception):
+                reader.fetch(id, (start, end))
 
 
 def test_indexed_fasta_multireader():
-    reader = IndexedReader.from_files([
+    reader = IndexedReader([
         RESOURCES / "indexed.fa",
         RESOURCES / "CHM13v2.M-21-22.fa.bgz"
     ])
     assert reader.fetch("sp|O95786|RIGI_HUMAN", (0, 24)) == "MTTEQRRSLQAFQDYIRKTLDPTY"
     assert reader.fetch("chrM", (2830, 2849)) == "CAAAGGCCCCAACGTTGTA"
-    assert reader.fetch("chr22", (51000000, 51000020)) == "GATCTCGGAGGCTCGAGTTA"
+    assert reader.fetch("chr21", (23997387, 23997416)) == "tcctcctgctgctgctgcgcTACCTGGTG"
 
 
 @pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
