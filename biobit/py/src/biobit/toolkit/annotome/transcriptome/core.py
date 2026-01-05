@@ -40,7 +40,7 @@ class Bundle[T: Entry](dict[str, T]):
 
     @classmethod
     def merge(cls, bundles: Iterable[Self]) -> Self:
-        merged = Bundle([])
+        merged: Self = cls([])
         for bundle in bundles:
             for key, value in bundle.items():
                 if key in merged:

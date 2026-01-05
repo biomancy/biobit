@@ -44,7 +44,7 @@ class Transcriptome[AttrGene, AttrRNA, AttrCDS]:
         genes = GeneBundle.merge(ann.genes for ann in annotations)
         rnas = RNABundle.merge(ann.rnas for ann in annotations)
         cds = CDSBundle.merge(ann.cds for ann in annotations)
-        return Transcriptome(genes, rnas, cds)
+        return cls(genes, rnas, cds)
 
 
 def preprocess_gff(

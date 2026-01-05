@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Self
 
 from biobit.io.fasta import IndexedReader
-
 from .annotation import Annotation
 from ..reference import RefRegistry
 
@@ -19,9 +18,9 @@ class Fasta(Annotation):
 
     @classmethod
     def merge(cls, refrg: RefRegistry, items: Iterable[tuple[RefRegistry, Self | None]]) -> Self:
-        files = []
+        files: list[Path] = []
         for _, item in items:
             if item is None:
                 raise ValueError("Fasta annotation should be provided for all references when merging.")
             files.extend(item.files)
-        return Fasta(files)
+        return cls(files)
