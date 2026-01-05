@@ -1,6 +1,7 @@
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Self
 
 import pandas as pd
 
@@ -31,6 +32,19 @@ class Transcriptome[AttrGene, AttrRNA, AttrCDS]:
         for gid, tids in inferred_parents.items():
             if self.genes[gid].transcripts != tids:
                 raise ValueError(f"Gene {gid} has mismatched RNA transcripts: {tids} vs {self.genes[gid].transcripts}")
+
+    @classmethod
+    def merge(cls, annotations: Iterable[Self]) -> Self:
+        annotations = list(annotations)
+        if not annotations:
+            raise ValueError("No annotations to merge")
+        elif len(annotations) == 1:
+            return annotations[0]
+
+        genes = GeneBundle.merge(ann.genes for ann in annotations)
+        rnas = RNABundle.merge(ann.rnas for ann in annotations)
+        cds = CDSBundle.merge(ann.cds for ann in annotations)
+        return Transcriptome(genes, rnas, cds)
 
 
 def preprocess_gff(

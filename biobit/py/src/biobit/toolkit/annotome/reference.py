@@ -9,6 +9,7 @@ class PropertyMap[Key, Value](Mapping[Key, Value]):
     __slots__ = ("_key2idx", "_values")
 
     def __init__(self, key2idx: dict[Key, int], values: tuple[Value, ...]):
+        super().__init__()
         self._key2idx = key2idx
         self._values = values
 
@@ -142,12 +143,13 @@ class RefRegistry:
             aliases.append(ref.aliases)
 
         RefRegistry._from_buffers(
-            index, mapping, tuple(names), tuple(lengths), tuple(labels), tuple(descs), tuple(aliases)
+            self, index, mapping, tuple(names), tuple(lengths), tuple(labels), tuple(descs), tuple(aliases)
         )
 
     @classmethod
     def _from_buffers(
             cls,
+            self,
             index: dict[str, int],
             mapping: dict[str, int],
             names: tuple[str, ...],
@@ -160,9 +162,6 @@ class RefRegistry:
         Low-level constructor for direct SoA initialization.
         Useful for zero-copy construction from Rust or Arrow buffers.
         """
-        # Create uninitialized instance
-        self = cls.__new__(cls)
-
         if not (len(names) == len(lengths) == len(labels) == len(descriptions) == len(aliases)):
             raise ValueError("All attribute buffers must have the same length.")
 
@@ -299,6 +298,7 @@ class RefRegistry:
                 heapq.heappush(heap, (name, regidx))
 
         return cls._from_buffers(
+            self=cls.__new__(cls),
             index=index,
             mapping=mapping,
             names=tuple(names),
