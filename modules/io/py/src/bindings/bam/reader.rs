@@ -84,4 +84,14 @@ impl PyReader {
     pub fn batch_size(&self) -> usize {
         *self.0.batch_size()
     }
+
+    pub fn __getnewargs__(&self) -> (PathBuf, u16, u16, u8, usize) {
+        (
+            self.filename().to_path_buf(),
+            self.inflags(),
+            self.exflags(),
+            self.minmapq(),
+            self.batch_size(),
+        )
+    }
 }

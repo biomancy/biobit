@@ -1,4 +1,5 @@
 import os
+import pickle
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,7 @@ def test_bam_reader():
 
     another = Reader(file, inflags=2, exflags=24, minmapq=255, batch_size=32)
     assert reader == another
+    assert pickle.loads(pickle.dumps(reader)) == reader == another
 
     for kwargs in [
         {"inflags": -1}, {"exflags": 1_000_000}, {"minmapq": -1}, {"minmapq": 312}
