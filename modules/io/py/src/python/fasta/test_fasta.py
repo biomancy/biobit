@@ -72,8 +72,10 @@ def test_indexed_fasta_reader(path):
 
     # Compare with indexed reader
     reader = IndexedReader(path)
+    lengths = reader.lengths()
     for id, seq in allrecords.items():
         assert reader.fetch_full_seq(id) == seq
+        assert len(seq) == lengths[id]
 
         for start, end in [(0, 1), (10, 20), (10, len(seq))]:
             assert reader.fetch(id, (start, end)) == seq[start:end]

@@ -3,6 +3,7 @@ pub use biobit_io_rs::fasta::{EXTENSIONS, IndexedReader, IndexedReaderMutOp};
 use derive_more::Into;
 use eyre::{ContextCompat, Result};
 use pyo3::prelude::*;
+use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 use substratum_compress::Decoder;
@@ -31,6 +32,10 @@ impl PyIndexedReader {
         let indexed: Vec<_> = paths.iter().zip(decoders).collect();
         let rs = IndexedReader::from_paths(&indexed)?;
         Ok(Self { paths, rs })
+    }
+
+    fn lengths(&self) -> HashMap<String, u64> {
+        self.rs.lengths()
     }
 
     fn fetch(&mut self, seqid: &str, interval: IntoPyInterval) -> Result<String> {

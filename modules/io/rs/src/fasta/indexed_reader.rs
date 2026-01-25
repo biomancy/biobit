@@ -12,6 +12,9 @@ use substratum_compress::Decoder;
 /// An indexed FASTA reader that can fetch sequences by reference sequence ID and interval.
 #[autoimpl(for<T: trait + ?Sized> Box<T>)]
 pub trait IndexedReaderMutOp {
+    /// Fetch the length of all sequences in the indexed FASTA file(s).
+    fn lengths(&self) -> HashMap<String, u64>;
+
     /// Fetch the sequence for the given reference sequence ID and interval.
     fn fetch(&mut self, seqid: &str, interval: Interval<u64>, buffer: &mut Vec<u8>) -> Result<()>;
 
@@ -345,6 +348,14 @@ impl<R: Read + Seek> IndexedReader<R> {
 }
 
 impl<R: Read + Seek> IndexedReaderMutOp for IndexedReader<R> {
+    fn lengths(&self) -> HashMap<String, u64> {
+        let mut lengths = HashMap::new();
+        for (seqid, &index) in self.index.iter() {
+            lengths.insert(seqid.clone(), self.lengths[index]);
+        }
+        lengths
+    }
+
     fn fetch(&mut self, seqid: &str, interval: Interval<u64>, buffer: &mut Vec<u8>) -> Result<()> {
         Self::fetch_interval(self, seqid, &interval, buffer)
     }
@@ -492,12 +503,16 @@ mod tests {
             ];
 
             let buffer = &mut Vec::new();
+            let seqlens = reader.lengths();
             for (id, seq) in sequences.iter() {
                 buffer.clear();
                 reader.fetch_full_seq(id, buffer)?;
 
                 let fetched = String::from_utf8(buffer.clone())?;
                 assert_eq!(fetched, *seq, "ID: {}", id);
+
+                let length = seqlens.get(*id).ok_or_else(|| eyre!("ID not found"))?;
+                assert_eq!(*length as usize, seq.len(), "ID: {}", id);
             }
             let sequences: HashMap<_, _> = sequences.into_iter().collect();
 

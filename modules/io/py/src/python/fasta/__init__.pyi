@@ -34,6 +34,8 @@ class IndexedReader:
 
     def fetch_full_seq(self, seqid: str) -> str: ...
 
+    def lengths(self) -> dict[str, int]: ...
+
     __hash__ = None  # type: ignore
 
 
