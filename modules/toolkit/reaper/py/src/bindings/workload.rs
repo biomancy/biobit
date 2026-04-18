@@ -8,7 +8,7 @@ use crate::model::PyRNAPileup;
 use crate::pcalling::PyByCutoff;
 use crate::postfilter::PyNMS;
 
-#[pyclass(eq, name = "Config")]
+#[pyclass(from_py_object, eq, name = "Config")]
 #[derive(Clone, PartialEq, Debug, Dissolve)]
 pub struct PyConfig {
     pub model: PyRNAPileup,
@@ -39,7 +39,7 @@ impl PyConfig {
     }
 }
 
-#[pyclass(eq, name = "Workload")]
+#[pyclass(from_py_object, eq, name = "Workload")]
 #[derive(Clone, PartialEq, Debug, Dissolve)]
 pub struct PyWorkload {
     pub regions: Vec<(String, usize, usize, PyConfig)>,

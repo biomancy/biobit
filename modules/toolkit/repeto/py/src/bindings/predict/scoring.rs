@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 pub use biobit_repeto_rs::predict::Scoring;
 
-#[pyclass(eq, ord, name = "Scoring")]
+#[pyclass(from_py_object, eq, ord, name = "Scoring")]
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
 pub struct PyScoring {
     rs: Scoring<i32>,

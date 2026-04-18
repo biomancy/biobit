@@ -8,7 +8,7 @@ use biobit_core_rs::loc::PerOrientation;
 use crate::loc::IntoPyOrientation;
 use crate::utils::type_hint_class_getitem;
 
-#[pyclass(name = "PerOrientation")]
+#[pyclass(from_py_object, name = "PerOrientation")]
 #[derive(Debug, Clone, From, Into)]
 pub struct PyPerOrientation {
     internal: PerOrientation<Py<PyAny>>,

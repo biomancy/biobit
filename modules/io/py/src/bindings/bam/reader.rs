@@ -28,7 +28,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
     }
 }
 
-#[pyclass(eq, frozen, name = "Reader")]
+#[pyclass(from_py_object, eq, frozen, name = "Reader")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, From, Into, Dissolve)]
 pub struct PyReader(pub Reader);

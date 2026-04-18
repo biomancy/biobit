@@ -16,7 +16,7 @@ use biobit_repeto_rs::repeats::{InvRepeat, InvSegment};
 use bitcode::{Decode, Encode};
 use pyo3::PyTypeInfo;
 
-#[pyclass(eq, ord, name = "InvSegment")]
+#[pyclass(from_py_object, eq, ord, name = "InvSegment")]
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Dissolve, Encode, Decode,
 )]
@@ -91,7 +91,7 @@ impl PyInvSegment {
     }
 }
 
-#[pyclass(name = "InvRepeat")]
+#[pyclass(from_py_object, name = "InvRepeat")]
 #[derive(Debug, Clone, From, Into, Decode, Encode, Dissolve)]
 pub struct PyInvRepeat {
     pub rs: InvRepeat<i64>,

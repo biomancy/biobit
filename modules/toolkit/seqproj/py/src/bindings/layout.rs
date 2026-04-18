@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 pub use biobit_core_py::ngs::PyMatesOrientation;
 use biobit_core_py::utils::ImportablePyModuleBuilder;
 
-#[pyclass(eq, ord, hash, frozen, name = "Layout")]
+#[pyclass(from_py_object, eq, ord, hash, frozen, name = "Layout")]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, From)]
 pub enum PyLayout {
     /// Single-end sequencing library

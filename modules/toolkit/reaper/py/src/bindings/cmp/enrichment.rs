@@ -5,7 +5,7 @@ use derive_more::{Constructor, From, Into};
 use eyre::Result;
 use pyo3::{PyRefMut, pyclass, pymethods};
 
-#[pyclass(eq, name = "Enrichment")]
+#[pyclass(from_py_object, eq, name = "Enrichment")]
 #[derive(Clone, Debug, PartialEq, Constructor, Dissolve, From, Into)]
 pub struct PyEnrichment {
     rs: Enrichment<f32>,

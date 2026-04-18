@@ -212,7 +212,7 @@ macro_rules! impl_pybed {
         $(($field:ident: $ftype:ty [$from_py:expr] => $pyget:item $pyset:item))+
     ) => {
         paste! {
-            #[pyclass(eq, ord, name = $Name)]
+            #[pyclass(from_py_object, eq, ord, name = $Name)]
             #[repr(transparent)]
             #[derive(
                 Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, From, Into,

@@ -56,16 +56,16 @@ dyn-clone = "1.0.20"
 by_address = "1.2.1"
 itertools = "0.14.0"
 # Parallelism
-rayon = "1.11.0"
+rayon = "1.12.0"
 thread_local = "1.1.9"
 # Data structures
 anymap3 = "1.0.1"
 rstar = "0.12.2"
 # Algorithms
-memchr = "2.7.6"
+memchr = "2.8.0"
 ahash = "0.8.12"
 # I/O
-noodles = { version = "0.104.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+noodles = { version = "0.109.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
 substratum-compress = { git = "https://github.com/biomancy/substratum", rev = "5592a2a56abaf8ee767b2a4b673fcb106b6e397c", features = ["all"] }
 # Logging and errors
 eyre = "0.6.12"
@@ -74,7 +74,7 @@ log = "0.4.29"
 bitcode = "0.6.9"
 serde = { version = "1.0.228", features = ["rc", "serde_derive"] }
 # Bindings
-pyo3 = { version = "0.27.2", features = ["full"] }
+pyo3 = { version = "0.28.3", features = ["full"] }
 #arrow = { version = "56.1.0", features = ["default", "ffi"] }
 # Other
 dhat = "0.3.3"

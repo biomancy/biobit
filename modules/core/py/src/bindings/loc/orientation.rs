@@ -55,7 +55,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyOrientation {
     }
 }
 
-#[pyclass(frozen, name = "Orientation")]
+#[pyclass(from_py_object, frozen, name = "Orientation")]
 #[repr(transparent)]
 #[derive(
     Encode, Decode, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Display,
