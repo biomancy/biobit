@@ -10,8 +10,8 @@ from ..reference import RefRegistry
 class Fasta(Annotation):
     __slots__ = ("files",)
 
-    def __init__(self, files: Iterable[Path | str] | Path) -> None:
-        self.files = (files,) if isinstance(files, Path) else tuple(Path(f) for f in files)
+    def __init__(self, files: Iterable[Path | str] | Path | str) -> None:
+        self.files = (Path(files),) if isinstance(files, (str, Path)) else tuple(Path(f) for f in files)
 
     def reader(self) -> IndexedReader:
         return IndexedReader(self.files)
