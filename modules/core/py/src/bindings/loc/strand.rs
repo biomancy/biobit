@@ -45,7 +45,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyStrand {
     }
 }
 
-#[pyclass(frozen, name = "Strand")]
+#[pyclass(from_py_object, frozen, name = "Strand")]
 #[repr(transparent)]
 #[derive(
     Encode, Decode, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Display,

@@ -34,3 +34,5 @@ pub use record::{
 };
 
 pub use writer::Writer;
+
+pub const EXTENSIONS: &[&str] = &["bed"];

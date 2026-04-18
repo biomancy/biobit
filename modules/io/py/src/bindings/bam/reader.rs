@@ -28,7 +28,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
     }
 }
 
-#[pyclass(eq, frozen, name = "Reader")]
+#[pyclass(from_py_object, eq, frozen, name = "Reader")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, From, Into, Dissolve)]
 pub struct PyReader(pub Reader);
@@ -83,5 +83,15 @@ impl PyReader {
     #[getter]
     pub fn batch_size(&self) -> usize {
         *self.0.batch_size()
+    }
+
+    pub fn __getnewargs__(&self) -> (PathBuf, u16, u16, u8, usize) {
+        (
+            self.filename().to_path_buf(),
+            self.inflags(),
+            self.exflags(),
+            self.minmapq(),
+            self.batch_size(),
+        )
     }
 }

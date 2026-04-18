@@ -55,7 +55,7 @@ impl IntoPyInterval {
     }
 }
 
-#[pyclass(name = "Interval")]
+#[pyclass(from_py_object, name = "Interval")]
 #[repr(transparent)]
 #[derive(
     Decode, Encode, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into,

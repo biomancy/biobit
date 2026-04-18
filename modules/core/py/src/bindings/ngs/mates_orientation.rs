@@ -36,7 +36,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyMatesOrientation {
     }
 }
 
-#[pyclass(frozen, name = "MatesOrientation")]
+#[pyclass(from_py_object, frozen, name = "MatesOrientation")]
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Display)]
 pub struct PyMatesOrientation(pub MatesOrientation);

@@ -39,8 +39,8 @@ impl Tracer {
         while let Some((sind, eind)) = queue.pop() {
             let trace = &self.mat[sind][&eind];
 
-            if trace.rnaid.is_some() {
-                rnaids.push(trace.rnaid.unwrap());
+            if let Some(rnaid_) = trace.rnaid {
+                rnaids.push(rnaid_);
             }
             queue.extend(trace.included.iter());
         }

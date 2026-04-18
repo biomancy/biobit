@@ -43,7 +43,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyChainInterval {
     }
 }
 
-#[pyclass(name = "ChainInterval")]
+#[pyclass(from_py_object, name = "ChainInterval")]
 #[repr(transparent)]
 #[derive(
     Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into,

@@ -7,7 +7,7 @@ use derive_getters::Dissolve;
 use derive_more::{From, Into};
 use pyo3::prelude::*;
 
-#[pyclass(frozen, eq, hash, name = "ChainMap")]
+#[pyclass(from_py_object, frozen, eq, hash, name = "ChainMap")]
 #[repr(transparent)]
 #[derive(
     Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Dissolve, From, Into,

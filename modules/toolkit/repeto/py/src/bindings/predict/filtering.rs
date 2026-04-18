@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use biobit_core_py::loc::{IntoPyInterval, PyInterval};
 use biobit_repeto_rs::predict::Filter;
 
-#[pyclass(eq, ord, name = "Filter")]
+#[pyclass(from_py_object, eq, ord, name = "Filter")]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Hash, Default, From, Into)]
 pub struct PyFilter {
     rs: Filter<i32>,

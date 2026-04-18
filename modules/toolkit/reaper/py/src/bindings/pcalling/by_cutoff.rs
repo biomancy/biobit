@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::{Bound, PyRefMut, pyclass, pymethods};
 
-#[pyclass(eq, name = "ByCutoff")]
+#[pyclass(from_py_object, eq, name = "ByCutoff")]
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
 pub struct PyByCutoff {
     rs: ByCutoff<usize, f32>,

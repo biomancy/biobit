@@ -1,4 +1,4 @@
-from typing import Protocol, Iterable
+from typing import Protocol, Iterable, Self
 
 from attr import define, field
 
@@ -37,3 +37,13 @@ class Bundle[T: Entry](dict[str, T]):
             if item.ind in self:
                 raise ValueError(f"Duplicate ID: {item.ind}")
             self[item.ind] = item
+
+    @classmethod
+    def merge(cls, bundles: Iterable[Self]) -> Self:
+        merged: Self = cls([])
+        for bundle in bundles:
+            for key, value in bundle.items():
+                if key in merged:
+                    raise ValueError(f"Duplicate ID during merge: {key}")
+                merged[key] = value
+        return merged

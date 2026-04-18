@@ -8,7 +8,7 @@ use biobit_core_rs::loc::PerStrand;
 use crate::loc::IntoPyStrand;
 use crate::utils::type_hint_class_getitem;
 
-#[pyclass(name = "PerStrand")]
+#[pyclass(from_py_object, name = "PerStrand")]
 #[derive(Debug, Clone, From, Into)]
 pub struct PyPerStrand {
     internal: PerStrand<Py<PyAny>>,

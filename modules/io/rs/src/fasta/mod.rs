@@ -11,3 +11,4 @@ use std::num::NonZeroUsize;
 pub use writer::Writer;
 
 pub const DEFAULT_LINE_WIDTH: NonZeroUsize = NonZeroUsize::new(80).unwrap();
+pub const EXTENSIONS: &[&str] = &["fasta", "fa"];
