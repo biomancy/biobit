@@ -24,3 +24,4 @@ higher-kinded-types = { workspace = true }
 eyre = { workspace = true }
 bitcode = { workspace = true }
 paste = { workspace = true }
+substratum-compress = { workspace = true }

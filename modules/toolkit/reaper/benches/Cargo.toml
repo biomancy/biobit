@@ -16,9 +16,7 @@ categories.workspace = true
 biobit-io-rs = { path = "../../../io/rs" }
 biobit-reaper-rs = { path = "../rs" }
 biobit-core-rs = { path = "../../../core/rs" }
-flate2 = { workspace = true }
 rayon = { workspace = true }
-eyre = { workspace = true }
 dhat = { workspace = true }
 
 [features]

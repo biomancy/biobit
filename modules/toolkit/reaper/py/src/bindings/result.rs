@@ -16,7 +16,7 @@ use biobit_core_py::{
 use biobit_reaper_rs::result::Peak;
 use biobit_reaper_rs::{Harvest, HarvestRegion};
 
-#[pyclass(get_all, name = "Peak")]
+#[pyclass(from_py_object, get_all, name = "Peak")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
 pub struct PyPeak {
     interval: Py<PyInterval>,
@@ -38,7 +38,7 @@ impl<Idx: PrimInt + TryInto<i64>, Cnts: Float> From<Peak<Idx, Cnts>> for PyPeak 
     }
 }
 
-#[pyclass(get_all, name = "HarvestRegion")]
+#[pyclass(from_py_object, get_all, name = "HarvestRegion")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
 pub struct PyHarvestRegion {
     contig: String,
@@ -102,7 +102,7 @@ where
     }
 }
 
-#[pyclass(get_all, name = "Harvest")]
+#[pyclass(from_py_object, get_all, name = "Harvest")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
 pub struct PyHarvest {
     comparison: Py<PyAny>,

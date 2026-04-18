@@ -6,7 +6,7 @@ use super::strandedness::PyStrandedness;
 use crate::utils::ImportablePyModuleBuilder;
 use biobit_core_rs::ngs::Layout;
 
-#[pyclass(eq, ord, hash, frozen, name = "Layout")]
+#[pyclass(from_py_object, eq, ord, hash, frozen, name = "Layout")]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, From)]
 pub enum PyLayout {
     /// Single-end sequencing library

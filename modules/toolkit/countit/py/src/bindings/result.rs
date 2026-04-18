@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyType;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-#[pyclass(frozen, eq, hash, name = "ResolutionOutcome")]
+#[pyclass(from_py_object, frozen, eq, hash, name = "ResolutionOutcome")]
 #[derive(Clone, Debug, PartialEq, PartialOrd, From, Into)]
 #[repr(transparent)]
 pub struct PyResolutionOutcome {
@@ -33,7 +33,7 @@ impl PyResolutionOutcome {
     }
 }
 
-#[pyclass(frozen, get_all, name = "PartitionMetrics")]
+#[pyclass(from_py_object, frozen, get_all, name = "PartitionMetrics")]
 #[derive(Clone, Debug, From, Into)]
 pub struct PyPartitionMetrics {
     contig: String,
@@ -78,7 +78,7 @@ impl PyPartitionMetrics {
     }
 }
 
-#[pyclass(get_all, name = "Counts")]
+#[pyclass(from_py_object, get_all, name = "Counts")]
 #[derive(Clone, Debug, From, Into)]
 pub struct PyCounts {
     source: Py<PyAny>,

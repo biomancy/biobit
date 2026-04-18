@@ -1,11 +1,11 @@
 use super::{record::Record, validate};
-use crate::compression::decode;
 use crate::traits::ReadRecord;
 use derive_getters::Dissolve;
 use eyre::{Result, ensure};
 use memchr;
 use std::io::BufRead;
 use std::path::Path;
+use substratum_compress::{Decoder, adapter::BoxedSync, decode::DecodeReadIntoBufRead};
 
 /// A strict FASTA reader that can read a single record at a time. Ignores:
 /// - Carriage return characters at the end of all lines (to support Windows line endings)
@@ -25,21 +25,12 @@ impl Reader<()> {
     /// The compression is automatically detected based on the file extension and the internal file signature.
     pub fn from_path(
         path: impl AsRef<Path>,
-        decode: &decode::Config,
+        decode: &Decoder,
     ) -> Result<Box<dyn ReadRecord<Record = Record> + Send + Sync + 'static>> {
-        let file = std::fs::File::open(path.as_ref())?;
-        let boxed: Box<dyn ReadRecord<Record = Record> + Send + Sync + 'static> =
-            match decode::Stream::new(file, decode)? {
-                decode::Stream::Raw(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
-                decode::Stream::Gzip(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
-                decode::Stream::Deflate(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
-                decode::Stream::Bgzf(x) => Box::new(Reader::new(std::io::BufReader::new(x))?),
-                decode::Stream::MultithreadedBgzf(x) => {
-                    Box::new(Reader::new(std::io::BufReader::new(x))?)
-                }
-            };
-
-        Ok(boxed)
+        let file =
+            decode.decode_read_into_bufread(std::fs::File::open(path.as_ref())?, BoxedSync)?;
+        let reader = Box::new(Reader::new(file)?);
+        Ok(reader)
     }
 }
 
@@ -193,6 +184,7 @@ impl<R: BufRead> ReadRecord for Reader<R> {
 mod tests {
     use super::*;
     use eyre::Report;
+    use std::fs::File;
     use std::io::Read;
     use std::path::PathBuf;
 
@@ -301,9 +293,13 @@ mod tests {
             let path = PathBuf::from(env!("BIOBIT_RESOURCES"))
                 .join("fasta")
                 .join(fname);
+            let decoder = Decoder::from_path(&path, crate::fasta::EXTENSIONS).unwrap();
 
-            test_read_record(decode::infer_from_path(&path)?.boxed(), &expected)?;
-            test_read_to_end(decode::infer_from_path(&path)?.boxed(), &expected)?;
+            let file = decoder.decode_read_into_bufread(File::open(&path)?, BoxedSync)?;
+            test_read_record(file, &expected)?;
+
+            let file = decoder.decode_read_into_bufread(File::open(&path)?, BoxedSync)?;
+            test_read_to_end(file, &expected)?;
         }
 
         Ok(())

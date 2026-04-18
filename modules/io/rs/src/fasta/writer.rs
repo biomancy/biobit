@@ -1,11 +1,11 @@
 use super::record::Record;
-use crate::compression::encode;
 use crate::traits::WriteRecord;
 use derive_getters::Dissolve;
 use eyre::Result;
 use std::io::Write;
 use std::num::NonZeroUsize;
 use std::path::Path;
+use substratum_compress::{Encoder, adapter::BoxedSync, encode::Encode};
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Dissolve)]
 pub struct Writer<W> {
@@ -22,19 +22,12 @@ impl<W> Writer<W> {
 impl Writer<()> {
     pub fn from_path(
         path: impl AsRef<Path>,
-        config: &encode::Config,
+        encoder: &Encoder,
         line_width: NonZeroUsize,
     ) -> Result<Box<dyn WriteRecord<Record = Record> + Send + Sync + 'static>> {
-        let file = std::fs::File::create(path.as_ref())?;
-        let boxed: Box<dyn WriteRecord<Record = Record> + Send + Sync + 'static> =
-            match encode::Stream::new(file, config)? {
-                encode::Stream::Raw(x) => Box::new(Writer::new(x, line_width)),
-                encode::Stream::Deflate(x) => Box::new(Writer::new(x, line_width)),
-                encode::Stream::Gzip(x) => Box::new(Writer::new(x, line_width)),
-                encode::Stream::Bgzf(x) => Box::new(Writer::new(x, line_width)),
-                encode::Stream::MultithreadedBgzf(x) => Box::new(Writer::new(x, line_width)),
-            };
-        Ok(boxed)
+        let file = encoder.encode(std::fs::File::create(path.as_ref())?, BoxedSync)?;
+        let writer = Box::new(Writer::new(file, line_width));
+        Ok(writer)
     }
 }
 
@@ -66,10 +59,11 @@ impl<W: Write> WriteRecord for Writer<W> {
 mod tests {
     use super::*;
     use crate::ReadRecord;
-    use crate::compression::decode;
     use crate::fasta::Reader;
+    use std::fs::File;
     use std::io::{Cursor, Read};
     use std::path::PathBuf;
+    use substratum_compress::{Decoder, decode::DecodeReadIntoRead};
 
     #[test]
     fn test_fasta_writer_preserves_content() -> Result<()> {
@@ -80,7 +74,10 @@ mod tests {
                 .join(fname);
 
             let mut expected = Vec::new();
-            decode::infer_from_path(path)?.read_to_end(&mut expected)?;
+            Decoder::from_path(&path, crate::fasta::EXTENSIONS)
+                .unwrap()
+                .decode_read_into_read(File::open(path)?, BoxedSync)?
+                .read_to_end(&mut expected)?;
 
             let mut records = Vec::new();
             Reader::new(Cursor::new(&expected))?.read_to_end(&mut records)?;

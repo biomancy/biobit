@@ -9,7 +9,7 @@ use pyo3::types::PyBytes;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-#[pyclass(eq, ord, name = "Record")]
+#[pyclass(from_py_object, eq, ord, name = "Record")]
 #[repr(transparent)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, From, Into)]
 pub struct PyRecord {

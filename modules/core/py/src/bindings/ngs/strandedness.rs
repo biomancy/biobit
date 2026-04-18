@@ -35,7 +35,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyStrandness {
         Ok(strandedness.into())
     }
 }
-#[pyclass(frozen, name = "Strandedness")]
+#[pyclass(from_py_object, frozen, name = "Strandedness")]
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Display)]
 pub struct PyStrandedness(pub Strandedness);

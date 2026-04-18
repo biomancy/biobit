@@ -3,15 +3,13 @@ use crate::bed::{
     Bed3, Bed3Op, Bed4, Bed4Op, Bed5, Bed5Op, Bed6, Bed6Op, Bed8, Bed8Op, Bed9, Bed9Op, Bed12,
     Bed12Op,
 };
-use crate::compression::encode;
 use biobit_core_rs::loc::{IntervalOp, Orientation};
 use eyre::Result;
-use flate2::write::{DeflateEncoder, GzEncoder};
 use itertools::Itertools;
-use noodles::bgzf;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use substratum_compress::{Encoder, adapter::BoxedSync, encode::Encode};
 
 pub struct Writer<W, Bed> {
     writer: W,
@@ -21,25 +19,14 @@ pub struct Writer<W, Bed> {
 impl Writer<(), ()> {
     pub fn from_path<Bed>(
         path: impl AsRef<Path>,
-        compression: &encode::Config,
+        compression: &Encoder,
     ) -> Result<Box<dyn WriteRecord<Record = Bed> + Send + Sync + 'static>>
     where
-        Writer<File, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
-        Writer<DeflateEncoder<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
-        Writer<GzEncoder<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
-        Writer<bgzf::io::Writer<File>, Bed>: WriteRecord<Record = Bed> + Send + Sync + 'static,
-        Writer<bgzf::io::MultithreadedWriter<File>, Bed>:
-            WriteRecord<Record = Bed> + Send + Sync + 'static,
+        Bed: Send + Sync + 'static,
+        Writer<Box<dyn Write + Send + Sync>, Bed>: WriteRecord<Record = Bed>,
     {
-        let file = File::create(path.as_ref())?;
-        let slf: Box<dyn WriteRecord<Record = Bed> + Send + Sync + 'static> =
-            match encode::Stream::new(file, compression)? {
-                encode::Stream::Raw(x) => Box::new(Writer::new(x)),
-                encode::Stream::Deflate(x) => Box::new(Writer::new(x)),
-                encode::Stream::Gzip(x) => Box::new(Writer::new(x)),
-                encode::Stream::Bgzf(x) => Box::new(Writer::new(x)),
-                encode::Stream::MultithreadedBgzf(x) => Box::new(Writer::new(x)),
-            };
+        let boxed = compression.encode(File::create(path.as_ref())?, BoxedSync)?;
+        let slf = Box::new(Writer::new(boxed));
         Ok(slf)
     }
 }
@@ -128,9 +115,9 @@ mod tests {
     use super::*;
     use crate::ReadRecord;
     use crate::bed::Reader;
-    use crate::compression::decode;
     use std::io::{Cursor, Read};
     use std::path::PathBuf;
+    use substratum_compress::{Decoder, adapter::BoxedSync, decode::DecodeReadIntoRead};
 
     #[test]
     fn test_bed12_writer_preserves_content() -> Result<()> {
@@ -140,7 +127,9 @@ mod tests {
                 .join(fname);
 
             let mut expected = Vec::new();
-            decode::infer_from_path(path)?.read_to_end(&mut expected)?;
+            Decoder::from_path(&path, crate::bed::EXTENSIONS)?
+                .decode_read_into_read(File::open(path)?, BoxedSync)?
+                .read_to_end(&mut expected)?;
 
             let mut records = Vec::new();
             Reader::<_, Bed12>::new(Cursor::new(&expected))?.read_to_end(&mut records)?;

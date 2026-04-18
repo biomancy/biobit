@@ -1,4 +1,3 @@
-use crate::compression::decode;
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimInt;
 use derive_getters::{Dissolve, Getters};
@@ -8,10 +7,14 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, Read, Seek};
 use std::path::Path;
+use substratum_compress::Decoder;
 
 /// An indexed FASTA reader that can fetch sequences by reference sequence ID and interval.
 #[autoimpl(for<T: trait + ?Sized> Box<T>)]
 pub trait IndexedReaderMutOp {
+    /// Fetch the length of all sequences in the indexed FASTA file(s).
+    fn lengths(&self) -> HashMap<String, u64>;
+
     /// Fetch the sequence for the given reference sequence ID and interval.
     fn fetch(&mut self, seqid: &str, interval: Interval<u64>, buffer: &mut Vec<u8>) -> Result<()>;
 
@@ -21,155 +24,182 @@ pub trait IndexedReaderMutOp {
 
 #[derive(Debug, Clone, PartialEq, Eq, Dissolve, Getters)]
 pub struct IndexedReader<R> {
-    reader: R,
+    readers: Vec<R>, // FASTA file readers
 
-    ids: Vec<String>, // IDs of the reference sequences as they appear in the FASTA file
-    lengths: Vec<u64>, // Total length of each reference sequence, in bases
-    offsets: Vec<u64>, // Offset in the FASTA file of the first base of each reference sequence
+    reader_idx: Vec<usize>, // IDs of the reference sequences as they appear in FASTA files
+    lengths: Vec<u64>,      // Total length of each reference sequence, in bases
+    offsets: Vec<u64>,      // Offset in the FASTA file of the first base of each reference sequence
     bases_per_line: Vec<u64>, // Number of bases per line for each reference sequence
     bytes_per_line: Vec<u64>, // Number of bytes per line for each reference sequence (including line ending character[s])
 
     index: HashMap<String, usize>, // Map from reference sequence ID to its index in the vectors above
 }
 
+trait IndexedRead: Read + Seek + Send + Sync + 'static {}
+impl<T: Read + Seek + Send + Sync + 'static> IndexedRead for T {}
+
 impl IndexedReader<()> {
     pub fn from_path(
         fasta: impl AsRef<Path>,
-        compression: &decode::Config,
+        compression: Decoder,
     ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
-        let mut path = fasta.as_ref().to_owned();
-        let fname = path
-            .file_name()
-            .and_then(|x| x.to_str())
-            .unwrap_or_default()
-            .to_string();
-        let file = decode::Stream::new(File::open(&path)?, compression)?;
+        Self::from_paths(&[(fasta, compression)])
+    }
 
-        path.set_file_name(format!("{fname}.fai"));
-        ensure!(path.exists(), "fai index does not exist: {:?}", path);
-        let fai = std::io::BufReader::new(File::open(&path)?);
+    pub fn from_paths(
+        indexed: &[(impl AsRef<Path>, Decoder)],
+    ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
+        let mut parsed: Vec<(Box<dyn IndexedRead>, _)> = Vec::with_capacity(indexed.len());
 
-        let boxed: Box<dyn IndexedReaderMutOp + Send + Sync + 'static> = match file {
-            decode::Stream::Raw(fasta) => Box::new(IndexedReader::new(fasta, fai)?),
-            decode::Stream::Bgzf(fasta) => {
-                path.set_file_name(format!("{fname}.gzi"));
-                ensure!(path.exists(), "gzi index does not exist: {:?}", path);
-                let gzi = noodles::bgzf::gzi::fs::read(&path)?;
+        for (fasta, compression) in indexed.iter() {
+            let mut path = fasta.as_ref().to_owned();
+            let file = File::open(&path)?;
 
-                let reader =
-                    noodles::bgzf::io::indexed_reader::IndexedReader::new(fasta.into_inner(), gzi);
-                Box::new(IndexedReader::new(reader, fai)?)
-            }
-            decode::Stream::MultithreadedBgzf(mut fasta) => {
-                path.set_file_name(format!("{fname}.gzi"));
-                ensure!(path.exists(), "gzi index does not exist: {:?}", path);
-                let gzi = noodles::bgzf::gzi::fs::read(&path)?;
+            let fname = path
+                .file_name()
+                .and_then(|x| x.to_str())
+                .unwrap_or_default()
+                .to_string();
+            path.set_file_name(format!("{fname}.fai"));
+            ensure!(path.exists(), "fai index does not exist: {:?}", path);
+            let fai = std::io::BufReader::new(File::open(&path)?);
 
-                let reader =
-                    noodles::bgzf::io::indexed_reader::IndexedReader::new(fasta.finish()?, gzi);
-                Box::new(IndexedReader::new(reader, fai)?)
-            }
-            _ => {
-                return Err(eyre!(
-                    "Unsupported compression {:?} for an Indexed FASTA file: {}",
-                    compression,
-                    path.display()
-                ));
-            }
-        };
+            match compression {
+                Decoder::Identity(_) => {
+                    parsed.push((Box::new(file), fai));
+                }
+                Decoder::Bgzf(_) => {
+                    path.set_file_name(format!("{fname}.gzi"));
+                    ensure!(path.exists(), "gzi index does not exist: {:?}", path);
+                    let gzi = noodles::bgzf::gzi::fs::read(&path)?;
 
-        Ok(boxed)
+                    let reader = Box::new(noodles::bgzf::io::indexed_reader::IndexedReader::new(
+                        file, gzi,
+                    ));
+                    parsed.push((reader, fai))
+                }
+                _ => {
+                    return Err(eyre!(
+                        "Unsupported compression {:?} for an Indexed FASTA file: {}",
+                        compression,
+                        path.display()
+                    ));
+                }
+            };
+        }
+
+        Ok(Box::new(IndexedReader::new(parsed)?))
     }
 }
 
 impl<R: Read + Seek> IndexedReader<R> {
-    pub fn new<I: BufRead>(reader: R, mut index: I) -> Result<IndexedReader<R>> {
-        let mut ids = Vec::new();
+    /// Create a new indexed reader by parsing given FASTA/Index pairs.
+    pub fn new<I: BufRead>(mut indexed: Vec<(R, I)>) -> Result<IndexedReader<R>> {
+        let mut readers = Vec::with_capacity(indexed.len());
+
+        let mut seqids = HashMap::new();
+        let mut reader_idx = Vec::new();
         let mut lengths = Vec::new();
         let mut offsets = Vec::new();
         let mut bases_per_line = Vec::new();
         let mut bytes_per_line = Vec::new();
 
         let mut buffer = String::new();
-        while index.read_line(&mut buffer)? > 0 {
-            let err = || eyre!("Invalid FASTA index line: {}", buffer);
-            let mut parts = buffer.split('\t');
+        for (reader, mut index) in indexed.drain(..) {
+            let ridx = readers.len();
+            readers.push(reader);
 
-            let id = parts.next().ok_or_else(err)?;
-            ids.push(id.to_string());
+            while index.read_line(&mut buffer)? > 0 {
+                let err = || eyre!("Invalid FASTA index line: {}", buffer);
+                let mut parts = buffer.split('\t');
 
-            let length = parts
-                .next()
-                .ok_or_else(err)?
-                .parse::<u64>()
-                .wrap_err_with(err)?;
-            ensure!(
-                length > 0,
-                "Length of the reference sequence must be greater than zero, line: {}",
-                buffer
-            );
-            lengths.push(length);
+                let id = parts.next().ok_or_else(err)?;
+                ensure!(
+                    !id.is_empty(),
+                    "Reference sequence ID cannot be empty, line: {}",
+                    buffer
+                );
+                match seqids.entry(id.to_string()) {
+                    std::collections::hash_map::Entry::Vacant(e) => {
+                        e.insert(lengths.len());
+                    }
+                    std::collections::hash_map::Entry::Occupied(_) => {
+                        return Err(eyre!(
+                            "Duplicate reference sequence ID in the FASTA index: {}",
+                            id
+                        ));
+                    }
+                }
 
-            let offset = parts
-                .next()
-                .ok_or_else(err)?
-                .parse::<u64>()
-                .wrap_err_with(err)?;
-            ensure!(
-                offset > 0,
-                "Offset of the reference sequence must be greater than zero, line: {}",
-                buffer
-            );
-            offsets.push(offset);
+                let length = parts
+                    .next()
+                    .ok_or_else(err)?
+                    .parse::<u64>()
+                    .wrap_err_with(err)?;
+                ensure!(
+                    length > 0,
+                    "Length of the reference sequence must be greater than zero, line: {}",
+                    buffer
+                );
+                lengths.push(length);
 
-            let _bases_per_line = parts
-                .next()
-                .ok_or_else(err)?
-                .parse::<u64>()
-                .wrap_err_with(err)?;
-            ensure!(
-                _bases_per_line > 0,
-                "Bases per line must be greater than zero, line: {}",
-                buffer
-            );
-            bases_per_line.push(_bases_per_line);
+                let offset = parts
+                    .next()
+                    .ok_or_else(err)?
+                    .parse::<u64>()
+                    .wrap_err_with(err)?;
+                ensure!(
+                    offset > 0,
+                    "Offset of the reference sequence must be greater than zero, line: {}",
+                    buffer
+                );
+                offsets.push(offset);
 
-            let _bytes_per_line = parts
-                .next()
-                .ok_or_else(err)?
-                .trim_end_matches(&['\r', '\n'] as &[char])
-                .parse::<u64>()
-                .wrap_err_with(err)?;
-            ensure!(
-                _bytes_per_line > _bases_per_line,
-                "Bytes per line must be greater than bases per line, line: {}",
-                buffer
-            );
-            bytes_per_line.push(_bytes_per_line);
+                let _bases_per_line = parts
+                    .next()
+                    .ok_or_else(err)?
+                    .parse::<u64>()
+                    .wrap_err_with(err)?;
+                ensure!(
+                    _bases_per_line > 0,
+                    "Bases per line must be greater than zero, line: {}",
+                    buffer
+                );
+                bases_per_line.push(_bases_per_line);
 
-            ensure!(
-                parts.next().is_none(),
-                "Extra fields in the FASTA index, line: {}",
-                buffer
-            );
+                let _bytes_per_line = parts
+                    .next()
+                    .ok_or_else(err)?
+                    .trim_end_matches(&['\r', '\n'] as &[char])
+                    .parse::<u64>()
+                    .wrap_err_with(err)?;
+                ensure!(
+                    _bytes_per_line > _bases_per_line,
+                    "Bytes per line must be greater than bases per line, line: {}",
+                    buffer
+                );
+                bytes_per_line.push(_bytes_per_line);
 
-            buffer.clear();
+                ensure!(
+                    parts.next().is_none(),
+                    "Extra fields in the FASTA index, line: {}",
+                    buffer
+                );
+
+                reader_idx.push(ridx);
+
+                buffer.clear();
+            }
         }
 
-        let index = ids
-            .iter()
-            .enumerate()
-            .map(|(i, id)| (id.clone(), i))
-            .collect();
-
         Ok(Self {
-            reader,
-            ids,
+            readers,
+            reader_idx,
             lengths,
             offsets,
             bases_per_line,
             bytes_per_line,
-            index,
+            index: seqids,
         })
     }
 
@@ -217,8 +247,8 @@ impl<R: Read + Seek> IndexedReader<R> {
 
     #[inline(always)]
     #[allow(clippy::too_many_arguments)]
-    fn _fetch(
-        &mut self,
+    fn fetch(
+        reader: &mut R,
         offset: u64,
         start: u64,
         end: u64,
@@ -241,14 +271,11 @@ impl<R: Read + Seek> IndexedReader<R> {
 
         // Seek to the start of the sequence
         let start_byte = offset + start_line * bytes_per_line + start % bases_per_line;
-        self.reader.seek(std::io::SeekFrom::Start(start_byte))?;
+        reader.seek(std::io::SeekFrom::Start(start_byte))?;
 
         // Special case – the sequence is contained in a single line
         if start_line == end_line {
-            self.reader
-                .by_ref()
-                .take(length as u64)
-                .read_to_end(buffer)?;
+            reader.by_ref().take(length as u64).read_to_end(buffer)?;
             return Ok(());
         }
 
@@ -256,22 +283,18 @@ impl<R: Read + Seek> IndexedReader<R> {
         let mut sink = std::io::sink();
         {
             let to_read = bases_per_line * (start_line + 1) - start;
-            self.reader.by_ref().take(to_read).read_to_end(buffer)?;
-            std::io::copy(&mut self.reader.by_ref().take(endline_bytes), &mut sink)?;
+            reader.take(to_read).read_to_end(buffer)?;
+            std::io::copy(&mut reader.take(endline_bytes), &mut sink)?;
         }
 
         // Read the middle lines
         for _ in start_line + 1..end_line {
-            self.reader
-                .by_ref()
-                .take(bases_per_line)
-                .read_to_end(buffer)?;
-            std::io::copy(&mut self.reader.by_ref().take(endline_bytes), &mut sink)?;
+            reader.by_ref().take(bases_per_line).read_to_end(buffer)?;
+            std::io::copy(&mut reader.take(endline_bytes), &mut sink)?;
         }
 
         // Read the last line, which might be incomplete
-        self.reader
-            .by_ref()
+        reader
             .take(end - end_line * bases_per_line)
             .read_to_end(buffer)?;
 
@@ -291,12 +314,15 @@ impl<R: Read + Seek> IndexedReader<R> {
     {
         let (index, start, end) = self.sanitize(seqid, interval)?;
 
+        let ridx = self.reader_idx[index];
+        let reader = &mut self.readers[ridx];
         let offset = self.offsets[index];
         let bases_per_line = self.bases_per_line[index];
         let bytes_per_line = self.bytes_per_line[index];
         let endline_bytes = bytes_per_line - bases_per_line;
 
-        self._fetch(
+        Self::fetch(
+            reader,
             offset,
             start,
             end,
@@ -322,6 +348,14 @@ impl<R: Read + Seek> IndexedReader<R> {
 }
 
 impl<R: Read + Seek> IndexedReaderMutOp for IndexedReader<R> {
+    fn lengths(&self) -> HashMap<String, u64> {
+        let mut lengths = HashMap::new();
+        for (seqid, &index) in self.index.iter() {
+            lengths.insert(seqid.clone(), self.lengths[index]);
+        }
+        lengths
+    }
+
     fn fetch(&mut self, seqid: &str, interval: Interval<u64>, buffer: &mut Vec<u8>) -> Result<()> {
         Self::fetch_interval(self, seqid, &interval, buffer)
     }
@@ -469,12 +503,16 @@ mod tests {
             ];
 
             let buffer = &mut Vec::new();
+            let seqlens = reader.lengths();
             for (id, seq) in sequences.iter() {
                 buffer.clear();
                 reader.fetch_full_seq(id, buffer)?;
 
                 let fetched = String::from_utf8(buffer.clone())?;
                 assert_eq!(fetched, *seq, "ID: {}", id);
+
+                let length = seqlens.get(*id).ok_or_else(|| eyre!("ID not found"))?;
+                assert_eq!(*length as usize, seq.len(), "ID: {}", id);
             }
             let sequences: HashMap<_, _> = sequences.into_iter().collect();
 
@@ -531,10 +569,38 @@ mod tests {
                 .join(path);
             test(IndexedReader::from_path(
                 &path,
-                &decode::Config::infer_from_path(&path),
+                Decoder::from_path(&path, crate::fasta::EXTENSIONS).unwrap(),
             )?)?
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiple_indexed_fa() -> Result<()> {
+        let mut indexed = Vec::new();
+        for path in ["indexed.fa", "CHM13v2.M-21-22.fa.bgz"] {
+            let path = PathBuf::from(env!("BIOBIT_RESOURCES"))
+                .join("fasta")
+                .join(path);
+            indexed.push((
+                path.clone(),
+                Decoder::from_path(&path, crate::fasta::EXTENSIONS).unwrap(),
+            ));
+        }
+
+        let mut reader = IndexedReader::from_paths(&indexed)?;
+        for (seqid, interval, expected) in [
+            ("sp|O95786|RIGI_HUMAN", 0..24, "MTTEQRRSLQAFQDYIRKTLDPTY"),
+            ("sp|Q9Y572|RIPK3_HUMAN", 510..518, "GWYNHSGK"),
+            ("chr21", 23997387..23997416, "tcctcctgctgctgctgcgcTACCTGGTG"),
+            ("chrM", 2830..2849, "CAAAGGCCCCAACGTTGTA"),
+        ] {
+            let mut buffer = Vec::new();
+            reader.fetch(seqid, Interval::try_from(interval.clone())?, &mut buffer)?;
+            let fetched = String::from_utf8(buffer.clone())?;
+            assert_eq!(fetched, expected, "ID: {}, Interval: {:?}", seqid, interval);
+        }
         Ok(())
     }
 }

@@ -7,7 +7,7 @@ use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
-#[pyclass(eq, name = "NMS")]
+#[pyclass(from_py_object, eq, name = "NMS")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
 pub struct PyNMS {
     rs: NMS<usize, f32>,

@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::{PyRefMut, PyResult, pyclass, pymethods};
 
-#[pyclass(eq, name = "RNAPileup")]
+#[pyclass(from_py_object, eq, name = "RNAPileup")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
 pub struct PyRNAPileup {
     rs: RNAPileup<usize, f32>,
