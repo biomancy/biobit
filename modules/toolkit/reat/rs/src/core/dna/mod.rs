@@ -1,5 +1,5 @@
-pub use alphabet::{Nucleotide, ReqNucleotide};
-pub use ncounts::{FracNucCounts, NucCounts};
+pub use alphabet::{Observed, Reference};
+pub use pileup::Pileup;
 
 mod alphabet;
-pub mod ncounts;
+pub mod pileup;

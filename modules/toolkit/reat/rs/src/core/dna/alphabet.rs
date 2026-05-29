@@ -1,95 +1,135 @@
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
-#[allow(non_snake_case)]
-pub enum Nucleotide {
+pub enum Reference {
     A,
     C,
     G,
     T,
-    Unknown,
+    N,
 }
 
-impl Nucleotide {
-    pub fn symbol(&self) -> &str {
+impl Reference {
+    pub fn symbol(&self) -> &'static str {
         match self {
-            Nucleotide::A => "A",
-            Nucleotide::C => "C",
-            Nucleotide::G => "G",
-            Nucleotide::T => "T",
-            Nucleotide::Unknown => "N",
+            Reference::A => "A",
+            Reference::C => "C",
+            Reference::G => "G",
+            Reference::T => "T",
+            Reference::N => "N",
         }
     }
 }
 
-impl Display for Nucleotide {
+impl Display for Reference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.symbol())
     }
 }
 
-impl Default for Nucleotide {
+impl Default for Reference {
     fn default() -> Self {
-        Nucleotide::Unknown
+        Reference::N
     }
 }
 
-impl From<u8> for Nucleotide {
+impl From<u8> for Reference {
     fn from(symbol: u8) -> Self {
         match symbol {
-            b'A' | b'a' => Nucleotide::A,
-            b'C' | b'c' => Nucleotide::C,
-            b'G' | b'g' => Nucleotide::G,
-            b'T' | b't' => Nucleotide::T,
-            _ => Nucleotide::Unknown,
+            b'A' | b'a' => Reference::A,
+            b'C' | b'c' => Reference::C,
+            b'G' | b'g' => Reference::G,
+            b'T' | b't' => Reference::T,
+            _ => Reference::N,
         }
     }
 }
 
-impl From<ReqNucleotide> for Nucleotide {
-    fn from(nuc: ReqNucleotide) -> Self {
-        match nuc {
-            ReqNucleotide::A => Nucleotide::A,
-            ReqNucleotide::C => Nucleotide::C,
-            ReqNucleotide::G => Nucleotide::G,
-            ReqNucleotide::T => Nucleotide::T,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-#[allow(non_snake_case)]
-pub enum ReqNucleotide {
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
+pub enum Observed {
     A,
     C,
     G,
     T,
+    N,
+    Deletion,
+    Insertion,
 }
 
-impl TryFrom<Nucleotide> for ReqNucleotide {
-    type Error = ();
-
-    fn try_from(nuc: Nucleotide) -> Result<Self, Self::Error> {
-        match nuc {
-            Nucleotide::A => Ok(ReqNucleotide::A),
-            Nucleotide::C => Ok(ReqNucleotide::C),
-            Nucleotide::G => Ok(ReqNucleotide::G),
-            Nucleotide::T => Ok(ReqNucleotide::T),
-            Nucleotide::Unknown => Err(()),
+impl Observed {
+    pub fn symbol(&self) -> &'static str {
+        match self {
+            Observed::A => "A",
+            Observed::C => "C",
+            Observed::G => "G",
+            Observed::T => "T",
+            Observed::N => "N",
+            Observed::Deletion => "D",
+            Observed::Insertion => "I",
         }
     }
 }
 
-impl TryFrom<u8> for ReqNucleotide {
-    type Error = ();
+impl Display for Observed {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.symbol())
+    }
+}
 
-    fn try_from(nuc: u8) -> Result<Self, Self::Error> {
-        match nuc {
-            b'A' | b'a' => Ok(ReqNucleotide::A),
-            b'C' | b'c' => Ok(ReqNucleotide::C),
-            b'G' | b'g' => Ok(ReqNucleotide::G),
-            b'T' | b't' => Ok(ReqNucleotide::T),
-            _ => Err(()),
+impl Default for Observed {
+    fn default() -> Self {
+        Observed::N
+    }
+}
+
+impl From<Reference> for Observed {
+    fn from(reference: Reference) -> Self {
+        match reference {
+            Reference::A => Observed::A,
+            Reference::C => Observed::C,
+            Reference::G => Observed::G,
+            Reference::T => Observed::T,
+            Reference::N => Observed::N,
         }
+    }
+}
+
+impl From<u8> for Observed {
+    fn from(symbol: u8) -> Self {
+        match symbol {
+            b'A' | b'a' => Observed::A,
+            b'C' | b'c' => Observed::C,
+            b'G' | b'g' => Observed::G,
+            b'T' | b't' => Observed::T,
+            _ => Observed::N,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reference_from_sequence_symbol() {
+        assert_eq!(Reference::from(b'A'), Reference::A);
+        assert_eq!(Reference::from(b'c'), Reference::C);
+        assert_eq!(Reference::from(b'X'), Reference::N);
+        assert_eq!(Reference::N.symbol(), "N");
+    }
+
+    #[test]
+    fn observed_from_sequence_symbol() {
+        assert_eq!(Observed::from(b'G'), Observed::G);
+        assert_eq!(Observed::from(b't'), Observed::T);
+        assert_eq!(Observed::from(b'.'), Observed::N);
+        assert_eq!(Observed::Deletion.symbol(), "D");
+        assert_eq!(Observed::Insertion.symbol(), "I");
+    }
+
+    #[test]
+    fn reference_can_be_observed() {
+        assert_eq!(Observed::from(Reference::A), Observed::A);
+        assert_eq!(Observed::from(Reference::N), Observed::N);
     }
 }
