@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::core::mismatches::prefilters;
 use crate::core::mismatches::prefilters::RetainSitesFromIntervals;
-use crate::core::payload::Payload;
+use crate::core::workload::Workload;
 
 pub struct Engine {
     pub threads: usize,
@@ -10,7 +10,7 @@ pub struct Engine {
     pub reference: PathBuf,
     pub min_phread: u8,
 
-    pub workload: Vec<Payload>,
+    pub workload: Workload<String, u64>,
     pub maxwsize: usize,
     pub prefilter: prefilters::ByMismatches,
     pub stranding: Box<()>,
@@ -32,7 +32,7 @@ pub struct Engine {
 //         let filter: prefilters::ByMismatches = todo!();
 //
 //         let mut stranding = REATStrandingEngine::new();
-//         let mut payload: Option<Vec<SiteWorkload>> = Default::default();
+//         let mut workload: Option<Vec<SiteWorkload>> = Default::default();
 //         let mut maxsize: Option<usize> = Default::default();
 //         let mut retain: Option<RetainSitesFromIntervals> = Default::default();
 //
@@ -42,7 +42,7 @@ pub struct Engine {
 //                 // let (w, m) = parse::work(pbarw, &core.bamfiles, core.excluded.take(), args);
 //                 // let (w, m) = parse::work(pbarw, &core.bamfiles, args);
 //
-//                 payload = Some(todo!());
+//                 workload = Some(todo!());
 //                 maxsize = Some(todo!())
 //             });
 //             s.spawn(|_| {
@@ -57,7 +57,7 @@ pub struct Engine {
 //             refnucpred: Box::new(AutoRef::new(Box::new(refreader))),
 //             readfilter,
 //             // excluded: parse::excluded(factory(), args),
-//             payload: payload.unwrap(),
+//             workload: workload.unwrap(),
 //             maxwsize: maxsize.unwrap(),
 //             prefilter: filter,
 //             stranding,

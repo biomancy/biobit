@@ -15,7 +15,7 @@ pub struct ReadsFilter {
 pub struct EngineBuilder {
     // pub bamfiles: Vec<PathBuf>,
     // pub reference: PathBuf,
-    // pub payload: Vec<SiteWorkload>,
+    // pub workload: Vec<SiteWorkload>,
     // pub maxwsize: usize,
     pub threads: usize,
     pub reference: Option<Box<dyn RefFetcher>>,
@@ -57,7 +57,7 @@ impl EngineBuilder {
 //         let filter: prefilters::ByMismatches = todo!();
 //
 //         let mut stranding = REATStrandingEngine::new();
-//         let mut payload: Option<Vec<SiteWorkload>> = Default::default();
+//         let mut workload: Option<Vec<SiteWorkload>> = Default::default();
 //         let mut maxsize: Option<usize> = Default::default();
 //         let mut retain: Option<RetainSitesFromIntervals> = Default::default();
 //
@@ -67,7 +67,7 @@ impl EngineBuilder {
 //                 // let (w, m) = parse::work(pbarw, &core.bamfiles, core.excluded.take(), args);
 //                 // let (w, m) = parse::work(pbarw, &core.bamfiles, args);
 //
-//                 payload = Some(todo!());
+//                 workload = Some(todo!());
 //                 maxsize = Some(todo!())
 //             });
 //             s.spawn(|_| {
@@ -82,7 +82,7 @@ impl EngineBuilder {
 //             refnucpred: Box::new(AutoRef::new(Box::new(refreader))),
 //             readfilter,
 //             // excluded: parse::excluded(factory(), args),
-//             payload: payload.unwrap(),
+//             workload: workload.unwrap(),
 //             maxwsize: maxsize.unwrap(),
 //             prefilter: filter,
 //             stranding,
