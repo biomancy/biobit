@@ -144,7 +144,7 @@ pub fn run<S: scoring::Score>(
             (aln.seq1().start as isize, aln.seq2().start as isize),
             (aln.seq1().end as isize, aln.seq2().end as isize),
         );
-        for existing in passed.locate_in_envelope_intersecting(&envelope) {
+        for existing in passed.locate_in_envelope_intersecting(envelope) {
             if existing.1.intersects(&aln) {
                 intersection = Some(SelectByID(envelope, existing.0));
                 break;
