@@ -25,8 +25,8 @@ members = [
     "modules/toolkit/reaper/*",
     # Repeto
     "modules/toolkit/repeto/*",
-    # REAT - WIP
-    # "modules/toolkit/reat/*",
+    # REAT
+    "modules/toolkit/reat/*",
 ]
 resolver = "3"
 
@@ -60,16 +60,16 @@ rayon = "1.12.0"
 thread_local = "1.1.9"
 # Data structures
 anymap3 = "1.0.1"
-rstar = "0.12.2"
+rstar = "0.13.0"
 # Algorithms
-memchr = "2.8.0"
+memchr = "2.8.1"
 ahash = "0.8.12"
 # I/O
-noodles = { version = "0.109.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+noodles = { version = "0.111.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
 substratum-compress = { git = "https://github.com/biomancy/substratum", rev = "5592a2a56abaf8ee767b2a4b673fcb106b6e397c", features = ["all"] }
 # Logging and errors
 eyre = "0.6.12"
-log = "0.4.29"
+log = "0.4.30"
 # Serialization
 bitcode = "0.6.9"
 serde = { version = "1.0.228", features = ["rc", "serde_derive"] }
