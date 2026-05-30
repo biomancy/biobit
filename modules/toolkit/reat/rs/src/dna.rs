@@ -1,11 +1,12 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug, Default)]
 pub enum Reference {
     A,
     C,
     G,
     T,
+    #[default]
     N,
 }
 
@@ -27,12 +28,6 @@ impl Display for Reference {
     }
 }
 
-impl Default for Reference {
-    fn default() -> Self {
-        Reference::N
-    }
-}
-
 impl From<u8> for Reference {
     fn from(symbol: u8) -> Self {
         match symbol {
@@ -45,15 +40,15 @@ impl From<u8> for Reference {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug, Default)]
 pub enum Observed {
     A,
     C,
     G,
     T,
+    #[default]
     N,
     Deletion,
-    Insertion,
 }
 
 impl Observed {
@@ -65,7 +60,6 @@ impl Observed {
             Observed::T => "T",
             Observed::N => "N",
             Observed::Deletion => "D",
-            Observed::Insertion => "I",
         }
     }
 }
@@ -73,12 +67,6 @@ impl Observed {
 impl Display for Observed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.symbol())
-    }
-}
-
-impl Default for Observed {
-    fn default() -> Self {
-        Observed::N
     }
 }
 
@@ -124,7 +112,6 @@ mod tests {
         assert_eq!(Observed::from(b't'), Observed::T);
         assert_eq!(Observed::from(b'.'), Observed::N);
         assert_eq!(Observed::Deletion.symbol(), "D");
-        assert_eq!(Observed::Insertion.symbol(), "I");
     }
 
     #[test]

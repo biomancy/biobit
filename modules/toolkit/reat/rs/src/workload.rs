@@ -2,26 +2,64 @@ use std::collections::BTreeMap;
 
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimUInt;
+use eyre::{Result, ensure};
+
+use crate::selection::Selection;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Task<SeqId = String, Idx: PrimUInt = u64> {
     pub seqid: SeqId,
-    pub fetch: Interval<Idx>,
+    pub envelope: Interval<Idx>,
     pub intervals: Vec<Interval<Idx>>,
 }
 
 impl<SeqId, Idx: PrimUInt> Task<SeqId, Idx> {
-    pub fn new(seqid: SeqId, fetch: Interval<Idx>, intervals: Vec<Interval<Idx>>) -> Self {
+    pub fn new(seqid: SeqId, envelope: Interval<Idx>, mut intervals: Vec<Interval<Idx>>) -> Self {
+        // Ensure that intervals are non-overlapping and sorted
+        let intervals = Interval::merge(&mut intervals);
         assert!(
-            intervals.iter().all(|interval| fetch.envelops(interval)),
-            "all task intervals must be inside the fetch interval"
+            intervals.iter().all(|interval| envelope.envelops(interval)),
+            "all task intervals must be inside the envelope interval"
         );
 
         Self {
             seqid,
-            fetch,
+            envelope,
             intervals,
         }
+    }
+
+    pub fn exclude_outside_intervals(&self, selection: &mut Selection) -> Result<()> {
+        let envelope_len = self
+            .envelope
+            .len()
+            .to_usize()
+            .ok_or_else(|| eyre::eyre!("task envelope length does not fit into usize"))?;
+        ensure!(
+            selection.len() == envelope_len,
+            "selection length does not match task envelope length"
+        );
+
+        let start =
+            self.envelope.start().to_usize().ok_or_else(|| {
+                eyre::eyre!("task envelope start coordinate does not fit into usize")
+            })?;
+        let mut offset = 0;
+        for interval in &self.intervals {
+            let interval = interval.cast::<usize>().ok_or_else(|| {
+                eyre::eyre!("interval coordinates do not fit into task envelope coordinate type")
+            })?;
+
+            for excluded in offset..(interval.start() - start) {
+                selection.exclude(excluded);
+            }
+            offset = interval.end() - start;
+        }
+
+        for excluded in offset..envelope_len {
+            selection.exclude(excluded);
+        }
+        Ok(())
     }
 }
 
@@ -60,7 +98,7 @@ where
             .into_iter()
             .flat_map(|(seqid, mut intervals)| {
                 let merged = Interval::merge(&mut intervals);
-                let chunks = split_intervals(merged.into_iter(), max_task_size);
+                let chunks = split_intervals(merged, max_task_size);
                 pack(seqid, chunks, max_task_size)
             })
             .collect();
@@ -126,7 +164,11 @@ where
 
     for interval in iter {
         if interval.end() > fetch_limit {
-            tasks.push(task(seqid.clone(), fetch_start, fetch_end, buffer));
+            tasks.push(Task::new(
+                seqid.clone(),
+                Interval::new(fetch_start, fetch_end).unwrap(),
+                buffer,
+            ));
 
             fetch_start = interval.start();
             fetch_limit = fetch_start
@@ -140,21 +182,12 @@ where
         }
     }
 
-    tasks.push(task(seqid, fetch_start, fetch_end, buffer));
-    tasks
-}
-
-fn task<SeqId, Idx: PrimUInt>(
-    seqid: SeqId,
-    fetch_start: Idx,
-    fetch_end: Idx,
-    intervals: Vec<Interval<Idx>>,
-) -> Task<SeqId, Idx> {
-    Task::new(
+    tasks.push(Task::new(
         seqid,
         Interval::new(fetch_start, fetch_end).unwrap(),
-        intervals,
-    )
+        buffer,
+    ));
+    tasks
 }
 
 #[cfg(test)]
@@ -263,11 +296,40 @@ mod tests {
     }
 
     #[test]
+    fn task_excludes_selection_outside_intervals() -> Result<()> {
+        let task = Task::new(
+            "chr1",
+            interval(10, 20),
+            vec![interval(15, 18), interval(12, 16)],
+        );
+        let mut selection = Selection::zeros(10);
+        for offset in 0..selection.len() {
+            selection.select(offset);
+        }
+
+        task.exclude_outside_intervals(&mut selection)?;
+
+        assert_eq!(
+            selection.selected_offsets().collect::<Vec<_>>(),
+            vec![2, 3, 4, 5, 6, 7]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn task_rejects_selection_with_wrong_length() {
+        let task = Task::new("chr1", interval(10, 20), vec![interval(12, 16)]);
+        let mut selection = Selection::zeros(9);
+
+        assert!(task.exclude_outside_intervals(&mut selection).is_err());
+    }
+
+    #[test]
     fn supports_non_default_coordinate_type() -> Result<()> {
         let workload =
             Workload::from_intervals([("chr1".to_string(), Interval::new(0_u32, 10_u32)?)], 5_u32);
 
-        let _: Interval<u32> = workload.tasks[0].fetch;
+        let _: Interval<u32> = workload.tasks[0].envelope;
         assert_eq!(workload.len(), 2);
         Ok(())
     }

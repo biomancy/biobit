@@ -61,6 +61,7 @@ thread_local = "1.1.9"
 # Data structures
 anymap3 = "1.0.1"
 rstar = "0.13.0"
+bitvec = "1.0.1"
 # Algorithms
 memchr = "2.8.1"
 ahash = "0.8.12"

@@ -44,7 +44,10 @@ dyn-clone = { workspace = true }
 thread_local = { workspace = true }
 rayon = { workspace = true }
 noodles = { workspace = true }
+higher-kinded-types = { workspace = true }
 soa_derive = { git = "https://github.com/lumol-org/soa-derive", rev = "408affda60bc4b4cf65d461e164a88f16cdfdf06" }
+bitvec = { workspace = true }
+num = { workspace = true }
 
 [dev-dependencies]
 mockall = "0.13.1"
