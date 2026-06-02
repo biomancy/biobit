@@ -43,8 +43,8 @@ impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> DensePileup<SeqId, Idx, Cnts> {
     }
 
     #[inline]
-    pub fn interval(&self) -> Interval<Idx> {
-        self.interval
+    pub fn interval(&self) -> &Interval<Idx> {
+        &self.interval
     }
 
     #[inline]
@@ -103,7 +103,7 @@ mod tests {
         assert_eq!(dense.len(), 2);
         assert_eq!(dense.seqid, "chr1");
         assert_eq!(dense.orientation, Orientation::Forward);
-        assert_eq!(dense.interval(), Interval::new(10_u64, 12).unwrap());
+        assert_eq!(*dense.interval(), Interval::new(10_u64, 12).unwrap());
         Ok(())
     }
 
@@ -138,7 +138,7 @@ mod tests {
 
         assert_eq!(dense.seqid, "chr2");
         assert_eq!(dense.orientation, Orientation::Reverse);
-        assert_eq!(dense.interval(), Interval::new(20_u64, 24).unwrap());
+        assert_eq!(*dense.interval(), Interval::new(20_u64, 24).unwrap());
         assert_eq!(dense.counts().a(), &[0, 0, 0, 0]);
         Ok(())
     }

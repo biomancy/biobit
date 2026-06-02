@@ -3,7 +3,7 @@ use biobit_core_rs::num::PrimUInt;
 use eyre::Result;
 
 use crate::pileup::{DensePileup, Pileup};
-use crate::workload::Task;
+use crate::task::Task;
 
 pub struct PileupCache<SeqId, Idx: PrimUInt, Cnts: PrimUInt> {
     pileups: PerOrientation<Option<DensePileup<SeqId, Idx, Cnts>>>,
@@ -44,10 +44,10 @@ where
         if !self.initialized[orientation] {
             let pileup = &mut self.pileups[orientation];
             if let Some(pileup) = pileup {
-                pileup.reset(task.seqid.clone(), task.envelope, orientation)?;
+                pileup.reset(task.seqid().clone(), *task.envelope(), orientation)?;
             } else {
                 let length =
-                    task.envelope.len().to_usize().ok_or_else(|| {
+                    task.envelope().len().to_usize().ok_or_else(|| {
                         eyre::eyre!("Pileup interval length does not fit into usize")
                     })?;
                 let capacity = self.capacity.max(length);
@@ -55,8 +55,8 @@ where
                 cnts.reset(length);
 
                 *pileup = Some(DensePileup::new(
-                    task.seqid.clone(),
-                    task.envelope,
+                    task.seqid().clone(),
+                    *task.envelope(),
                     orientation,
                     cnts,
                 )?);

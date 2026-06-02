@@ -81,10 +81,10 @@ where
         let Some(required) = self.index.get(&key) else {
             return Ok(());
         };
-        let overlaps = required.query(pileup.interval()).map(|(i, _)| i);
+        let overlaps = required.query(*pileup.interval()).map(|(i, _)| i);
         for overlap in overlaps.into_iter() {
             // Overlaps aren't guaranteed to be fully contained within the pileup interval, so we need to compute the intersection
-            let intersection = overlap.intersection(&pileup.interval());
+            let intersection = overlap.intersection(pileup.interval());
             debug_assert!(
                 intersection.is_some(),
                 "overlap should intersect with pileup interval"

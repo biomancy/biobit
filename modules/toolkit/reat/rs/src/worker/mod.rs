@@ -6,4 +6,4 @@ mod process;
 mod reference;
 mod worker;
 
-pub use worker::{DynReadSource, SourceArgs, SourceItem, Worker, WorkerResults};
+pub use worker::{DynReadSource, SourceArgs, SourceItem, Worker};
