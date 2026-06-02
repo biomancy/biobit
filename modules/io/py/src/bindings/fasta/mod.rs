@@ -2,7 +2,7 @@ use biobit_core_py::utils::ImportablePyModuleBuilder;
 use pyo3::prelude::*;
 
 pub use biobit_io_rs::fasta::DEFAULT_LINE_WIDTH;
-pub use indexed_reader::{IndexedReader, IndexedReaderMutOp, PyIndexedReader};
+pub use indexed_reader::{IndexedReaderMutOp, IndexedSources, PyIndexedReader, PyIndexedSources};
 pub use reader::{PyReader, Reader};
 pub use record::{PyRecord, Record, RecordMutOp, RecordOp};
 pub use writer::{PyWriter, Writer};
@@ -17,6 +17,7 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .defaults()?
         .add_class::<PyRecord>()?
         .add_class::<PyReader>()?
+        .add_class::<PyIndexedSources>()?
         .add_class::<PyIndexedReader>()?
         .add_class::<PyWriter>()?
         .finish();

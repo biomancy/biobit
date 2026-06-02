@@ -1,3 +1,3 @@
-from biobit.rs.io.fasta import Record, Reader, IndexedReader, Writer
+from biobit.rs.io.fasta import IndexedReader, IndexedSources, Reader, Record, Writer
 
-__all__ = ["Record", "Reader", "IndexedReader", "Writer"]
+__all__ = ["Record", "Reader", "IndexedSources", "IndexedReader", "Writer"]

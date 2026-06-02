@@ -79,7 +79,7 @@ where
         match cigar.op() {
             Kind::Match | Kind::SequenceMatch | Kind::SequenceMismatch => {
                 step = cigar.len().min(roi.remaining());
-                roi.aligned(&read, step, min_phread);
+                roi.aligned(read, step, min_phread);
                 read.advance(step);
                 roi.advance(step);
             }

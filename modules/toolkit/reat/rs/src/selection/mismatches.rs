@@ -15,7 +15,7 @@ pub struct Mismatches<Cnts: PrimUInt = u32> {
 impl<Cnts: PrimUInt> Mismatches<Cnts> {
     pub fn new(minmismatches: Cnts, minfreq: f32, mincov: Cnts) -> Result<Self> {
         ensure!(
-            0.0 <= minfreq && minfreq <= 1.0,
+            (0.0..=1.0).contains(&minfreq),
             "minimum mismatch frequency must be between 0 and 1, got {minfreq}"
         );
         Ok(Self {

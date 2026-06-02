@@ -30,7 +30,7 @@ where
         let pileups = grouped
             .into_iter()
             .map(|(key, mut chunks)| {
-                chunks.sort_by(|left, right| left.interval().cmp(&right.interval()));
+                chunks.sort_by_key(|chunk| chunk.interval());
                 let pileup = SparsePileup::from_distinct_chunks(&chunks)?;
                 Ok((key, pileup))
             })

@@ -1,10 +1,12 @@
 mod indexed_reader;
+mod indexed_sources;
 mod reader;
 mod record;
 pub mod validate;
 mod writer;
 
 pub use indexed_reader::{IndexedReader, IndexedReaderMutOp};
+pub use indexed_sources::IndexedSources;
 pub use reader::Reader;
 pub use record::{Record, RecordMutOp, RecordOp};
 use std::num::NonZeroUsize;

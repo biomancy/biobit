@@ -177,13 +177,13 @@ where
         let mut deletion = Vec::with_capacity(length);
 
         for chunk in chunks.iter() {
-            positions.extend_from_slice(&mut chunk.positions());
-            a.extend_from_slice(&mut chunk.counts.a());
-            c.extend_from_slice(&mut chunk.counts.c());
-            g.extend_from_slice(&mut chunk.counts.g());
-            t.extend_from_slice(&mut chunk.counts.t());
-            n.extend_from_slice(&mut chunk.counts.n());
-            deletion.extend_from_slice(&mut chunk.counts.deletion());
+            positions.extend_from_slice(chunk.positions());
+            a.extend_from_slice(chunk.counts.a());
+            c.extend_from_slice(chunk.counts.c());
+            g.extend_from_slice(chunk.counts.g());
+            t.extend_from_slice(chunk.counts.t());
+            n.extend_from_slice(chunk.counts.n());
+            deletion.extend_from_slice(chunk.counts.deletion());
         }
 
         SparsePileup::new(
