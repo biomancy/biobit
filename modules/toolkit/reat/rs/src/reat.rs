@@ -57,13 +57,11 @@ where
         }
     }
 
-    pub fn register<Samples>(&mut self, samples: Samples) -> &mut Self
+    pub fn register<Sources>(&mut self, tag: SmplTag, sources: Sources) -> &mut Self
     where
-        Samples: IntoIterator<Item = (SmplTag, Src)>,
+        Sources: IntoIterator<Item = Src>,
     {
-        for (tag, source) in samples {
-            self.samples.entry(tag).or_default().push(source);
-        }
+        self.samples.entry(tag).or_default().extend(sources);
         self
     }
 
@@ -79,7 +77,7 @@ where
         Tasks: IntoIterator<Item = Task<SeqId, Idx>>,
     {
         let tasks = tasks.into_iter().collect::<Vec<_>>();
-        let size_hint = size_hint(&tasks)?;
+        let size_hint = max_task_envelope(&tasks)?;
 
         let tags = self.samples.keys().cloned().collect::<Vec<_>>();
         let sources = self.samples.values().collect::<Vec<_>>();
@@ -176,7 +174,7 @@ where
         .collect()
 }
 
-fn size_hint<SeqId, Idx: PrimUInt>(tasks: &[Task<SeqId, Idx>]) -> Result<usize> {
+fn max_task_envelope<SeqId, Idx: PrimUInt>(tasks: &[Task<SeqId, Idx>]) -> Result<usize> {
     let mut hint = 0;
     for task in tasks {
         let len = task
