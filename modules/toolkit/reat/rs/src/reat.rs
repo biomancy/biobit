@@ -1,5 +1,6 @@
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -19,6 +20,114 @@ use crate::worker::{DynReadSource, SourceArgs, SourceItem, Worker};
 
 type SourceMap<SeqId> = RefCell<HashMap<usize, Vec<DynReadSource<SeqId>>>>;
 type ResultMap<SeqId, Idx, Cnts> = RefCell<HashMap<usize, Vec<SparsePileup<SeqId, Idx, Cnts>>>>;
+
+struct ThreadLocalCache<SeqId, Idx, Cnts>
+where
+    SeqId: Send,
+    Idx: PrimUInt + Send,
+    Cnts: PrimUInt + Send,
+{
+    workers: ThreadLocal<RefCell<Worker<SeqId, Idx, Cnts>>>,
+    sources: ThreadLocal<SourceMap<SeqId>>,
+    results: ThreadLocal<ResultMap<SeqId, Idx, Cnts>>,
+    errors: ThreadLocal<RefCell<Vec<eyre::Report>>>,
+    failed: AtomicBool,
+}
+
+impl<SeqId, Idx, Cnts> ThreadLocalCache<SeqId, Idx, Cnts>
+where
+    SeqId: Send,
+    Idx: PrimUInt + Send,
+    Cnts: PrimUInt + Send,
+{
+    fn new() -> Self {
+        Self {
+            workers: ThreadLocal::new(),
+            sources: ThreadLocal::new(),
+            results: ThreadLocal::new(),
+            errors: ThreadLocal::new(),
+            failed: AtomicBool::new(false),
+        }
+    }
+
+    fn failed(&self) -> bool {
+        self.failed.load(Ordering::Relaxed)
+    }
+
+    fn worker(
+        &self,
+        new: impl FnOnce() -> Result<Worker<SeqId, Idx, Cnts>>,
+    ) -> Result<RefMut<'_, Worker<SeqId, Idx, Cnts>>> {
+        let worker = self.workers.get_or_try(|| new().map(RefCell::new))?;
+        Ok(worker.borrow_mut())
+    }
+
+    fn sources<Src>(
+        &self,
+        sample_index: usize,
+        sources: &[Src],
+    ) -> Result<RefMut<'_, Vec<DynReadSource<SeqId>>>>
+    where
+        Src: Source<Args = SourceArgs<SeqId>, Item = SourceItem> + 'static,
+    {
+        let cache = self
+            .sources
+            .get_or_try(|| Ok::<_, eyre::Report>(RefCell::new(HashMap::new())))?;
+        Ok(RefMut::map(cache.borrow_mut(), |cache| {
+            cache.entry(sample_index).or_insert_with(|| {
+                sources
+                    .iter()
+                    .map(|source| {
+                        Box::new(dyn_clone::clone(source).to_dynsrc()) as DynReadSource<SeqId>
+                    })
+                    .collect()
+            })
+        }))
+    }
+
+    fn add_result(
+        &self,
+        sample_index: usize,
+        pileups: Vec<SparsePileup<SeqId, Idx, Cnts>>,
+    ) -> Result<()> {
+        let results = self
+            .results
+            .get_or_try(|| Ok::<_, eyre::Report>(RefCell::new(HashMap::new())))?;
+        results
+            .borrow_mut()
+            .entry(sample_index)
+            .or_default()
+            .extend(pileups);
+        Ok(())
+    }
+
+    fn record_error(&self, err: eyre::Report) {
+        self.failed.store(true, Ordering::Relaxed);
+        let errors = self
+            .errors
+            .get_or_try(|| Ok::<_, Infallible>(RefCell::new(Vec::new())))
+            .unwrap_or_else(|never| match never {});
+        errors.borrow_mut().push(err);
+    }
+
+    fn into_errors(self) -> Vec<eyre::Report> {
+        let mut collapsed = Vec::new();
+        for errors in self.errors {
+            collapsed.extend(errors.into_inner());
+        }
+        collapsed
+    }
+
+    fn into_results(self, samples: usize) -> Vec<Vec<SparsePileup<SeqId, Idx, Cnts>>> {
+        let mut collapsed = (0..samples).map(|_| Vec::new()).collect::<Vec<_>>();
+        for results in self.results {
+            for (sample_index, pileups) in results.into_inner() {
+                collapsed[sample_index].extend(pileups);
+            }
+        }
+        collapsed
+    }
+}
 
 pub struct Reat<SeqId, Idx, Cnts, SmplTag, Src>
 where
@@ -79,99 +188,62 @@ where
         let tasks = tasks.into_iter().collect::<Vec<_>>();
         let size_hint = max_task_envelope(&tasks)?;
 
+        // Order is preserved by BTreeMap, so tags and sources are aligned by index.
         let tags = self.samples.keys().cloned().collect::<Vec<_>>();
         let sources = self.samples.values().collect::<Vec<_>>();
 
-        let workers = ThreadLocal::<RefCell<Worker<SeqId, Idx, Cnts>>>::new();
-        let source_cache = ThreadLocal::<SourceMap<SeqId>>::new();
-        let result_cache = ThreadLocal::<ResultMap<SeqId, Idx, Cnts>>::new();
-        let errors = ThreadLocal::<RefCell<Vec<eyre::Report>>>::new();
-        let error_occurred = AtomicBool::new(false);
+        let cache = ThreadLocalCache::<SeqId, Idx, Cnts>::new();
 
         let sample_indices = (0..tags.len()).collect::<Vec<_>>();
         let task_indices = (0..tasks.len()).collect::<Vec<_>>();
 
-        let reference = self.reference.clone();
-        let selector = Arc::clone(&self.selector);
-        let min_phred = self.min_phred;
-
         self.pool.scope(|scope| {
-            for sample_index in &sample_indices {
-                for task_index in &task_indices {
-                    if error_occurred.load(Ordering::Relaxed) {
+            for smplidx in &sample_indices {
+                for taskidx in &task_indices {
+                    if cache.failed() {
                         return;
                     }
 
                     scope.spawn(|_| {
-                        if error_occurred.load(Ordering::Relaxed) {
+                        if cache.failed() {
                             return;
                         }
 
                         let result = (|| -> Result<()> {
-                            let worker = workers.get_or_try(|| {
-                                Ok::<_, eyre::Report>(RefCell::new(Worker::new(
-                                    reference.open()?,
-                                    Arc::clone(&selector),
-                                    min_phred,
+                            let mut worker = cache.worker(|| {
+                                Ok(Worker::new(
+                                    self.reference.open()?,
+                                    Arc::clone(&self.selector),
+                                    self.min_phred,
                                     size_hint,
-                                )))
+                                ))
                             })?;
-                            let mut worker = worker.borrow_mut();
+                            let mut smplsrc = cache.sources(*smplidx, sources[*smplidx])?;
 
-                            let mut source_cache = source_cache.get_or_default().borrow_mut();
-                            let sample_sources = source_cache
-                                .entry(*sample_index)
-                                .or_insert_with(|| clone_sources(sources[*sample_index]));
-
-                            let pileups = worker.process(&tasks[*task_index], sample_sources)?;
-                            result_cache
-                                .get_or_default()
-                                .borrow_mut()
-                                .entry(*sample_index)
-                                .or_default()
-                                .extend(pileups);
+                            let result =
+                                worker.process(&tasks[*taskidx], smplsrc.as_mut_slice())?;
+                            cache.add_result(*smplidx, result)?;
                             Ok(())
                         })();
 
                         if let Err(err) = result {
-                            error_occurred.store(true, Ordering::Relaxed);
-                            errors.get_or_default().borrow_mut().push(err);
+                            cache.record_error(err);
                         }
                     });
                 }
             }
         });
 
-        if error_occurred.into_inner() {
-            let mut collapsed_errors = Vec::new();
-            for errors in errors {
-                collapsed_errors.extend(errors.into_inner());
-            }
-            return Err(eyre!("REAT failed. Errors: {:?}", collapsed_errors));
+        if cache.failed() {
+            return Err(eyre!("REAT failed. Errors: {:?}", cache.into_errors()));
         }
 
-        let mut collapsed = (0..tags.len()).map(|_| Vec::new()).collect::<Vec<_>>();
-        for results in result_cache {
-            for (sample_index, pileups) in results.into_inner() {
-                collapsed[sample_index].extend(pileups);
-            }
-        }
-
+        let collapsed = cache.into_results(tags.len());
         tags.into_iter()
             .zip(collapsed)
             .map(|(tag, pileups)| SelectedPileup::new(tag, pileups))
             .collect()
     }
-}
-
-fn clone_sources<SeqId, Src>(sources: &[Src]) -> Vec<DynReadSource<SeqId>>
-where
-    Src: Source<Args = SourceArgs<SeqId>, Item = SourceItem> + 'static,
-{
-    sources
-        .iter()
-        .map(|source| Box::new(dyn_clone::clone(source).to_dynsrc()) as DynReadSource<SeqId>)
-        .collect()
 }
 
 fn max_task_envelope<SeqId, Idx: PrimUInt>(tasks: &[Task<SeqId, Idx>]) -> Result<usize> {
