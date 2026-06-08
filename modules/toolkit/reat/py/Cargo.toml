@@ -1,0 +1,30 @@
+[package]
+name = "biobit-reat-py"
+description = "TODO"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[lib]
+path = "src/bindings/lib.rs"
+
+[dependencies]
+pyo3 = { workspace = true }
+biobit-core-rs = { path = "../../../core/rs" }
+biobit-core-py = { path = "../../../core/py" }
+biobit-io-rs = { path = "../../../io/rs" }
+biobit-io-py = { path = "../../../io/py" }
+biobit-reat-rs = { path = "../rs", features = ["bitcode"] }
+derive-getters = { workspace = true }
+derive_more = { workspace = true }
+eyre = { workspace = true }
+higher-kinded-types = { workspace = true }
+noodles = { workspace = true }
+rayon = { workspace = true }

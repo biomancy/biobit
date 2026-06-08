@@ -102,7 +102,7 @@ impl PyPileup {
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve, From, Into)]
 pub struct PySparsePileup {
-    pub rs: SparsePileup<String, usize, u32>,
+    pub rs: SparsePileup<String, u64, u32>,
 }
 
 #[pymethods]
@@ -111,7 +111,7 @@ impl PySparsePileup {
     pub fn new(
         seqid: String,
         orientation: IntoPyOrientation,
-        positions: Vec<usize>,
+        positions: Vec<u64>,
         counts: PyPileup,
     ) -> eyre::Result<Self> {
         Ok(Self {
@@ -130,7 +130,7 @@ impl PySparsePileup {
     }
 
     #[getter]
-    pub fn positions(&self) -> Vec<usize> {
+    pub fn positions(&self) -> Vec<u64> {
         self.rs.positions().to_vec()
     }
 
