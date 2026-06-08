@@ -1,3 +1,7 @@
+"""
+Python interface for REAT: RNA editing analysis toolkit.
+"""
+
 from biobit.rs.toolkit.reat import (
     Pileup,
     Reat,
