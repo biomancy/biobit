@@ -1,12 +1,15 @@
 use biobit_core_rs::num::PrimUInt;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use eyre::Result;
 
 use crate::dna::Reference;
 use crate::pileup::DensePileup;
 use crate::selection::{Mismatches, RequiredSites, Selection, Selector};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Debug)]
-pub struct RequiredOrMismatches<SeqId = String, Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
+pub struct RequiredOrMismatches<SeqId: Ord = String, Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
     required: RequiredSites<SeqId, Idx>,
     mismatches: Mismatches<Cnts>,
 }

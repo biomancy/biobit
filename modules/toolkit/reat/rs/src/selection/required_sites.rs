@@ -1,3 +1,5 @@
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use std::collections::BTreeMap;
 
 use biobit_collections_rs::interval_tree::Bits;
@@ -9,8 +11,9 @@ use crate::dna::Reference;
 use crate::pileup::DensePileup;
 use crate::selection::{Selection, Selector};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct RequiredSites<SeqId = String, Idx: PrimUInt = u64> {
+pub struct RequiredSites<SeqId: Ord = String, Idx: PrimUInt = u64> {
     index: BTreeMap<(SeqId, Orientation), Bits<Idx, ()>>,
 }
 
