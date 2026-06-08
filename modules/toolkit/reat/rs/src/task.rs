@@ -2,11 +2,14 @@ use std::collections::BTreeMap;
 
 use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimUInt;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use derive_getters::Getters;
 use eyre::{Result, ensure, eyre};
 
 use crate::selection::Selection;
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug, Getters)]
 pub struct Task<SeqId = String, Idx: PrimUInt = u64> {
     seqid: SeqId,

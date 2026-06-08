@@ -1,9 +1,12 @@
 use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
 use biobit_core_rs::num::PrimUInt;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use eyre::{Result, ensure};
 
 use super::{Pileup, Site};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct DensePileup<SeqId = String, Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
     pub seqid: SeqId,

@@ -1,6 +1,8 @@
 use std::ops::{Index, IndexMut};
 
 use biobit_core_rs::num::PrimUInt;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use derive_getters::Dissolve;
 use eyre::{Result, ensure};
 
@@ -12,6 +14,7 @@ pub use iter_mut::{SiteMut, SitesMut};
 #[path = "iter_mut.rs"]
 mod iter_mut;
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, Eq, PartialEq, Debug, Default, Dissolve)]
 pub struct Pileup<T> {
     a: Vec<T>,

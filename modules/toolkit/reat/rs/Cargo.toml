@@ -36,6 +36,7 @@ categories.workspace = true
 biobit-core-rs = { path = "../../../core/rs" }
 biobit-io-rs = { path = "../../../io/rs" }
 biobit-collections-rs = { path = "../../../collections/rs" }
+bitcode = { workspace = true, optional = true }
 eyre = { workspace = true }
 itertools = { workspace = true }
 derive-getters = { workspace = true }
@@ -52,3 +53,6 @@ num = { workspace = true }
 [dev-dependencies]
 mockall = "0.13.1"
 static_init = "1.0.3"
+
+[features]
+bitcode = ["dep:bitcode"]

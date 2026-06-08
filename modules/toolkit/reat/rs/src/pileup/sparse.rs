@@ -1,10 +1,13 @@
 use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
 use biobit_core_rs::num::PrimUInt;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use eyre::{Result, ensure};
 
 use super::dense::DensePileup;
 use super::{Pileup, Site, SiteMut};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SparsePileup<SeqId, Idx, Cnts> {
     pub seqid: SeqId,

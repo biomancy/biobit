@@ -1,10 +1,13 @@
 use biobit_core_rs::num::PrimUInt;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 use eyre::{Result, ensure};
 
 use crate::dna::Reference;
 use crate::pileup::DensePileup;
 use crate::selection::{Selection, Selector};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Mismatches<Cnts: PrimUInt = u32> {
     minmismatches: Cnts,
