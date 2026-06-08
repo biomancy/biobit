@@ -1,0 +1,13 @@
+from biobit.core.loc import Orientation
+
+from .pileup import SparsePileup
+
+class SelectedPileup[T]:
+    tag: T
+
+    def __init__(self, tag: T, pileups: list[SparsePileup]) -> None: ...
+    def pileups(self) -> dict[tuple[str, Orientation], SparsePileup]: ...
+    def len(self) -> int: ...
+    def is_empty(self) -> bool: ...
+
+    __hash__ = None  # type: ignore

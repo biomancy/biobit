@@ -52,7 +52,6 @@ impl PySelectedPileup {
         self.tag.clone_ref(py)
     }
 
-    #[getter]
     pub fn pileups(&self, py: Python) -> PyResult<Py<PyDict>> {
         let dict = PyDict::new(py);
         for pileup in &self.pileups {
