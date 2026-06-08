@@ -6,17 +6,14 @@ class Mismatches:
     """
     Select sites whose non-reference observations pass mismatch thresholds.
 
-    A site is selected when coverage is at least `mincov`, mismatch count is at least
+    A site is selected when mismatch count is at least
     `minmismatches`, and mismatch frequency is at least `minfreq`.
     """
 
     minmismatches: int
     minfreq: float
-    mincov: int
 
-    def __init__(
-        self, minmismatches: int = 1, minfreq: float = 0.0, mincov: int = 1
-    ) -> None:
+    def __init__(self, minmismatches: int = 1, minfreq: float = 0.0) -> None:
         """Create a mismatch selector. `minfreq` must be in `[0.0, 1.0]`."""
         ...
 

@@ -10,6 +10,7 @@ use biobit_io_rs::{
     bam::{ReaderBuilder, strdeductor, transform},
     fasta,
 };
+use biobit_reat_rs::selection::Selector;
 use biobit_reat_rs::{
     SelectedPileup,
     selection::{Mismatches, RequiredOrMismatches, RequiredSites},
@@ -26,28 +27,24 @@ const THREADS: isize = -1;
 const MIN_PHRED: u8 = 20;
 const SAMPLE: &str = "PE-reverse";
 const REMAKE_EXPECTED_ENV: &str = "BIOBIT_REAT_REMAKE_EXPECTED";
-const MAX_TASK_SIZE: u64 = 25_000;
+const MAX_TASK_SIZE: u64 = 64_000;
 
 const TASK_INTERVALS: &[(&str, u64, u64)] = &[
-    ("chr21", 238_800, 238_900),
-    ("chr21", 238_850, 238_950),
-    ("chr21", 238_950, 239_050),
-    ("chr21", 2_125_000, 2_205_000),
-    ("chr22", 235_700, 235_800),
-    ("chr22", 235_750, 235_850),
-    ("chr22", 235_850, 235_950),
-    ("chr22", 3_625_000, 3_705_000),
+    ("chr21", 11_052_649, 11_054_065),
+    ("chr21", 30_562_496, 31_269_216),
+    ("chr21", 37_206_181, 37_209_212),
+    ("chr22", 10_982_293, 11_045_159),
+    ("chr22", 11_012_207, 11_012_523),
+    ("chr22", 24_632_672, 24_640_676),
+    ("chr22", 25_785_074, 25_962_399),
+    ("chr22", 29_574_184, 33_045_489),
+    ("chr22", 40_511_802, 40_589_004),
+    ("chr22", 46_328_399, 46_328_898),
 ];
 
 const REQUIRED_INTERVALS: &[(&str, u64, u64)] = &[
-    ("chr21", 238_800, 238_801),
-    ("chr21", 238_900, 238_901),
-    ("chr21", 239_000, 239_001),
-    ("chr21", 2_125_000, 2_125_001),
-    ("chr22", 235_700, 235_701),
-    ("chr22", 235_800, 235_801),
-    ("chr22", 235_900, 235_901),
-    ("chr22", 3_625_000, 3_625_001),
+    ("chr21", 37_207_315, 37_207_320),
+    ("chr22", 46_328_522, 46_328_525),
 ];
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -63,9 +60,33 @@ struct Row {
     deletion: u32,
 }
 
-pub fn resource_path(resource: impl AsRef<Path>) -> Result<PathBuf> {
+impl Row {
+    fn from_str(line: &str, sep: char) -> Result<Self> {
+        let (seqid, orientation, position, a, c, g, t, n, deletion) = line
+            .split(sep)
+            .collect_tuple()
+            .ok_or_else(|| eyre!("Invalid Row string: {}", line))?;
+
+        let orientation = Orientation::try_from(orientation)
+            .map_err(|_| eyre!("Invalid orientation in row: {}", line))?;
+
+        Ok(Row {
+            seqid: seqid.to_string(),
+            orientation,
+            position: position.parse()?,
+            a: a.parse()?,
+            c: c.parse()?,
+            g: g.parse()?,
+            t: t.parse()?,
+            n: n.parse()?,
+            deletion: deletion.parse()?,
+        })
+    }
+}
+
+pub fn get_resource_path(resource: impl AsRef<Path>) -> Result<PathBuf> {
     let resource = resource.as_ref();
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .map(|x| x.join("resources"))
         .map(|x| x.join(resource))
@@ -74,12 +95,7 @@ pub fn resource_path(resource: impl AsRef<Path>) -> Result<PathBuf> {
                 "Failed to locate requested resource: {}",
                 resource.display()
             )
-        })
-}
-
-pub fn get_resource_path(resource: impl AsRef<Path>) -> Result<PathBuf> {
-    let resource = resource.as_ref();
-    let path = resource_path(resource)?;
+        })?;
     ensure!(
         path.exists(),
         "Requested resource does not exist: {}",
@@ -88,20 +104,33 @@ pub fn get_resource_path(resource: impl AsRef<Path>) -> Result<PathBuf> {
     Ok(path)
 }
 
+fn selector() -> Result<Arc<dyn Selector<String, u64, u32> + Send + Sync + 'static>> {
+    let mut required = Vec::new();
+    for (seqid, start, end) in REQUIRED_INTERVALS {
+        let interval = Interval::new(*start, *end)?;
+        for orientation in [Orientation::Forward, Orientation::Reverse] {
+            required.push((seqid.to_string(), orientation, vec![interval]));
+        }
+    }
+    let required = RequiredSites::new(required);
+    let mismatches = Mismatches::new(4, 0.05)?;
+    Ok(Arc::new(RequiredOrMismatches::new(required, mismatches)))
+}
+
 #[test]
 fn regression() -> Result<()> {
-    let rows = run_pipeline()?;
+    let rows = run()?;
     ensure!(!rows.is_empty(), "REAT regression produced no rows");
 
-    let expected = resource_path("regression-tests/expected.csv.gz")?;
-    if remake_expected() {
+    let expected = get_resource_path("regression-tests/expected.csv.gz")?;
+    if std::env::var(REMAKE_EXPECTED_ENV).unwrap_or("0".into()) == "1" {
         write_expected(&expected, &rows)?;
     }
 
     compare_expected(&expected, &rows)
 }
 
-fn run_pipeline() -> Result<Vec<Row>> {
+fn run() -> Result<Vec<Row>> {
     let pool = ThreadPoolBuilder::new()
         .num_threads(parallelism::available(THREADS)?)
         .use_current_thread()
@@ -113,11 +142,7 @@ fn run_pipeline() -> Result<Vec<Row>> {
         Decoder::from_path(&reference, fasta::EXTENSIONS)?,
     );
 
-    let required = required_sites()?;
-    let mismatches = Mismatches::new(10_u32, 0.10, 101)?;
-    let selector = Arc::new(RequiredOrMismatches::new(required, mismatches));
-
-    let mut engine = biobit_reat_rs::Reat::new(pool, reference, MIN_PHRED, selector);
+    let mut engine = biobit_reat_rs::Reat::new(pool, reference, MIN_PHRED, selector()?);
 
     let bam = get_resource_path("regression-tests/input.bam")?;
     let source = ReaderBuilder::new(&bam)
@@ -152,17 +177,6 @@ fn run_pipeline() -> Result<Vec<Row>> {
     Ok(flatten(&result[0]))
 }
 
-fn required_sites() -> Result<RequiredSites<String, u64>> {
-    let mut required = Vec::new();
-    for (seqid, start, end) in REQUIRED_INTERVALS {
-        let interval = Interval::new(*start, *end)?;
-        for orientation in [Orientation::Forward, Orientation::Reverse] {
-            required.push((seqid.to_string(), orientation, vec![interval]));
-        }
-    }
-    Ok(RequiredSites::new(required))
-}
-
 fn flatten(result: &SelectedPileup<String, u64, u32, String>) -> Vec<Row> {
     let mut rows = Vec::new();
     for ((seqid, orientation), pileup) in &result.pileups {
@@ -182,37 +196,17 @@ fn flatten(result: &SelectedPileup<String, u64, u32, String>) -> Vec<Row> {
     }
 
     rows.sort_by(|left, right| {
-        (
-            left.seqid.as_str(),
-            orientation_rank(left.orientation),
-            left.position,
-        )
-            .cmp(&(
-                right.seqid.as_str(),
-                orientation_rank(right.orientation),
-                right.position,
-            ))
+        (left.seqid.as_str(), left.orientation, left.position).cmp(&(
+            right.seqid.as_str(),
+            right.orientation,
+            right.position,
+        ))
     });
     rows
 }
 
-fn orientation_rank(orientation: Orientation) -> u8 {
-    match orientation {
-        Orientation::Forward => 0,
-        Orientation::Reverse => 1,
-        Orientation::Dual => 2,
-    }
-}
-
-fn remake_expected() -> bool {
-    std::env::var(REMAKE_EXPECTED_ENV).is_ok_and(|value| {
-        let value = value.to_ascii_lowercase();
-        matches!(value.as_str(), "1" | "true" | "yes")
-    })
-}
-
 fn write_expected(path: &Path, rows: &[Row]) -> Result<()> {
-    let encoder = Encoder::from_path(path, &["csv", "tsv"])?;
+    let encoder = Encoder::from_path(path, &["csv"])?;
     let mut writer = encoder.encode(File::create(path)?, BoxedSync)?;
     writeln!(writer, "seqid,orientation,position,A,C,G,T,N,deletion")?;
     for row in rows {
@@ -264,7 +258,7 @@ fn compare_expected(path: &Path, rows: &[Row]) -> Result<()> {
             row,
             line
         );
-        let expected = parse_row(&line)?;
+        let expected = Row::from_str(&line, ',')?;
         ensure!(
             rows[row] == expected,
             "Mismatch at row {}: expected {:?}, found {:?}",
@@ -282,26 +276,4 @@ fn compare_expected(path: &Path, rows: &[Row]) -> Result<()> {
         row
     );
     Ok(())
-}
-
-fn parse_row(line: &str) -> Result<Row> {
-    let (seqid, orientation, position, a, c, g, t, n, deletion) =
-        line.split(',')
-            .collect_tuple()
-            .ok_or_else(|| eyre!("Invalid expected-output row: {}", line))?;
-
-    let orientation = Orientation::try_from(orientation)
-        .map_err(|_| eyre!("Invalid orientation in expected-output row: {}", line))?;
-
-    Ok(Row {
-        seqid: seqid.to_string(),
-        orientation,
-        position: position.parse()?,
-        a: a.parse()?,
-        c: c.parse()?,
-        g: g.parse()?,
-        t: t.parse()?,
-        n: n.parse()?,
-        deletion: deletion.parse()?,
-    })
 }

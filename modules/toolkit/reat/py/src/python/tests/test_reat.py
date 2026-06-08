@@ -41,10 +41,9 @@ def test_pileup_api():
 
 
 def test_selection_api():
-    mismatches = reat.selection.Mismatches(minmismatches=2, minfreq=0.25, mincov=5)
+    mismatches = reat.selection.Mismatches(minmismatches=2, minfreq=0.25)
     assert mismatches.minmismatches == 2
     assert mismatches.minfreq == pytest.approx(0.25)
-    assert mismatches.mincov == 5
     assert pickle.loads(pickle.dumps(mismatches)) == mismatches
 
     required = reat.selection.RequiredSites([("chr21", "+", [(100, 101), (105, 106)])])

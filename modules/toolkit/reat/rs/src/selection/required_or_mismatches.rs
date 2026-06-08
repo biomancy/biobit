@@ -86,7 +86,7 @@ mod tests {
                 Orientation::Forward,
                 vec![Interval::new(10_u64, 12)?],
             )]),
-            Mismatches::new(10, 0.0, 1)?,
+            Mismatches::new(10, 0.0)?,
         );
         let dense = DensePileup::new(
             "chr1",
@@ -121,13 +121,12 @@ mod tests {
                 Orientation::Forward,
                 vec![Interval::new(10_u64, 12)?],
             )]),
-            Mismatches::new(2_u32, 0.35, 3)?,
+            Mismatches::new(2_u32, 0.35)?,
         );
 
         assert_eq!(selector.required().index().len(), 1);
         assert_eq!(selector.mismatches().minmismatches(), 2);
         assert_eq!(selector.mismatches().minfreq(), 0.35);
-        assert_eq!(selector.mismatches().mincov(), 3);
         Ok(())
     }
 }

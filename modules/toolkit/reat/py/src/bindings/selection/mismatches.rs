@@ -16,9 +16,9 @@ pub struct PyMismatches {
 #[pymethods]
 impl PyMismatches {
     #[new]
-    pub fn new(minmismatches: u32, minfreq: f32, mincov: u32) -> eyre::Result<Self> {
+    pub fn new(minmismatches: u32, minfreq: f32) -> eyre::Result<Self> {
         Ok(Self {
-            rs: Mismatches::new(minmismatches, minfreq, mincov)?,
+            rs: Mismatches::new(minmismatches, minfreq)?,
         })
     }
 
@@ -30,11 +30,6 @@ impl PyMismatches {
     #[getter]
     pub fn minfreq(&self) -> f32 {
         self.rs.minfreq()
-    }
-
-    #[getter]
-    pub fn mincov(&self) -> u32 {
-        self.rs.mincov()
     }
 
     #[staticmethod]

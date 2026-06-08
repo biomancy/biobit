@@ -12,11 +12,10 @@ use crate::selection::{Selection, Selector};
 pub struct Mismatches<Cnts: PrimUInt = u32> {
     minmismatches: Cnts,
     minfreq: f32,
-    mincov: Cnts,
 }
 
 impl<Cnts: PrimUInt> Mismatches<Cnts> {
-    pub fn new(minmismatches: Cnts, minfreq: f32, mincov: Cnts) -> Result<Self> {
+    pub fn new(minmismatches: Cnts, minfreq: f32) -> Result<Self> {
         ensure!(
             (0.0..=1.0).contains(&minfreq),
             "minimum mismatch frequency must be between 0 and 1, got {minfreq}"
@@ -24,13 +23,7 @@ impl<Cnts: PrimUInt> Mismatches<Cnts> {
         Ok(Self {
             minmismatches,
             minfreq,
-            mincov,
         })
-    }
-
-    #[inline]
-    pub fn mincov(&self) -> Cnts {
-        self.mincov
     }
 
     #[inline]
@@ -45,9 +38,7 @@ impl<Cnts: PrimUInt> Mismatches<Cnts> {
 
     #[inline]
     fn enough_mismatches(&self, coverage: Cnts, mismatches: Cnts) -> bool {
-        coverage >= self.mincov
-            && mismatches >= self.minmismatches
-            && mismatch_frequency(coverage, mismatches) >= self.minfreq
+        mismatches >= self.minmismatches && mismatch_frequency(coverage, mismatches) >= self.minfreq
     }
 }
 
@@ -56,7 +47,6 @@ impl<Cnts: PrimUInt> Default for Mismatches<Cnts> {
         Self {
             minfreq: 0.0,
             minmismatches: Cnts::one(),
-            mincov: Cnts::one(),
         }
     }
 }
@@ -112,7 +102,7 @@ mod tests {
 
     #[test]
     fn honors_thresholds() -> Result<()> {
-        let selector = Mismatches::new(2_u32, 0.5, 3)?;
+        let selector = Mismatches::new(2_u32, 0.5)?;
         let dense = DensePileup::new(
             "chr1",
             Interval::new(10_u64, 13)?,
