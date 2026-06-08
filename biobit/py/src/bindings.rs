@@ -25,6 +25,7 @@ pub fn rs(py: Python, module: Bound<'_, PyModule>) -> PyResult<()> {
             &format!("{name}.countit"),
         )?)?
         .add_submodule(&biobit_reaper_py::construct(py, &format!("{name}.reaper"))?)?
+        .add_submodule(&biobit_reat_py::construct(py, &format!("{name}.reat"))?)?
         .add_submodule(&biobit_seqproj_py::construct(
             py,
             &format!("{name}.seqproj"),
