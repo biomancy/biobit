@@ -26,7 +26,8 @@ members = [
     # Repeto
     "modules/toolkit/repeto/*",
     # REAT
-    "modules/toolkit/reat/*",
+    "modules/toolkit/reat/py",
+    "modules/toolkit/reat/rs",
 ]
 resolver = "3"
 

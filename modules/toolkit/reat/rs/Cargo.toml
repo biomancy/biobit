@@ -53,6 +53,7 @@ num = { workspace = true }
 [dev-dependencies]
 mockall = "0.13.1"
 static_init = "1.0.3"
+substratum-compress = { workspace = true }
 
 [features]
 bitcode = ["dep:bitcode", "biobit-core-rs/bitcode", "biobit-io-rs/bitcode", "biobit-collections-rs/bitcode"]
