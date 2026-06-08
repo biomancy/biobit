@@ -79,13 +79,13 @@ where
         match cigar.op() {
             Kind::Match | Kind::SequenceMatch | Kind::SequenceMismatch => {
                 step = cigar.len().min(roi.remaining());
-                roi.aligned(read, step, min_phread);
+                roi.aligned(read, step, min_phread)?;
                 read.advance(step);
                 roi.advance(step);
             }
             Kind::Deletion => {
                 step = cigar.len().min(roi.remaining());
-                roi.deletion(step);
+                roi.deletion(step)?;
                 roi.advance(step);
             }
             Kind::Skip => {
@@ -332,6 +332,19 @@ mod tests {
         process(roi, &mut pileup, &record, MIN_PHRED)?;
 
         assert_observed(&pileup, &[A, Z, G, Z]);
+        Ok(())
+    }
+
+    #[test]
+    fn process_record_errors_on_count_overflow() -> Result<()> {
+        let (roi, mut pileup) = pileup(10, 11);
+        let record = record(11, vec![Op::new(Kind::Match, 1)], b"A")?;
+
+        for _ in 0..u8::MAX {
+            process(roi, &mut pileup, &record, MIN_PHRED)?;
+        }
+        assert_eq!(pileup.a(), &[u8::MAX]);
+        assert!(process(roi, &mut pileup, &record, MIN_PHRED).is_err());
         Ok(())
     }
 

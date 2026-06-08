@@ -5,7 +5,7 @@ from biobit.core.ngs import Layout
 from biobit.io.bam import IntoReader
 from biobit.io.fasta import IndexedSources
 
-from .result import SelectedPileup
+from .result import SamplePileup
 from .selection import Mismatches, RequiredOrMismatches, RequiredSites
 from .task import Task
 
@@ -49,12 +49,12 @@ class Reat[T]:
         """
         ...
 
-    def run(self, tasks: Sequence[Task]) -> list[SelectedPileup[T]]:
+    def run(self, tasks: Sequence[Task]) -> list[SamplePileup[T]]:
         """
         Run REAT for all registered samples and supplied tasks.
 
         Results are returned in first-registration order for sample tags. Each
-        `SelectedPileup` groups sparse pileups by `(seqid, orientation)`.
+        `SamplePileup` groups task pileups by `(seqid, orientation)`.
         """
         ...
 

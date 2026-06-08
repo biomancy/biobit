@@ -5,9 +5,10 @@ Python interface for REAT: RNA editing analysis toolkit.
 from biobit.rs.toolkit.reat import (
     Pileup,
     Reat,
-    SelectedPileup,
+    SamplePileup,
     SparsePileup,
     Task,
+    TaskPileup,
     selection,
 )
 from biobit.rs.toolkit.reat.selection import (
@@ -21,7 +22,8 @@ __all__ = [
     "Task",
     "Pileup",
     "SparsePileup",
-    "SelectedPileup",
+    "TaskPileup",
+    "SamplePileup",
     "Mismatches",
     "RequiredSites",
     "RequiredOrMismatches",

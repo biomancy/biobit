@@ -4,7 +4,7 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use biobit_core_rs::loc::IntervalOp;
+use biobit_core_rs::loc::{IntervalOp, Orientation, PerOrientation};
 use biobit_core_rs::num::PrimUInt;
 use biobit_core_rs::source::Source;
 use biobit_io_rs::fasta::IndexedSources;
@@ -12,14 +12,14 @@ use eyre::{Result, eyre};
 use rayon::ThreadPool;
 use thread_local::ThreadLocal;
 
-use crate::pileup::SparsePileup;
-use crate::result::SelectedPileup;
+use crate::result::SamplePileup;
 use crate::selection::Selector;
-use crate::task::Task;
+use crate::task::{Task, TaskPileup};
 use crate::worker::{DynReadSource, SourceArgs, SourceItem, Worker};
 
 type SourceMap<SeqId> = RefCell<HashMap<usize, Vec<DynReadSource<SeqId>>>>;
-type ResultMap<SeqId, Idx, Cnts> = RefCell<HashMap<usize, Vec<SparsePileup<SeqId, Idx, Cnts>>>>;
+type ResultChunks<SeqId, Idx, Cnts> = BTreeMap<(SeqId, Orientation), Vec<TaskPileup<Idx, Cnts>>>;
+type ResultMap<SeqId, Idx, Cnts> = RefCell<HashMap<usize, ResultChunks<SeqId, Idx, Cnts>>>;
 
 struct ThreadLocalCache<SeqId, Idx, Cnts>
 where
@@ -88,16 +88,26 @@ where
     fn add_result(
         &self,
         sample_index: usize,
-        pileups: Vec<SparsePileup<SeqId, Idx, Cnts>>,
-    ) -> Result<()> {
+        seqid: &SeqId,
+        pileups: PerOrientation<Option<TaskPileup<Idx, Cnts>>>,
+    ) -> Result<()>
+    where
+        SeqId: Clone + Ord,
+    {
         let results = self
             .results
             .get_or_try(|| Ok::<_, eyre::Report>(RefCell::new(HashMap::new())))?;
-        results
-            .borrow_mut()
-            .entry(sample_index)
-            .or_default()
-            .extend(pileups);
+        let mut results = results.borrow_mut();
+        let results = results.entry(sample_index).or_default();
+        for (orientation, pileup) in pileups {
+            let Some(pileup) = pileup else {
+                continue;
+            };
+            results
+                .entry((seqid.clone(), orientation))
+                .or_default()
+                .push(pileup);
+        }
         Ok(())
     }
 
@@ -118,11 +128,20 @@ where
         collapsed
     }
 
-    fn into_results(self, samples: usize) -> Vec<Vec<SparsePileup<SeqId, Idx, Cnts>>> {
-        let mut collapsed = (0..samples).map(|_| Vec::new()).collect::<Vec<_>>();
+    fn into_results(self, samples: usize) -> Vec<ResultChunks<SeqId, Idx, Cnts>>
+    where
+        SeqId: Ord,
+    {
+        let mut collapsed: Vec<ResultChunks<SeqId, Idx, Cnts>> =
+            (0..samples).map(|_| BTreeMap::new()).collect();
         for results in self.results {
             for (sample_index, pileups) in results.into_inner() {
-                collapsed[sample_index].extend(pileups);
+                for (key, chunks) in pileups {
+                    collapsed[sample_index]
+                        .entry(key)
+                        .or_default()
+                        .extend(chunks);
+                }
             }
         }
         collapsed
@@ -181,7 +200,7 @@ where
     pub fn run<Tasks>(
         &mut self,
         tasks: Tasks,
-    ) -> Result<Vec<SelectedPileup<SeqId, Idx, Cnts, SmplTag>>>
+    ) -> Result<Vec<SamplePileup<SeqId, Idx, Cnts, SmplTag>>>
     where
         Tasks: IntoIterator<Item = Task<SeqId, Idx>>,
     {
@@ -222,7 +241,7 @@ where
 
                             let result =
                                 worker.process(&tasks[*taskidx], smplsrc.as_mut_slice())?;
-                            cache.add_result(*smplidx, result)?;
+                            cache.add_result(*smplidx, tasks[*taskidx].seqid(), result)?;
                             Ok(())
                         })();
 
@@ -241,7 +260,7 @@ where
         let collapsed = cache.into_results(tags.len());
         tags.into_iter()
             .zip(collapsed)
-            .map(|(tag, pileups)| SelectedPileup::new(tag, pileups))
+            .map(|(tag, pileups)| SamplePileup::new(tag, pileups))
             .collect()
     }
 }

@@ -16,6 +16,7 @@ pub struct PyMismatches {
 #[pymethods]
 impl PyMismatches {
     #[new]
+    #[pyo3(signature = (minmismatches = 1, minfreq = 0.0))]
     pub fn new(minmismatches: u32, minfreq: f32) -> eyre::Result<Self> {
         Ok(Self {
             rs: Mismatches::new(minmismatches, minfreq)?,

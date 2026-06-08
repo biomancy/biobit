@@ -1,3 +1,4 @@
+use crate::pileup::interval_to_py;
 use biobit_core_py::loc::{IntoPyInterval, PyInterval};
 use biobit_core_py::pickle;
 use biobit_core_py::utils::type_hint_class_getitem;
@@ -61,16 +62,16 @@ impl PyTask {
     }
 
     #[getter]
-    pub fn envelope(&self) -> PyInterval {
-        self.rs.envelope().cast::<i64>().unwrap().into()
+    pub fn envelope(&self) -> PyResult<PyInterval> {
+        interval_to_py(*self.rs.envelope())
     }
 
     #[getter]
-    pub fn intervals(&self) -> Vec<PyInterval> {
+    pub fn intervals(&self) -> PyResult<Vec<PyInterval>> {
         self.rs
             .intervals()
             .iter()
-            .map(|interval| interval.cast::<i64>().unwrap().into())
+            .map(|interval| interval_to_py(*interval))
             .collect()
     }
 

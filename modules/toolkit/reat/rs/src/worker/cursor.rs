@@ -1,4 +1,7 @@
+use std::ops::IndexMut;
+
 use biobit_core_rs::num::PrimUInt;
+use eyre::Result;
 use noodles::bam::Record;
 use noodles::bam::record::Sequence;
 use noodles::sam::alignment::record::cigar::Op;
@@ -167,20 +170,26 @@ impl<'a, Cnts: PrimUInt> RoiCursor<'a, Cnts> {
     }
 
     #[inline]
-    pub(super) fn deletion(&mut self, len: usize) {
+    pub(super) fn deletion(&mut self, len: usize) -> Result<()> {
         debug_assert!(
             len <= self.remaining(),
             "deletion length {len} exceeds remaining ROI length {}",
             self.remaining()
         );
 
-        for i in 0..len {
-            increment(&mut self.pileup.deletion_mut()[self.offset + i]);
+        for value in &mut self.pileup.deletion_mut()[self.offset..self.offset + len] {
+            increment(value)?;
         }
+        Ok(())
     }
 
     #[inline]
-    pub(super) fn aligned(&mut self, read: &ReadCursor<'_>, len: usize, min_phread: u8) {
+    pub(super) fn aligned(
+        &mut self,
+        read: &ReadCursor<'_>,
+        len: usize,
+        min_phread: u8,
+    ) -> Result<()> {
         debug_assert!(
             len <= self.remaining(),
             "aligned length {len} exceeds remaining ROI length {}",
@@ -189,15 +198,18 @@ impl<'a, Cnts: PrimUInt> RoiCursor<'a, Cnts> {
 
         for i in 0..len {
             if read.qual(i) >= min_phread {
-                let mut site = self.pileup.site_mut(self.offset + i);
-                increment(&mut site[read.sequence(i)]);
+                let value = &mut self.pileup.index_mut(read.sequence(i))[self.offset + i];
+                increment(value)?;
             }
         }
+        Ok(())
     }
 }
 
 #[inline(always)]
-fn increment<Cnts: PrimUInt>(value: &mut Cnts) {
-    debug_assert!(*value < Cnts::max_value(), "Pileup count overflow");
-    *value = *value + Cnts::one();
+fn increment<Cnts: PrimUInt>(value: &mut Cnts) -> Result<()> {
+    *value = (*value)
+        .checked_add(&Cnts::one())
+        .ok_or_else(|| eyre::eyre!("Pileup count overflow"))?;
+    Ok(())
 }

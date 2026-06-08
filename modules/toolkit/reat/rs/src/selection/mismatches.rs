@@ -1,3 +1,4 @@
+use biobit_core_rs::loc::Orientation;
 use biobit_core_rs::num::PrimUInt;
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
@@ -58,7 +59,9 @@ where
 {
     fn select(
         &self,
-        pileup: &DensePileup<SeqId, Idx, Cnts>,
+        _seqid: &SeqId,
+        _orientation: Orientation,
+        pileup: &DensePileup<Idx, Cnts>,
         reference: &[Reference],
         selection: &mut Selection,
     ) -> Result<()> {
@@ -104,9 +107,7 @@ mod tests {
     fn honors_thresholds() -> Result<()> {
         let selector = Mismatches::new(2_u32, 0.5)?;
         let dense = DensePileup::new(
-            "chr1",
             Interval::new(10_u64, 13)?,
-            Orientation::Forward,
             Pileup::<u32>::new(
                 vec![2, 1, 1],
                 vec![1, 1, 1],
@@ -119,7 +120,13 @@ mod tests {
         let mut selection = Selection::zeros(dense.len());
         let reference = vec![Reference::A; dense.len()];
 
-        selector.select(&dense, &reference, &mut selection)?;
+        selector.select(
+            &"chr1",
+            Orientation::Forward,
+            &dense,
+            &reference,
+            &mut selection,
+        )?;
 
         assert_eq!(selection.selected_offsets().collect::<Vec<_>>(), vec![1]);
         Ok(())
@@ -128,9 +135,7 @@ mod tests {
     #[test]
     fn matching_observations_are_not_selected() -> Result<()> {
         let dense = DensePileup::new(
-            "chr1",
             Interval::new(10_u64, 15)?,
-            Orientation::Forward,
             Pileup::<u32>::new(
                 vec![1, 0, 0, 0, 0],
                 vec![0, 1, 0, 0, 0],
@@ -150,7 +155,13 @@ mod tests {
             Reference::N,
         ];
 
-        selector.select(&dense, &reference, &mut selection)?;
+        selector.select(
+            &"chr1",
+            Orientation::Forward,
+            &dense,
+            &reference,
+            &mut selection,
+        )?;
 
         assert!(selection.selected_offsets().next().is_none());
         Ok(())

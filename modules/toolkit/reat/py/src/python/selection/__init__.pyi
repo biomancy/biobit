@@ -58,14 +58,13 @@ class RequiredOrMismatches:
     The two inner selectors are applied independently, so a site matching either criterion is kept.
     """
 
-    required: RequiredSites
-    mismatches: Mismatches
-
     def __init__(
         self,
         required: RequiredSites | None = None,
         mismatches: Mismatches | None = None,
     ) -> None: ...
+    def required(self) -> RequiredSites: ...
+    def mismatches(self) -> Mismatches: ...
     def __eq__(self, other: object) -> bool: ...
 
     __hash__ = None  # type: ignore

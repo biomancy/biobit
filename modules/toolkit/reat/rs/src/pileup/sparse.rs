@@ -1,4 +1,6 @@
-use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
+use std::borrow::Borrow;
+
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimUInt;
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
@@ -9,21 +11,14 @@ use super::{Pileup, Site, SiteMut};
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct SparsePileup<SeqId, Idx, Cnts> {
-    pub seqid: SeqId,
-    pub orientation: Orientation,
+pub struct SparsePileup<Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
     positions: Vec<Idx>,
     counts: Pileup<Cnts>,
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> SparsePileup<SeqId, Idx, Cnts> {
-    pub fn new(
-        seqid: SeqId,
-        orientation: Orientation,
-        positions: Vec<Idx>,
-        counts: Pileup<Cnts>,
-    ) -> Result<Self> {
+impl<Idx: PrimUInt, Cnts: PrimUInt> SparsePileup<Idx, Cnts> {
+    pub fn new(positions: Vec<Idx>, counts: Pileup<Cnts>) -> Result<Self> {
         ensure!(
             counts.len() == positions.len(),
             "pileup counts length does not match sparse positions length"
@@ -43,12 +38,7 @@ impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> SparsePileup<SeqId, Idx, Cnts> {
             "last sparse position cannot be the maximum value"
         );
 
-        Ok(Self {
-            seqid,
-            orientation,
-            positions,
-            counts,
-        })
+        Ok(Self { positions, counts })
     }
 
     #[inline]
@@ -93,27 +83,49 @@ impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> SparsePileup<SeqId, Idx, Cnts> {
     }
 }
 
-impl<SeqId, Idx, Cnts> SparsePileup<SeqId, Idx, Cnts>
+impl<Idx, Cnts> SparsePileup<Idx, Cnts>
 where
-    SeqId: PartialEq + Clone,
     Idx: PrimUInt,
     Cnts: PrimUInt,
 {
     pub fn from_dense(
-        dense: &DensePileup<SeqId, Idx, Cnts>,
+        dense: &DensePileup<Idx, Cnts>,
         offsets: impl IntoIterator<Item = usize>,
     ) -> Result<Self> {
-        // Offsets are local coordinates inside the dense pileup interval.
         let offsets = offsets.into_iter().collect::<Vec<_>>();
         ensure!(
             !offsets.is_empty(),
-            "selected offsets must contain at least one position"
+            "Selected offsets must contain at least one position"
         );
         ensure!(
             offsets.windows(2).all(|window| window[0] < window[1]),
             "Selected offsets must be sorted and unique"
         );
         ensure!(
+            offsets.iter().all(|offset| *offset < dense.len()),
+            "Selected offset is out of bounds"
+        );
+
+        Ok(unsafe { Self::from_dense_unchecked(dense, offsets) })
+    }
+
+    /// # Safety
+    /// `offsets` must be sorted, unique, non-empty, and each offset must be less than `dense.len()`.
+    /// Violating these conditions may cause panics or undefined behavior.
+    pub(crate) unsafe fn from_dense_unchecked(
+        dense: &DensePileup<Idx, Cnts>,
+        offsets: Vec<usize>,
+    ) -> Self {
+        // Offsets are local coordinates inside the dense pileup interval.
+        debug_assert!(
+            !offsets.is_empty(),
+            "Selected offsets must contain at least one position"
+        );
+        debug_assert!(
+            offsets.windows(2).all(|window| window[0] < window[1]),
+            "Selected offsets must be sorted and unique"
+        );
+        debug_assert!(
             offsets.iter().all(|offset| *offset < dense.len()),
             "Selected offset is out of bounds"
         );
@@ -145,25 +157,20 @@ where
             deletion.push(*site.deletion());
         }
 
-        let counts = Pileup::new(a, c, g, t, n, deletion)?;
-        SparsePileup::new(dense.seqid.clone(), dense.orientation, positions, counts)
+        let counts =
+            Pileup::new(a, c, g, t, n, deletion).expect("selected offsets should be in bounds");
+        SparsePileup { positions, counts }
     }
 
-    pub fn from_distinct_chunks(chunks: &[Self]) -> Result<Self> {
+    pub fn from_distinct_chunks(chunks: &[impl Borrow<Self>]) -> Result<Self> {
         let mut chunk = chunks
             .first()
-            .ok_or_else(|| eyre::eyre!("sparse pileup chunks should contain at least one chunk"))?;
+            .ok_or_else(|| eyre::eyre!("sparse pileup chunks should contain at least one chunk"))?
+            .borrow();
         let mut length = chunk.len();
         for nxt in &chunks[1..] {
+            let nxt = nxt.borrow();
             length += nxt.len();
-            ensure!(
-                chunk.seqid == nxt.seqid,
-                "SparsePileup chunks must have the same sequence ID"
-            );
-            ensure!(
-                chunk.orientation == nxt.orientation,
-                "SparsePileup chunks must have the same orientation"
-            );
             ensure!(
                 chunk.interval().end() <= nxt.interval().start(),
                 "SparsePileup chunks must be sorted and non-overlapping"
@@ -180,6 +187,7 @@ where
         let mut deletion = Vec::with_capacity(length);
 
         for chunk in chunks.iter() {
+            let chunk = chunk.borrow();
             positions.extend_from_slice(chunk.positions());
             a.extend_from_slice(chunk.counts.a());
             c.extend_from_slice(chunk.counts.c());
@@ -189,12 +197,7 @@ where
             deletion.extend_from_slice(chunk.counts.deletion());
         }
 
-        SparsePileup::new(
-            chunks[0].seqid.clone(),
-            chunks[0].orientation,
-            positions,
-            Pileup::new(a, c, g, t, n, deletion)?,
-        )
+        SparsePileup::new(positions, Pileup::new(a, c, g, t, n, deletion)?)
     }
 }
 
@@ -202,11 +205,9 @@ where
 mod tests {
     use super::*;
 
-    fn dense() -> Result<DensePileup<String, u64, u32>> {
+    fn dense() -> Result<DensePileup<u64, u32>> {
         DensePileup::new(
-            "chr1".to_string(),
             Interval::new(10, 15).unwrap(),
-            Orientation::Reverse,
             Pileup::new(
                 vec![1, 2, 3, 4, 5],
                 vec![6, 7, 8, 9, 10],
@@ -218,16 +219,9 @@ mod tests {
         )
     }
 
-    fn sparse(
-        seqid: &str,
-        orientation: Orientation,
-        positions: Vec<u64>,
-        a: Vec<u32>,
-    ) -> Result<SparsePileup<String, u64, u32>> {
+    fn sparse(positions: Vec<u64>, a: Vec<u32>) -> Result<SparsePileup<u64, u32>> {
         let len = positions.len();
         SparsePileup::new(
-            seqid.to_string(),
-            orientation,
             positions,
             Pileup::new(
                 a,
@@ -243,8 +237,6 @@ mod tests {
     #[test]
     fn validates_sparse_pileup() -> Result<()> {
         let sparse = SparsePileup::new(
-            "chr1",
-            Orientation::Reverse,
             vec![10_u64, 12, 14],
             Pileup::<u32>::new(
                 vec![1, 3, 5],
@@ -256,8 +248,6 @@ mod tests {
             )?,
         )?;
 
-        assert_eq!(sparse.seqid, "chr1");
-        assert_eq!(sparse.orientation, Orientation::Reverse);
         assert_eq!(sparse.interval(), Interval::new(10, 15).unwrap());
         assert_eq!(sparse.positions(), &[10, 12, 14]);
         assert_eq!(sparse.counts().a(), &[1, 3, 5]);
@@ -267,15 +257,7 @@ mod tests {
 
     #[test]
     fn rejects_unsorted_positions() {
-        assert!(
-            SparsePileup::new(
-                "chr1",
-                Orientation::Forward,
-                vec![12_u64, 11],
-                Pileup::<u32>::zeros(2),
-            )
-            .is_err()
-        );
+        assert!(SparsePileup::new(vec![12_u64, 11], Pileup::<u32>::zeros(2),).is_err());
     }
 
     #[test]
@@ -283,8 +265,6 @@ mod tests {
         let dense = dense()?;
         let sparse = SparsePileup::from_dense(&dense, [0, 2, 4])?;
 
-        assert_eq!(sparse.seqid, "chr1");
-        assert_eq!(sparse.orientation, Orientation::Reverse);
         assert_eq!(sparse.interval(), Interval::new(10, 15).unwrap());
         assert_eq!(sparse.positions(), &[10, 12, 14]);
         assert_eq!(sparse.counts().a(), &[1, 3, 5]);
@@ -295,8 +275,6 @@ mod tests {
     #[test]
     fn iterates_positions_and_sites() -> Result<()> {
         let sparse = SparsePileup::new(
-            "chr1",
-            Orientation::Reverse,
             vec![10_u64, 12, 14],
             Pileup::<u32>::new(
                 vec![1, 3, 5],
@@ -328,25 +306,12 @@ mod tests {
 
     #[test]
     fn rejects_empty_positions() {
-        assert!(
-            SparsePileup::new(
-                "chr1",
-                Orientation::Forward,
-                Vec::<u64>::new(),
-                Pileup::<u32>::zeros(0),
-            )
-            .is_err()
-        );
+        assert!(SparsePileup::new(Vec::<u64>::new(), Pileup::<u32>::zeros(0),).is_err());
     }
 
     #[test]
     fn iter_mutates_sites() -> Result<()> {
-        let mut sparse = SparsePileup::new(
-            "chr1",
-            Orientation::Reverse,
-            vec![10_u64, 12, 14],
-            Pileup::<u32>::zeros(3),
-        )?;
+        let mut sparse = SparsePileup::new(vec![10_u64, 12, 14], Pileup::<u32>::zeros(3))?;
 
         let mut sites = sparse.iter_mut();
         assert_eq!(sites.size_hint(), (3, Some(3)));
@@ -399,12 +364,10 @@ mod tests {
     #[test]
     fn from_distinct_chunks_merges_ordered_chunks() -> Result<()> {
         let merged = SparsePileup::from_distinct_chunks(&[
-            sparse("chr1", Orientation::Forward, vec![10, 12], vec![1, 2])?,
-            sparse("chr1", Orientation::Forward, vec![20], vec![3])?,
+            sparse(vec![10, 12], vec![1, 2])?,
+            sparse(vec![20], vec![3])?,
         ])?;
 
-        assert_eq!(merged.seqid, "chr1");
-        assert_eq!(merged.orientation, Orientation::Forward);
         assert_eq!(merged.interval(), Interval::new(10, 21).unwrap());
         assert_eq!(merged.positions(), &[10, 12, 20]);
         assert_eq!(merged.counts().a(), &[1, 2, 3]);
@@ -414,39 +377,20 @@ mod tests {
 
     #[test]
     fn from_distinct_chunks_rejects_empty_chunks() {
-        assert!(SparsePileup::<String, u64, u32>::from_distinct_chunks(&[]).is_err());
-    }
-
-    #[test]
-    fn from_distinct_chunks_rejects_mixed_seqids() -> Result<()> {
         assert!(
-            SparsePileup::from_distinct_chunks(&[
-                sparse("chr1", Orientation::Forward, vec![10], vec![1])?,
-                sparse("chr2", Orientation::Forward, vec![20], vec![2])?,
-            ])
+            SparsePileup::<u64, u32>::from_distinct_chunks(
+                Vec::<SparsePileup<u64, u32>>::new().as_slice()
+            )
             .is_err()
         );
-        Ok(())
-    }
-
-    #[test]
-    fn from_distinct_chunks_rejects_mixed_orientations() -> Result<()> {
-        assert!(
-            SparsePileup::from_distinct_chunks(&[
-                sparse("chr1", Orientation::Forward, vec![10], vec![1])?,
-                sparse("chr1", Orientation::Reverse, vec![20], vec![2])?,
-            ])
-            .is_err()
-        );
-        Ok(())
     }
 
     #[test]
     fn from_distinct_chunks_rejects_unsorted_chunks() -> Result<()> {
         assert!(
             SparsePileup::from_distinct_chunks(&[
-                sparse("chr1", Orientation::Forward, vec![20], vec![2])?,
-                sparse("chr1", Orientation::Forward, vec![10], vec![1])?,
+                sparse(vec![20], vec![2])?,
+                sparse(vec![10], vec![1])?,
             ])
             .is_err()
         );
@@ -457,8 +401,8 @@ mod tests {
     fn from_distinct_chunks_rejects_overlapping_chunks() -> Result<()> {
         assert!(
             SparsePileup::from_distinct_chunks(&[
-                sparse("chr1", Orientation::Forward, vec![10, 14], vec![1, 2])?,
-                sparse("chr1", Orientation::Forward, vec![13], vec![3])?,
+                sparse(vec![10, 14], vec![1, 2])?,
+                sparse(vec![13], vec![3])?,
             ])
             .is_err()
         );

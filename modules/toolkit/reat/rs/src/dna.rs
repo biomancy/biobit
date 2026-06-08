@@ -1,5 +1,9 @@
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
+use eyre::Report;
 use std::fmt::{Display, Formatter};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug, Default)]
 pub enum Reference {
     A,
@@ -28,18 +32,48 @@ impl Display for Reference {
     }
 }
 
-impl From<u8> for Reference {
-    fn from(symbol: u8) -> Self {
-        match symbol {
-            b'A' | b'a' => Reference::A,
-            b'C' | b'c' => Reference::C,
-            b'G' | b'g' => Reference::G,
-            b'T' | b't' => Reference::T,
-            _ => Reference::N,
+impl TryFrom<u8> for Reference {
+    type Error = Report;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            b'A' | b'a' => Ok(Reference::A),
+            b'C' | b'c' => Ok(Reference::C),
+            b'G' | b'g' => Ok(Reference::G),
+            b'T' | b't' => Ok(Reference::T),
+            // All IUPAC ambiguity codes are treated as N
+            // E.g., W, S, M, K, R, Y, B, D, H, V are all treated as N
+            b'N' | b'n' => Ok(Reference::N),
+            b'W' | b'w' | b'S' | b's' | b'M' | b'm' | b'K' | b'k' | b'R' | b'r' | b'Y' | b'y'
+            | b'B' | b'b' | b'D' | b'd' | b'H' | b'h' | b'V' | b'v' => Ok(Reference::N),
+            _ => Err(Report::msg(format!(
+                "Invalid reference symbol: {}",
+                value as char
+            ))),
         }
     }
 }
 
+impl TryFrom<&str> for Reference {
+    type Error = Report;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "A" | "a" => Ok(Reference::A),
+            "C" | "c" => Ok(Reference::C),
+            "G" | "g" => Ok(Reference::G),
+            "T" | "t" => Ok(Reference::T),
+            // All IUPAC ambiguity codes are treated as N
+            // E.g., W, S, M, K, R, Y, B, D, H, V are all treated as N
+            "N" | "n" => Ok(Reference::N),
+            "W" | "w" | "S" | "s" | "M" | "m" | "K" | "k" | "R" | "r" | "Y" | "y" | "B" | "b"
+            | "D" | "d" | "H" | "h" | "V" | "v" => Ok(Reference::N),
+            _ => Err(Report::msg(format!("Invalid reference symbol: {}", value))),
+        }
+    }
+}
+
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug, Default)]
 pub enum Observed {
     A,
@@ -100,10 +134,10 @@ mod tests {
 
     #[test]
     fn reference_from_sequence_symbol() {
-        assert_eq!(Reference::from(b'A'), Reference::A);
-        assert_eq!(Reference::from(b'c'), Reference::C);
-        assert_eq!(Reference::from(b'X'), Reference::N);
+        assert_eq!(Reference::try_from(b'A').unwrap(), Reference::A);
+        assert_eq!(Reference::try_from(b'c').unwrap(), Reference::C);
         assert_eq!(Reference::N.symbol(), "N");
+        assert!(Reference::try_from(b'X').is_err());
     }
 
     #[test]

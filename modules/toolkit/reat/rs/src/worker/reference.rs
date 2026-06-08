@@ -44,8 +44,20 @@ impl RefReader {
         );
 
         self.reference.clear();
-        self.reference
-            .extend(self.raw.iter().copied().map(dna::Reference::from));
+        for byte in &self.raw {
+            let base = match dna::Reference::try_from(*byte) {
+                Ok(base) => base,
+                Err(_) => {
+                    eyre::bail!(
+                        "invalid reference base '{}' (byte value {})",
+                        *byte as char,
+                        *byte
+                    );
+                }
+            };
+            self.reference.push(base);
+        }
+
         Ok(())
     }
 

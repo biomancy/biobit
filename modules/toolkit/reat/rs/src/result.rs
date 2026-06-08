@@ -4,39 +4,43 @@ use biobit_core_rs::loc::Orientation;
 use biobit_core_rs::num::PrimUInt;
 use eyre::Result;
 
-use crate::pileup::SparsePileup;
+use crate::task::TaskPileup;
+#[cfg(feature = "bitcode")]
+use bitcode::{Decode, Encode};
 
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct SelectedPileup<SeqId = String, Idx: PrimUInt = u64, Cnts: PrimUInt = u32, Tag = ()> {
+pub struct SamplePileup<SeqId: Ord = String, Idx: PrimUInt = u64, Cnts: PrimUInt = u32, Tag = ()> {
     pub tag: Tag,
-    pub pileups: BTreeMap<(SeqId, Orientation), SparsePileup<SeqId, Idx, Cnts>>,
+    pub pileups: BTreeMap<(SeqId, Orientation), TaskPileup<Idx, Cnts>>,
 }
 
-impl<SeqId, Idx, Cnts, Tag> SelectedPileup<SeqId, Idx, Cnts, Tag>
+impl<SeqId, Idx, Cnts, Tag> SamplePileup<SeqId, Idx, Cnts, Tag>
 where
-    SeqId: Clone + Ord,
+    SeqId: Ord,
     Idx: PrimUInt,
     Cnts: PrimUInt,
 {
-    pub fn new(tag: Tag, pileups: Vec<SparsePileup<SeqId, Idx, Cnts>>) -> Result<Self> {
-        let mut grouped = BTreeMap::<(SeqId, Orientation), Vec<_>>::new();
-        for pileup in pileups {
-            grouped
-                .entry((pileup.seqid.clone(), pileup.orientation))
-                .or_default()
-                .push(pileup);
-        }
-
-        let pileups = grouped
+    pub fn new(
+        tag: Tag,
+        pileups: BTreeMap<(SeqId, Orientation), Vec<TaskPileup<Idx, Cnts>>>,
+    ) -> Result<Self> {
+        let pileups = pileups
             .into_iter()
-            .map(|(key, mut chunks)| {
-                chunks.sort_by_key(|chunk| chunk.interval());
-                let pileup = SparsePileup::from_distinct_chunks(&chunks)?;
+            .map(|(key, chunks)| {
+                let pileup = TaskPileup::from_distinct_chunks(chunks)?;
                 Ok((key, pileup))
             })
             .collect::<Result<_>>()?;
 
         Ok(Self { tag, pileups })
+    }
+
+    pub fn retag<NewTag>(self, new_tag: NewTag) -> SamplePileup<SeqId, Idx, Cnts, NewTag> {
+        SamplePileup {
+            tag: new_tag,
+            pileups: self.pileups,
+        }
     }
 
     pub fn empty(tag: Tag) -> Self {
@@ -52,39 +56,44 @@ mod tests {
     use biobit_core_rs::loc::{Interval, Orientation};
 
     use super::*;
-    use crate::pileup::Pileup;
+    use crate::dna::Reference;
+    use crate::pileup::{Pileup, SparsePileup};
 
-    fn sparse(
-        seqid: &str,
-        orientation: Orientation,
-        positions: Vec<u64>,
-        a: Vec<u32>,
-    ) -> Result<SparsePileup<String, u64, u32>> {
+    fn task_pileup(positions: Vec<u64>, a: Vec<u32>) -> Result<TaskPileup<u64, u32>> {
         let len = positions.len();
-        SparsePileup::new(
-            seqid.to_string(),
-            orientation,
-            positions,
-            Pileup::new(
-                a,
-                vec![0; len],
-                vec![1; len],
-                vec![2; len],
-                vec![3; len],
-                vec![4; len],
+        TaskPileup::new(
+            SparsePileup::new(
+                positions,
+                Pileup::new(
+                    a,
+                    vec![0; len],
+                    vec![1; len],
+                    vec![2; len],
+                    vec![3; len],
+                    vec![4; len],
+                )?,
             )?,
+            vec![Reference::A; len],
         )
     }
 
     #[test]
     fn groups_and_merges_pileups_by_seqid_and_orientation() -> Result<()> {
-        let result = SelectedPileup::new(
+        let result = SamplePileup::new(
             "sample",
-            vec![
-                sparse("chr1", Orientation::Reverse, vec![20], vec![2])?,
-                sparse("chr2", Orientation::Forward, vec![5], vec![3])?,
-                sparse("chr1", Orientation::Reverse, vec![10], vec![1])?,
-            ],
+            BTreeMap::from([
+                (
+                    ("chr1".to_string(), Orientation::Reverse),
+                    vec![
+                        task_pileup(vec![20], vec![2])?,
+                        task_pileup(vec![10], vec![1])?,
+                    ],
+                ),
+                (
+                    ("chr2".to_string(), Orientation::Forward),
+                    vec![task_pileup(vec![5], vec![3])?],
+                ),
+            ]),
         )?;
 
         assert_eq!(result.tag, "sample");
@@ -95,21 +104,22 @@ mod tests {
             .get(&("chr1".to_string(), Orientation::Reverse))
             .unwrap();
         assert_eq!(chr1.interval(), Interval::new(10, 21).unwrap());
-        assert_eq!(chr1.positions(), &[10, 20]);
-        assert_eq!(chr1.counts().a(), &[1, 2]);
+        assert_eq!(chr1.pileup().positions(), &[10, 20]);
+        assert_eq!(chr1.pileup().counts().a(), &[1, 2]);
+        assert_eq!(chr1.reference(), &[Reference::A, Reference::A]);
 
         let chr2 = result
             .pileups
             .get(&("chr2".to_string(), Orientation::Forward))
             .unwrap();
-        assert_eq!(chr2.positions(), &[5]);
-        assert_eq!(chr2.counts().a(), &[3]);
+        assert_eq!(chr2.pileup().positions(), &[5]);
+        assert_eq!(chr2.pileup().counts().a(), &[3]);
         Ok(())
     }
 
     #[test]
     fn empty_result_contains_no_pileups() {
-        let result = SelectedPileup::<String, u64, u32, _>::empty("sample");
+        let result = SamplePileup::<String, u64, u32, _>::empty("sample");
         assert_eq!(result.tag, "sample");
         assert!(result.pileups.is_empty());
     }

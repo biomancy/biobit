@@ -1,4 +1,4 @@
-use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
+use biobit_core_rs::loc::{Interval, IntervalOp};
 use biobit_core_rs::num::PrimUInt;
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
@@ -8,21 +8,14 @@ use super::{Pileup, Site};
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct DensePileup<SeqId = String, Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
-    pub seqid: SeqId,
-    pub orientation: Orientation,
+pub struct DensePileup<Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
     interval: Interval<Idx>,
     counts: Pileup<Cnts>,
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> DensePileup<SeqId, Idx, Cnts> {
-    pub fn new(
-        seqid: SeqId,
-        interval: Interval<Idx>,
-        orientation: Orientation,
-        counts: Pileup<Cnts>,
-    ) -> Result<Self> {
+impl<Idx: PrimUInt, Cnts: PrimUInt> DensePileup<Idx, Cnts> {
+    pub fn new(interval: Interval<Idx>, counts: Pileup<Cnts>) -> Result<Self> {
         let len = interval
             .len()
             .to_usize()
@@ -32,12 +25,7 @@ impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> DensePileup<SeqId, Idx, Cnts> {
             "Pileup counts length does not match pileup interval length"
         );
 
-        Ok(Self {
-            seqid,
-            interval,
-            orientation,
-            counts,
-        })
+        Ok(Self { interval, counts })
     }
 
     #[inline]
@@ -70,20 +58,13 @@ impl<SeqId, Idx: PrimUInt, Cnts: PrimUInt> DensePileup<SeqId, Idx, Cnts> {
         })
     }
 
-    pub fn reset(
-        &mut self,
-        seqid: SeqId,
-        interval: Interval<Idx>,
-        orientation: Orientation,
-    ) -> Result<()> {
+    pub fn reset(&mut self, interval: Interval<Idx>) -> Result<()> {
         let length = interval
             .len()
             .to_usize()
             .ok_or_else(|| eyre::eyre!("Pileup interval length does not fit into usize"))?;
 
-        self.seqid = seqid;
         self.interval = interval;
-        self.orientation = orientation;
         self.counts.reset(length);
         Ok(())
     }
@@ -96,16 +77,9 @@ mod tests {
 
     #[test]
     fn validates_lengths() -> Result<()> {
-        let dense = DensePileup::new(
-            "chr1".to_string(),
-            Interval::new(10_u64, 12).unwrap(),
-            Orientation::Forward,
-            Pileup::<u32>::zeros(2),
-        )?;
+        let dense = DensePileup::new(Interval::new(10_u64, 12).unwrap(), Pileup::<u32>::zeros(2))?;
 
         assert_eq!(dense.len(), 2);
-        assert_eq!(dense.seqid, "chr1");
-        assert_eq!(dense.orientation, Orientation::Forward);
         assert_eq!(*dense.interval(), Interval::new(10_u64, 12).unwrap());
         Ok(())
     }
@@ -113,34 +87,18 @@ mod tests {
     #[test]
     fn rejects_mismatched_counts_length() {
         assert!(
-            DensePileup::new(
-                "chr1",
-                Interval::new(10_u64, 12).unwrap(),
-                Orientation::Forward,
-                Pileup::<u32>::zeros(1),
-            )
-            .is_err()
+            DensePileup::new(Interval::new(10_u64, 12).unwrap(), Pileup::<u32>::zeros(1),).is_err()
         );
     }
 
     #[test]
     fn reset_updates_metadata_and_resizes_contents() -> Result<()> {
-        let mut dense = DensePileup::new(
-            "chr1".to_string(),
-            Interval::new(10_u64, 12).unwrap(),
-            Orientation::Forward,
-            Pileup::<u32>::zeros(2),
-        )?;
+        let mut dense =
+            DensePileup::new(Interval::new(10_u64, 12).unwrap(), Pileup::<u32>::zeros(2))?;
         dense.counts_mut()[Observed::A][0] = 5;
 
-        dense.reset(
-            "chr2".to_string(),
-            Interval::new(20_u64, 24).unwrap(),
-            Orientation::Reverse,
-        )?;
+        dense.reset(Interval::new(20_u64, 24).unwrap())?;
 
-        assert_eq!(dense.seqid, "chr2");
-        assert_eq!(dense.orientation, Orientation::Reverse);
         assert_eq!(*dense.interval(), Interval::new(20_u64, 24).unwrap());
         assert_eq!(dense.counts().a(), &[0, 0, 0, 0]);
         Ok(())
@@ -148,12 +106,7 @@ mod tests {
 
     #[test]
     fn iterates_sites() -> Result<()> {
-        let dense = DensePileup::new(
-            "chr1",
-            Interval::new(10_u64, 13).unwrap(),
-            Orientation::Forward,
-            Pileup::<u32>::zeros(3),
-        )?;
+        let dense = DensePileup::new(Interval::new(10_u64, 13).unwrap(), Pileup::<u32>::zeros(3))?;
 
         let mut sites = dense.iter();
         assert_eq!(sites.size_hint(), (3, Some(3)));
@@ -175,9 +128,7 @@ mod tests {
     #[test]
     fn site_calculates_counts_coverage_and_mismatches() -> Result<()> {
         let dense = DensePileup::new(
-            "chr1",
             Interval::new(10_u64, 15).unwrap(),
-            Orientation::Forward,
             Pileup::<u32>::new(
                 vec![2, 1, 1, 1, 1],
                 vec![1, 2, 1, 1, 1],

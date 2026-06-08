@@ -186,7 +186,12 @@ impl<'a, T: PrimUInt> SiteMut<'a, T> {
 
     #[inline]
     pub fn coverage(&self) -> T {
-        *self.a() + *self.c() + *self.g() + *self.t() + *self.n() + *self.deletion()
+        (*self.a())
+            .saturating_add(*self.c())
+            .saturating_add(*self.g())
+            .saturating_add(*self.t())
+            .saturating_add(*self.n())
+            .saturating_add(*self.deletion())
     }
 
     #[inline]
@@ -202,7 +207,33 @@ impl<'a, T: PrimUInt> SiteMut<'a, T> {
 
     #[inline]
     pub fn mismatches(&self, reference: Reference) -> T {
-        self.coverage() - self.matches(reference)
+        match reference {
+            Reference::A => (*self.c())
+                .saturating_add(*self.g())
+                .saturating_add(*self.t())
+                .saturating_add(*self.n())
+                .saturating_add(*self.deletion()),
+            Reference::C => (*self.a())
+                .saturating_add(*self.g())
+                .saturating_add(*self.t())
+                .saturating_add(*self.n())
+                .saturating_add(*self.deletion()),
+            Reference::G => (*self.a())
+                .saturating_add(*self.c())
+                .saturating_add(*self.t())
+                .saturating_add(*self.n())
+                .saturating_add(*self.deletion()),
+            Reference::T => (*self.a())
+                .saturating_add(*self.c())
+                .saturating_add(*self.g())
+                .saturating_add(*self.n())
+                .saturating_add(*self.deletion()),
+            Reference::N => (*self.a())
+                .saturating_add(*self.c())
+                .saturating_add(*self.g())
+                .saturating_add(*self.t())
+                .saturating_add(*self.deletion()),
+        }
     }
 
     #[inline]

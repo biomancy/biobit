@@ -7,6 +7,8 @@ use bitcode::{Decode, Encode};
 use derive_getters::Getters;
 use eyre::{Result, ensure, eyre};
 
+use crate::dna::Reference;
+use crate::pileup::SparsePileup;
 use crate::selection::Selection;
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
@@ -15,6 +17,62 @@ pub struct Task<SeqId = String, Idx: PrimUInt = u64> {
     seqid: SeqId,
     envelope: Interval<Idx>,
     intervals: Vec<Interval<Idx>>,
+}
+
+#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
+#[derive(Clone, PartialEq, Eq, Debug, Getters)]
+pub struct TaskPileup<Idx: PrimUInt = u64, Cnts: PrimUInt = u32> {
+    pileup: SparsePileup<Idx, Cnts>,
+    reference: Vec<Reference>,
+}
+
+impl<Idx, Cnts> TaskPileup<Idx, Cnts>
+where
+    Idx: PrimUInt,
+    Cnts: PrimUInt,
+{
+    pub fn new(pileup: SparsePileup<Idx, Cnts>, reference: Vec<Reference>) -> Result<Self> {
+        ensure!(
+            pileup.len() == reference.len(),
+            "reference length does not match sparse pileup length"
+        );
+        Ok(Self { pileup, reference })
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.pileup.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.pileup.len() == 0
+    }
+
+    #[inline]
+    pub fn interval(&self) -> Interval<Idx> {
+        self.pileup.interval()
+    }
+
+    pub fn from_distinct_chunks(mut chunks: Vec<Self>) -> Result<Self> {
+        ensure!(
+            !chunks.is_empty(),
+            "task pileup chunks should contain at least one chunk"
+        );
+        chunks.sort_by_key(|chunk| chunk.interval());
+
+        let mut reference = Vec::with_capacity(chunks.iter().map(Self::len).sum());
+        let pileups = chunks
+            .iter()
+            .map(|chunk| {
+                reference.extend_from_slice(chunk.reference());
+                chunk.pileup()
+            })
+            .collect::<Vec<_>>();
+
+        let pileup = SparsePileup::from_distinct_chunks(&pileups)?;
+        TaskPileup::new(pileup, reference)
+    }
 }
 
 impl<SeqId, Idx: PrimUInt> Task<SeqId, Idx> {

@@ -1,3 +1,4 @@
+use biobit_core_rs::loc::Orientation;
 use biobit_core_rs::num::PrimUInt;
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
@@ -60,12 +61,16 @@ where
 {
     fn select(
         &self,
-        pileup: &DensePileup<SeqId, Idx, Cnts>,
+        seqid: &SeqId,
+        orientation: Orientation,
+        pileup: &DensePileup<Idx, Cnts>,
         reference: &[Reference],
         selection: &mut Selection,
     ) -> Result<()> {
-        self.required.select(pileup, reference, selection)?;
-        self.mismatches.select(pileup, reference, selection)
+        self.required
+            .select(seqid, orientation, pileup, reference, selection)?;
+        self.mismatches
+            .select(seqid, orientation, pileup, reference, selection)
     }
 }
 
@@ -89,9 +94,7 @@ mod tests {
             Mismatches::new(10, 0.0)?,
         );
         let dense = DensePileup::new(
-            "chr1",
             Interval::new(10_u64, 14)?,
-            Orientation::Forward,
             Pileup::<u32>::new(
                 vec![1, 2, 1, 1],
                 vec![0, 0, 1, 0],
@@ -104,7 +107,13 @@ mod tests {
         let mut selection = Selection::zeros(dense.len());
         let reference = vec![Reference::A; dense.len()];
 
-        selector.select(&dense, &reference, &mut selection)?;
+        selector.select(
+            &"chr1",
+            Orientation::Forward,
+            &dense,
+            &reference,
+            &mut selection,
+        )?;
 
         assert_eq!(
             selection.selected_offsets().collect::<Vec<_>>(),

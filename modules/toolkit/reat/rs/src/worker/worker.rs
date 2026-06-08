@@ -1,6 +1,6 @@
 use super::pileups::PileupCache;
 use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::{IntervalOp, Orientation};
+use biobit_core_rs::loc::{IntervalOp, Orientation, PerOrientation};
 use biobit_core_rs::num::PrimUInt;
 use biobit_core_rs::source::DynSource;
 use biobit_io_rs::fasta::IndexedReaderMutOp;
@@ -12,9 +12,8 @@ use std::sync::Arc;
 
 use super::process;
 use super::reference::RefReader;
-use crate::pileup::SparsePileup;
 use crate::selection::{Selection, Selector};
-use crate::task::Task;
+use crate::task::{Task, TaskPileup};
 
 pub type SourceArgs<SeqId> = For!(<'args> = (&'args SeqId, usize, usize));
 pub type SourceItem = For!(<'item> = io::Result<(Orientation, &'item [Record])>);
@@ -23,7 +22,7 @@ pub type DynReadSource<SeqId> = Box<dyn DynSource<Args = SourceArgs<SeqId>, Item
 pub struct Worker<SeqId, Idx: PrimUInt, Cnts: PrimUInt> {
     selector: Arc<dyn Selector<SeqId, Idx, Cnts> + Send + Sync>,
     reference: RefReader,
-    pileups: PileupCache<SeqId, Idx, Cnts>,
+    pileups: PileupCache<Idx, Cnts>,
     selection: Selection,
     min_phread: u8,
 }
@@ -59,7 +58,7 @@ where
         &mut self,
         task: &Task<SeqId, Idx>,
         sources: &mut [DynReadSource<SeqId>],
-    ) -> Result<Vec<SparsePileup<SeqId, Idx, Cnts>>> {
+    ) -> Result<PerOrientation<Option<TaskPileup<Idx, Cnts>>>> {
         let envelope = task
             .envelope()
             .cast::<usize>()
@@ -81,30 +80,61 @@ where
         self.finalize(task)
     }
 
-    fn finalize(&mut self, task: &Task<SeqId, Idx>) -> Result<Vec<SparsePileup<SeqId, Idx, Cnts>>> {
-        let mut is_reference_updated = false;
-        let mut results = Vec::new();
-        for (_orientation, pileup) in self.pileups.initialized() {
-            debug_assert!(pileup.seqid == *task.seqid());
+    fn finalize(
+        &mut self,
+        task: &Task<SeqId, Idx>,
+    ) -> Result<PerOrientation<Option<TaskPileup<Idx, Cnts>>>> {
+        let mut results = PerOrientation::new(None, None, None);
+        let mut refseq = Option::None;
+        for (orientation, pileup) in self.pileups.initialized() {
             debug_assert!(task.envelope().envelops(pileup.interval()));
 
-            // Fetch the reference if needed
-            if !is_reference_updated {
-                self.reference
-                    .fetch(task.seqid().as_ref(), task.envelope())?;
-                is_reference_updated = true;
+            // Skip if the pileup didn't have any coverage
+            // It saves us a trip to the reference source and the selector call.
+            if pileup
+                .counts()
+                .iter()
+                .map(|x| x.coverage())
+                .max()
+                .unwrap_or(Cnts::zero())
+                == Cnts::zero()
+            {
+                continue;
             }
 
+            // Fetch the reference if needed
+            let reference = match refseq {
+                Some(reference) => reference,
+                None => {
+                    self.reference
+                        .fetch(task.seqid().as_ref(), task.envelope())?;
+                    refseq = Some(self.reference.reference());
+                    self.reference.reference()
+                }
+            };
+
             self.selection.reset(pileup.len());
-            self.selector
-                .select(pileup, self.reference.reference(), &mut self.selection)?;
+            self.selector.select(
+                task.seqid(),
+                orientation,
+                pileup,
+                reference,
+                &mut self.selection,
+            )?;
             task.exclude_outside_intervals(&mut self.selection)?;
 
             let offsets = self.selection.selected_offsets().collect::<Vec<_>>();
             if offsets.is_empty() {
                 continue;
             }
-            results.push(SparsePileup::from_dense(pileup, offsets)?);
+            let reference = offsets
+                .iter()
+                .map(|offset| reference[*offset])
+                .collect::<Vec<_>>();
+            // SAFETY: All offsets are not empty, and they are in bounds of the pileup, which is guaranteed by the selector and the task's envelope.
+            let pileup =
+                unsafe { crate::pileup::SparsePileup::from_dense_unchecked(pileup, offsets) };
+            results[orientation] = Some(TaskPileup::new(pileup, reference)?);
         }
         Ok(results)
     }

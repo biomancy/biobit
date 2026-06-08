@@ -29,18 +29,32 @@ def test_task_api():
 def test_pileup_api():
     counts = reat.Pileup([1, 2], [0, 1], [0, 0], [2, 0], [0, 0], [0, 1])
     assert counts.len() == 2
-    assert counts.coverage == [3, 4]
+    assert counts.coverage() == [3, 4]
     assert pickle.loads(pickle.dumps(counts)) == counts
 
-    pileup = reat.SparsePileup("chr1", "+", [20, 22], counts)
-    assert pileup.seqid == "chr1"
-    assert pileup.orientation == Orientation.Forward
+    pileup = reat.SparsePileup([20, 22], counts)
     assert pileup.interval == Interval(20, 23)
+    assert pileup.positions() == [20, 22]
+    assert pileup.counts() == counts
 
     assert pickle.loads(pickle.dumps(pileup)) == pileup
 
+    task_pileup = reat.TaskPileup(pileup, ["A", "C"])
+    assert task_pileup.pileup() == pileup
+    assert task_pileup.reference() == ["A", "C"]
+    assert task_pileup.interval == Interval(20, 23)
+    assert pickle.loads(pickle.dumps(task_pileup)) == task_pileup
+
+    large = reat.SparsePileup([2**63], reat.Pileup.zeros(1))
+    with pytest.raises(ValueError):
+        _ = large.interval
+
 
 def test_selection_api():
+    default = reat.selection.Mismatches()
+    assert default.minmismatches == 1
+    assert default.minfreq == pytest.approx(0.0)
+
     mismatches = reat.selection.Mismatches(minmismatches=2, minfreq=0.25)
     assert mismatches.minmismatches == 2
     assert mismatches.minfreq == pytest.approx(0.25)
@@ -52,9 +66,20 @@ def test_selection_api():
     assert pickle.loads(pickle.dumps(required)) == required
 
     selector = reat.selection.RequiredOrMismatches(required, mismatches)
-    assert selector.required == required
-    assert selector.mismatches == mismatches
+    assert selector.required() == required
+    assert selector.mismatches() == mismatches
     assert pickle.loads(pickle.dumps(selector)) == selector
+
+
+def test_reat_sample_tags_only_need_equality():
+    engine = reat.Reat(IndexedSources(REFERENCE), threads=1)
+    layout = Layout.Single(Strandedness.Unstranded)
+    engine.add_sources({"sample": 1}, [], layout)
+    engine.add_sources({"sample": 2}, [], layout)
+
+    results = engine.run([])
+
+    assert [result.tag for result in results] == [{"sample": 1}, {"sample": 2}]
 
 
 def test_reat_run_with_bam_fixture():
@@ -71,12 +96,16 @@ def test_reat_run_with_bam_fixture():
     assert results[0].tag == "sample"
     pileups = results[0].pileups()
     assert list(pileups.keys()) == [("chr21", Orientation.Dual)]
-    pileup = pileups["chr21", Orientation.Dual]
-    assert pileup.positions == list(range(3190, 3200))
-    assert pileup.counts.coverage == [1] * 10
+    task_pileup = pileups["chr21", Orientation.Dual]
+    pileup = task_pileup.pileup()
+    assert pileup.positions() == list(range(3190, 3200))
+    assert pileup.counts().coverage() == [1] * 10
+    assert len(task_pileup.reference()) == 10
 
     restored = pickle.loads(pickle.dumps(results[0]))
     assert restored.tag == "sample"
-    restored_pileup = restored.pileups()["chr21", Orientation.Dual]
-    assert restored_pileup.positions == pileup.positions
-    assert restored_pileup.counts == pileup.counts
+    restored_task_pileup = restored.pileups()["chr21", Orientation.Dual]
+    restored_pileup = restored_task_pileup.pileup()
+    assert restored_pileup.positions() == pileup.positions()
+    assert restored_pileup.counts() == pileup.counts()
+    assert restored_task_pileup.reference() == task_pileup.reference()

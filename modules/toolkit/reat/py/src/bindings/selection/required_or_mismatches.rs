@@ -28,12 +28,10 @@ impl PyRequiredOrMismatches {
         }
     }
 
-    #[getter]
     pub fn required(&self) -> PyRequiredSites {
         self.rs.required().clone().into()
     }
 
-    #[getter]
     pub fn mismatches(&self) -> PyMismatches {
         (*self.rs.mismatches()).into()
     }

@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use biobit_core_py::ngs::{MatesOrientation, PyLayout, Strandedness};
 use biobit_core_py::parallelism;
 use biobit_core_rs::LendingIterator;
@@ -14,7 +12,7 @@ use higher_kinded_types::prelude::*;
 use pyo3::prelude::*;
 use rayon::ThreadPoolBuilder;
 
-use crate::result::PySelectedPileup;
+use crate::result::PySamplePileup;
 use crate::selection::{IntoPySelector, PyMismatches};
 use crate::task::PyTask;
 
@@ -33,7 +31,7 @@ pub struct PyReat {
 impl PyReat {
     fn find_sample(&mut self, tag: &Py<PyAny>, py: Python) -> Result<Option<usize>> {
         for (ind, sample) in self.samples.iter().enumerate() {
-            if sample.bind(py).compare(tag)? == Ordering::Equal {
+            if sample.bind(py).eq(tag.bind(py))? {
                 return Ok(Some(ind));
             }
         }
@@ -93,14 +91,15 @@ impl PyReat {
         Ok(slf)
     }
 
-    pub fn run(mut slf: PyRefMut<Self>, tasks: Vec<PyTask>) -> PyResult<Vec<PySelectedPileup>> {
+    pub fn run(mut slf: PyRefMut<Self>, tasks: Vec<PyTask>) -> PyResult<Vec<PySamplePileup>> {
         let tasks = tasks.into_iter().map(|task| task.rs).collect::<Vec<_>>();
         let py = slf.py();
         let results = slf.reat.run(tasks)?;
-        results
+        let results = results
             .into_iter()
-            .map(|selected| PySelectedPileup::from_rs(py, &slf.samples, selected))
-            .collect()
+            .map(|selected| PySamplePileup::new(slf.samples[selected.tag].clone_ref(py), selected))
+            .collect();
+        Ok(results)
     }
 
     pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {

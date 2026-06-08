@@ -1,5 +1,5 @@
 pub use reat::Reat;
-pub use result::SelectedPileup;
+pub use result::SamplePileup;
 
 pub mod dna;
 pub mod pileup;

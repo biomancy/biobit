@@ -10,9 +10,10 @@ use biobit_io_rs::{
     bam::{ReaderBuilder, strdeductor, transform},
     fasta,
 };
+use biobit_reat_rs::dna;
 use biobit_reat_rs::selection::Selector;
 use biobit_reat_rs::{
-    SelectedPileup,
+    SamplePileup,
     selection::{Mismatches, RequiredOrMismatches, RequiredSites},
     task::Task,
 };
@@ -52,6 +53,7 @@ struct Row {
     seqid: String,
     orientation: Orientation,
     position: u64,
+    reference: dna::Reference,
     a: u32,
     c: u32,
     g: u32,
@@ -62,7 +64,7 @@ struct Row {
 
 impl Row {
     fn from_str(line: &str, sep: char) -> Result<Self> {
-        let (seqid, orientation, position, a, c, g, t, n, deletion) = line
+        let (seqid, orientation, position, reference, a, c, g, t, n, deletion) = line
             .split(sep)
             .collect_tuple()
             .ok_or_else(|| eyre!("Invalid Row string: {}", line))?;
@@ -74,6 +76,7 @@ impl Row {
             seqid: seqid.to_string(),
             orientation,
             position: position.parse()?,
+            reference: dna::Reference::try_from(reference)?,
             a: a.parse()?,
             c: c.parse()?,
             g: g.parse()?,
@@ -177,14 +180,16 @@ fn run() -> Result<Vec<Row>> {
     Ok(flatten(&result[0]))
 }
 
-fn flatten(result: &SelectedPileup<String, u64, u32, String>) -> Vec<Row> {
+fn flatten(result: &SamplePileup<String, u64, u32, String>) -> Vec<Row> {
     let mut rows = Vec::new();
     for ((seqid, orientation), pileup) in &result.pileups {
-        for (position, counts) in pileup.iter() {
+        debug_assert_eq!(pileup.pileup().len(), pileup.reference().len());
+        for ((position, counts), reference) in pileup.pileup().iter().zip(pileup.reference()) {
             rows.push(Row {
                 seqid: seqid.clone(),
                 orientation: *orientation,
                 position,
+                reference: *reference,
                 a: *counts.a(),
                 c: *counts.c(),
                 g: *counts.g(),
@@ -208,14 +213,18 @@ fn flatten(result: &SelectedPileup<String, u64, u32, String>) -> Vec<Row> {
 fn write_expected(path: &Path, rows: &[Row]) -> Result<()> {
     let encoder = Encoder::from_path(path, &["csv"])?;
     let mut writer = encoder.encode(File::create(path)?, BoxedSync)?;
-    writeln!(writer, "seqid,orientation,position,A,C,G,T,N,deletion")?;
+    writeln!(
+        writer,
+        "seqid,orientation,position,reference,A,C,G,T,N,deletion"
+    )?;
     for row in rows {
         writeln!(
             writer,
-            "{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{}",
             row.seqid,
             row.orientation,
             row.position,
+            row.reference,
             row.a,
             row.c,
             row.g,
@@ -244,7 +253,7 @@ fn compare_expected(path: &Path, rows: &[Row]) -> Result<()> {
         .next()
         .ok_or_else(|| eyre!("Expected output is empty: {}", path.display()))??;
     ensure!(
-        header == "seqid,orientation,position,A,C,G,T,N,deletion",
+        header == "seqid,orientation,position,reference,A,C,G,T,N,deletion",
         "Unexpected expected-output header: {}",
         header
     );

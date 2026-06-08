@@ -435,4 +435,14 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn site_coverage_and_mismatches_saturate() -> Result<()> {
+        let pileup = Pileup::<u8>::new(vec![200], vec![100], vec![0], vec![0], vec![0], vec![0])?;
+        let site = pileup.site(0);
+
+        assert_eq!(site.coverage(), u8::MAX);
+        assert_eq!(site.mismatches(Reference::A), 100);
+        Ok(())
+    }
 }

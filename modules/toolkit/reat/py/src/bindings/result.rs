@@ -1,99 +1,67 @@
 use biobit_core_py::loc::PyOrientation;
 use biobit_core_py::pickle;
-use biobit_reat_rs::SelectedPileup;
-use biobit_reat_rs::pileup::SparsePileup;
+use biobit_reat_rs::SamplePileup;
 use pyo3::PyTypeInfo;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
 
-use crate::pileup::PySparsePileup;
+use crate::PyTaskPileup;
 
-type SelectedPileupReduce = (Py<PyAny>, (Py<PyAny>, Vec<u8>));
-
-#[pyclass(name = "SelectedPileup")]
-pub struct PySelectedPileup {
-    tag: Py<PyAny>,
-    pileups: Vec<Py<PySparsePileup>>,
+#[pyclass(name = "SamplePileup")]
+#[repr(transparent)]
+pub struct PySamplePileup {
+    rs: SamplePileup<String, u64, u32, Py<PyAny>>,
 }
 
-impl PySelectedPileup {
-    pub fn new(py: Python, tag: Py<PyAny>, pileups: Vec<PySparsePileup>) -> PyResult<Self> {
-        let pileups = pileups
-            .into_iter()
-            .map(|pileup| Py::new(py, pileup))
-            .collect::<PyResult<Vec<_>>>()?;
-        Ok(Self { tag, pileups })
-    }
-
-    pub fn from_rs(
-        py: Python,
-        samples: &[Py<PyAny>],
-        selected: SelectedPileup<String, u64, u32, usize>,
-    ) -> PyResult<Self> {
-        let tag = samples[selected.tag].clone_ref(py);
-        let pileups = selected
-            .pileups
-            .into_values()
-            .map(PySparsePileup::from)
-            .collect::<Vec<_>>();
-        Self::new(py, tag, pileups)
+impl PySamplePileup {
+    pub fn new(tag: Py<PyAny>, rs: SamplePileup<String, u64, u32, usize>) -> Self {
+        let rs = rs.retag(tag);
+        Self { rs }
     }
 }
 
 #[pymethods]
-impl PySelectedPileup {
-    #[new]
-    pub fn py_new(py: Python, tag: Py<PyAny>, pileups: Vec<PySparsePileup>) -> PyResult<Self> {
-        Self::new(py, tag, pileups)
-    }
-
+impl PySamplePileup {
     #[getter]
     pub fn tag(&self, py: Python) -> Py<PyAny> {
-        self.tag.clone_ref(py)
+        self.rs.tag.clone_ref(py)
     }
 
     pub fn pileups(&self, py: Python) -> PyResult<Py<PyDict>> {
         let dict = PyDict::new(py);
-        for pileup in &self.pileups {
-            let borrowed = pileup.borrow(py);
+        for (key, value) in self.rs.pileups.iter() {
+            let (seqid, orientation) = key;
             dict.set_item(
-                (
-                    borrowed.rs.seqid.clone(),
-                    PyOrientation(borrowed.rs.orientation),
-                ),
-                pileup.clone_ref(py),
+                (seqid.clone(), PyOrientation(*orientation)),
+                PyTaskPileup { rs: value.clone() },
             )?;
         }
         Ok(dict.unbind())
     }
 
     pub fn len(&self) -> usize {
-        self.pileups.len()
+        self.rs.pileups.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.pileups.is_empty()
+        self.rs.pileups.is_empty()
     }
 
     #[staticmethod]
-    pub fn _from_pickle(py: Python, tag: Py<PyAny>, state: &Bound<PyBytes>) -> PyResult<Self> {
-        let pileups: Vec<SparsePileup<String, u64, u32>> = pickle::from_bytes(state.as_bytes())?;
-        let pileups = pileups
-            .into_iter()
-            .map(PySparsePileup::from)
-            .collect::<Vec<_>>();
-        Self::new(py, tag, pileups)
+    pub fn _from_pickle(tag: Py<PyAny>, state: &Bound<PyBytes>) -> PyResult<Self> {
+        let pileups = pickle::from_bytes(state.as_bytes())?;
+        let rs = SamplePileup { tag, pileups };
+        Ok(Self { rs })
     }
 
-    pub fn __reduce__(&self, py: Python) -> PyResult<SelectedPileupReduce> {
-        let pileups = self
-            .pileups
-            .iter()
-            .map(|pileup| pileup.borrow(py).rs.clone())
-            .collect::<Vec<_>>();
+    #[allow(clippy::type_complexity)]
+    pub fn __reduce__(&self, py: Python) -> PyResult<(Py<PyAny>, (Py<PyAny>, Vec<u8>))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
-            (self.tag.clone_ref(py), pickle::to_bytes(&pileups)),
+            (
+                self.rs.tag.clone_ref(py),
+                pickle::to_bytes(&self.rs.pileups),
+            ),
         ))
     }
 }

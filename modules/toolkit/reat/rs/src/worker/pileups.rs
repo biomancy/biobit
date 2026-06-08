@@ -5,13 +5,13 @@ use eyre::Result;
 use crate::pileup::{DensePileup, Pileup};
 use crate::task::Task;
 
-pub struct PileupCache<SeqId, Idx: PrimUInt, Cnts: PrimUInt> {
-    pileups: PerOrientation<Option<DensePileup<SeqId, Idx, Cnts>>>,
+pub struct PileupCache<Idx: PrimUInt, Cnts: PrimUInt> {
+    pileups: PerOrientation<Option<DensePileup<Idx, Cnts>>>,
     initialized: PerOrientation<bool>,
     capacity: usize,
 }
 
-impl<SeqId, Idx, Cnts> PileupCache<SeqId, Idx, Cnts>
+impl<Idx, Cnts> PileupCache<Idx, Cnts>
 where
     Idx: PrimUInt,
     Cnts: PrimUInt,
@@ -25,9 +25,8 @@ where
     }
 }
 
-impl<SeqId, Idx, Cnts> PileupCache<SeqId, Idx, Cnts>
+impl<Idx, Cnts> PileupCache<Idx, Cnts>
 where
-    SeqId: Clone,
     Idx: PrimUInt,
     Cnts: PrimUInt,
 {
@@ -36,15 +35,15 @@ where
             .apply(|_, initialized| *initialized = false);
     }
 
-    pub fn get(
+    pub fn get<SeqId>(
         &mut self,
         task: &Task<SeqId, Idx>,
         orientation: Orientation,
-    ) -> Result<&mut DensePileup<SeqId, Idx, Cnts>> {
+    ) -> Result<&mut DensePileup<Idx, Cnts>> {
         if !self.initialized[orientation] {
             let pileup = &mut self.pileups[orientation];
             if let Some(pileup) = pileup {
-                pileup.reset(task.seqid().clone(), *task.envelope(), orientation)?;
+                pileup.reset(*task.envelope())?;
             } else {
                 let length =
                     task.envelope().len().to_usize().ok_or_else(|| {
@@ -54,12 +53,7 @@ where
                 let mut cnts = Pileup::with_capacity(capacity);
                 cnts.reset(length);
 
-                *pileup = Some(DensePileup::new(
-                    task.seqid().clone(),
-                    *task.envelope(),
-                    orientation,
-                    cnts,
-                )?);
+                *pileup = Some(DensePileup::new(*task.envelope(), cnts)?);
             }
             self.initialized[orientation] = true;
         }
@@ -69,9 +63,7 @@ where
             .expect("initialized pileup should exist"))
     }
 
-    pub fn initialized(
-        &self,
-    ) -> impl Iterator<Item = (Orientation, &DensePileup<SeqId, Idx, Cnts>)> {
+    pub fn initialized(&self) -> impl Iterator<Item = (Orientation, &DensePileup<Idx, Cnts>)> {
         self.pileups
             .iter()
             .filter(|(orientation, _)| self.initialized[*orientation])

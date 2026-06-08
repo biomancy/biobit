@@ -1,10 +1,8 @@
-from collections.abc import Sequence
-
 from biobit.core.loc import Orientation
 
-from .pileup import SparsePileup
+from .pileup import TaskPileup
 
-class SelectedPileup[T]:
+class SamplePileup[T]:
     """
     REAT output for one sample tag.
 
@@ -15,15 +13,9 @@ class SelectedPileup[T]:
 
     tag: T
 
-    def __init__(self, tag: T, pileups: Sequence[SparsePileup]) -> None:
-        """Create a selected-pileup result from sparse pileup chunks."""
-        ...
-
-    def pileups(self) -> dict[tuple[str, Orientation], SparsePileup]:
-        """Return pileups grouped by `(seqid, orientation)`."""
+    def pileups(self) -> dict[tuple[str, Orientation], TaskPileup]:
+        """Return task pileups grouped by `(seqid, orientation)`."""
         ...
 
     def len(self) -> int: ...
     def is_empty(self) -> bool: ...
-
-    __hash__ = None  # type: ignore

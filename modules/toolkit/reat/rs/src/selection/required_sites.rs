@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use biobit_collections_rs::interval_tree::Bits;
 use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
 use biobit_core_rs::num::PrimUInt;
-use eyre::Result;
+use eyre::{Result, bail};
 
 use crate::dna::Reference;
 use crate::pileup::DensePileup;
@@ -76,24 +76,22 @@ where
 {
     fn select(
         &self,
-        pileup: &DensePileup<SeqId, Idx, Cnts>,
+        seqid: &SeqId,
+        orientation: Orientation,
+        pileup: &DensePileup<Idx, Cnts>,
         _reference: &[Reference],
         selection: &mut Selection,
     ) -> Result<()> {
-        let key = (pileup.seqid.clone(), pileup.orientation);
+        let key = (seqid.clone(), orientation);
         let Some(required) = self.index.get(&key) else {
             return Ok(());
         };
         let overlaps = required.query(*pileup.interval()).map(|(i, _)| i);
         for overlap in overlaps.into_iter() {
             // Overlaps aren't guaranteed to be fully contained within the pileup interval, so we need to compute the intersection
-            let intersection = overlap.intersection(pileup.interval());
-            debug_assert!(
-                intersection.is_some(),
-                "overlap should intersect with pileup interval"
-            );
-            // SAFETY: Bits guarantees that the intersection is not None, so we can unwrap it without checking
-            let intersection = unsafe { intersection.unwrap_unchecked() };
+            let Some(intersection) = overlap.intersection(pileup.interval()) else {
+                bail!("Overlap calculated by Bits should intersect with pileup interval");
+            };
             let start = (intersection.start() - pileup.interval().start())
                 .to_usize()
                 .expect("intersection start should be within pileup interval");
@@ -101,7 +99,9 @@ where
                 .to_usize()
                 .expect("intersection end should be within pileup interval");
             for offset in start..end {
-                selection.select(offset)
+                if !pileup.counts().site(offset).coverage().is_zero() {
+                    selection.select(offset)
+                }
             }
         }
         Ok(())
@@ -114,14 +114,9 @@ mod tests {
 
     use super::*;
 
-    fn dense(
-        seqid: &'static str,
-        orientation: Orientation,
-    ) -> Result<DensePileup<&'static str, u64, u32>> {
+    fn dense() -> Result<DensePileup<u64, u32>> {
         DensePileup::new(
-            seqid,
             Interval::new(10_u64, 15)?,
-            orientation,
             Pileup::<u32>::new(
                 vec![1, 2, 0, 4, 5],
                 vec![0, 0, 0, 0, 0],
@@ -168,16 +163,20 @@ mod tests {
                 vec![Interval::new(13_u64, 15)?],
             ),
         ]);
-        let dense = dense("chr1", Orientation::Forward)?;
+        let dense = dense()?;
         let mut selection = Selection::zeros(dense.len());
         let reference = vec![Reference::N; dense.len()];
 
-        selector.select(&dense, &reference, &mut selection)?;
+        selector.select(
+            &"chr1",
+            Orientation::Forward,
+            &dense,
+            &reference,
+            &mut selection,
+        )?;
 
-        assert_eq!(
-            selection.selected_offsets().collect::<Vec<_>>(),
-            vec![2, 3, 4]
-        );
+        // Note, 2 is not selected because it has zero coverage, even though it's within the required interval
+        assert_eq!(selection.selected_offsets().collect::<Vec<_>>(), vec![3, 4]);
         Ok(())
     }
 }
