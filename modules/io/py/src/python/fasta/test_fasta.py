@@ -3,10 +3,9 @@ import pickle
 from pathlib import Path
 
 import pytest
+from biobit.io.fasta import IndexedSources, Reader, Record, Writer
 
-from biobit.io.fasta import Record, Reader, IndexedReader, Writer
-
-RESOURCES = Path(os.environ['BIOBIT_RESOURCES']) / "fasta"
+RESOURCES = Path(os.environ["BIOBIT_RESOURCES"]) / "fasta"
 
 
 def test_fasta_record():
@@ -38,8 +37,14 @@ def test_fasta_record():
 
 def test_fasta_reader():
     expected = [
-        Record(" My Super ЮТФ-последовательность Прямо Here   ", "NonUniformLinesAreAllowed"),
-        Record("	Another UTF sequence with tabs and spaces	", "AnySequenceWithoutSpacesAllowedHere"),
+        Record(
+            " My Super ЮТФ-последовательность Прямо Here   ",
+            "NonUniformLinesAreAllowed",
+        ),
+        Record(
+            "	Another UTF sequence with tabs and spaces	",
+            "AnySequenceWithoutSpacesAllowedHere",
+        ),
     ]
 
     for file in "example.fa", "example.fa.gz":
@@ -71,7 +76,7 @@ def test_indexed_fasta_reader(path):
     allrecords = {record.id: record.seq for record in reader}
 
     # Compare with indexed reader
-    reader = IndexedReader(path)
+    reader = IndexedSources(path).open()
     lengths = reader.lengths()
     for id, seq in allrecords.items():
         assert reader.fetch_full_seq(id) == seq
@@ -86,13 +91,41 @@ def test_indexed_fasta_reader(path):
 
 
 def test_indexed_fasta_multireader():
-    reader = IndexedReader([
-        RESOURCES / "indexed.fa",
-        RESOURCES / "CHM13v2.M-21-22.fa.bgz"
-    ])
+    reader = IndexedSources(
+        [RESOURCES / "indexed.fa", RESOURCES / "CHM13v2.M-21-22.fa.bgz"]
+    ).open()
     assert reader.fetch("sp|O95786|RIGI_HUMAN", (0, 24)) == "MTTEQRRSLQAFQDYIRKTLDPTY"
     assert reader.fetch("chrM", (2830, 2849)) == "CAAAGGCCCCAACGTTGTA"
-    assert reader.fetch("chr21", (23997387, 23997416)) == "tcctcctgctgctgctgcgcTACCTGGTG"
+    assert (
+        reader.fetch("chr21", (23997387, 23997416)) == "tcctcctgctgctgctgcgcTACCTGGTG"
+    )
+
+
+@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
+def test_indexed_sources_open(path):
+    source = IndexedSources(RESOURCES / path)
+    first = source.open()
+    second = source.open()
+
+    assert first.fetch("sp|O95786|RIGI_HUMAN", (0, 24)) == "MTTEQRRSLQAFQDYIRKTLDPTY"
+    assert second.fetch("sp|Q9Y572|RIPK3_HUMAN", (510, 518)) == "GWYNHSGK"
+
+
+def test_indexed_sources_delay_reader_validation():
+    source = IndexedSources(RESOURCES / "missing.fa")
+
+    with pytest.raises(Exception):
+        source.open()
+
+
+def test_indexed_sources_multireader():
+    source = IndexedSources(
+        [RESOURCES / "indexed.fa", RESOURCES / "CHM13v2.M-21-22.fa.bgz"]
+    )
+    reader = source.open()
+
+    assert reader.fetch("sp|O95786|RIGI_HUMAN", (0, 24)) == "MTTEQRRSLQAFQDYIRKTLDPTY"
+    assert reader.fetch("chrM", (2830, 2849)) == "CAAAGGCCCCAACGTTGTA"
 
 
 @pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])

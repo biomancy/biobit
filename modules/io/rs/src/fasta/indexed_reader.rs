@@ -4,10 +4,7 @@ use derive_getters::{Dissolve, Getters};
 use eyre::{Context, Result, ensure, eyre};
 use impl_tools::autoimpl;
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::{BufRead, Read, Seek};
-use std::path::Path;
-use substratum_compress::Decoder;
 
 /// An indexed FASTA reader that can fetch sequences by reference sequence ID and interval.
 #[autoimpl(for<T: trait + ?Sized> Box<T>)]
@@ -35,62 +32,8 @@ pub struct IndexedReader<R> {
     index: HashMap<String, usize>, // Map from reference sequence ID to its index in the vectors above
 }
 
-trait IndexedRead: Read + Seek + Send + Sync + 'static {}
+pub(crate) trait IndexedRead: Read + Seek + Send + Sync + 'static {}
 impl<T: Read + Seek + Send + Sync + 'static> IndexedRead for T {}
-
-impl IndexedReader<()> {
-    pub fn from_path(
-        fasta: impl AsRef<Path>,
-        compression: Decoder,
-    ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
-        Self::from_paths(&[(fasta, compression)])
-    }
-
-    pub fn from_paths(
-        indexed: &[(impl AsRef<Path>, Decoder)],
-    ) -> Result<Box<dyn IndexedReaderMutOp + Send + Sync + 'static>> {
-        let mut parsed: Vec<(Box<dyn IndexedRead>, _)> = Vec::with_capacity(indexed.len());
-
-        for (fasta, compression) in indexed.iter() {
-            let mut path = fasta.as_ref().to_owned();
-            let file = File::open(&path)?;
-
-            let fname = path
-                .file_name()
-                .and_then(|x| x.to_str())
-                .unwrap_or_default()
-                .to_string();
-            path.set_file_name(format!("{fname}.fai"));
-            ensure!(path.exists(), "fai index does not exist: {:?}", path);
-            let fai = std::io::BufReader::new(File::open(&path)?);
-
-            match compression {
-                Decoder::Identity(_) => {
-                    parsed.push((Box::new(file), fai));
-                }
-                Decoder::Bgzf(_) => {
-                    path.set_file_name(format!("{fname}.gzi"));
-                    ensure!(path.exists(), "gzi index does not exist: {:?}", path);
-                    let gzi = noodles::bgzf::gzi::fs::read(&path)?;
-
-                    let reader = Box::new(noodles::bgzf::io::indexed_reader::IndexedReader::new(
-                        file, gzi,
-                    ));
-                    parsed.push((reader, fai))
-                }
-                _ => {
-                    return Err(eyre!(
-                        "Unsupported compression {:?} for an Indexed FASTA file: {}",
-                        compression,
-                        path.display()
-                    ));
-                }
-            };
-        }
-
-        Ok(Box::new(IndexedReader::new(parsed)?))
-    }
-}
 
 impl<R: Read + Seek> IndexedReader<R> {
     /// Create a new indexed reader by parsing given FASTA/Index pairs.
@@ -368,7 +311,9 @@ impl<R: Read + Seek> IndexedReaderMutOp for IndexedReader<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fasta::IndexedSources;
     use std::path::PathBuf;
+    use substratum_compress::Decoder;
 
     #[test]
     fn test_indexed_fa() -> Result<()> {
@@ -567,10 +512,13 @@ mod tests {
             let path = PathBuf::from(env!("BIOBIT_RESOURCES"))
                 .join("fasta")
                 .join(path);
-            test(IndexedReader::from_path(
-                &path,
-                Decoder::from_path(&path, crate::fasta::EXTENSIONS).unwrap(),
-            )?)?
+            test(
+                IndexedSources::from_path(
+                    &path,
+                    Decoder::from_path(&path, crate::fasta::EXTENSIONS).unwrap(),
+                )
+                .open()?,
+            )?
         }
 
         Ok(())
@@ -589,7 +537,7 @@ mod tests {
             ));
         }
 
-        let mut reader = IndexedReader::from_paths(&indexed)?;
+        let mut reader = IndexedSources::from_paths(&indexed).open()?;
         for (seqid, interval, expected) in [
             ("sp|O95786|RIGI_HUMAN", 0..24, "MTTEQRRSLQAFQDYIRKTLDPTY"),
             ("sp|Q9Y572|RIPK3_HUMAN", 510..518, "GWYNHSGK"),

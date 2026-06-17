@@ -25,15 +25,16 @@ members = [
     "modules/toolkit/reaper/*",
     # Repeto
     "modules/toolkit/repeto/*",
-    # REAT - WIP
-    # "modules/toolkit/reat/*",
+    # REAT
+    "modules/toolkit/reat/py",
+    "modules/toolkit/reat/rs",
 ]
 resolver = "3"
 
 [workspace.package]
-version = "0.0.10"
+version = "0.0.11"
 edition = "2024"
-rust-version = "1.94.0"
+rust-version = "1.96.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"
@@ -48,33 +49,34 @@ categories = ["science", "algorithms"]
 derive-getters = "0.5.0"
 derive_more = { version = "2.1.1", features = ["full"] }
 paste = "1.0.15"
-impl-tools = "0.11.4"
+impl-tools = "0.12.0"
 # Traits and type utilities
 num = "0.4.3"
 higher-kinded-types = "0.3.0"
 dyn-clone = "1.0.20"
 by_address = "1.2.1"
-itertools = "0.14.0"
+itertools = "0.15.0"
 # Parallelism
 rayon = "1.12.0"
 thread_local = "1.1.9"
 # Data structures
-anymap3 = "1.0.1"
-rstar = "0.12.2"
+anymap3 = "1.1.0"
+rstar = "0.13.0"
+bitvec = "1.0.1"
 # Algorithms
-memchr = "2.8.0"
+memchr = "2.8.2"
 ahash = "0.8.12"
 # I/O
-noodles = { version = "0.109.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+noodles = { version = "0.111.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
 substratum-compress = { git = "https://github.com/biomancy/substratum", rev = "5592a2a56abaf8ee767b2a4b673fcb106b6e397c", features = ["all"] }
 # Logging and errors
 eyre = "0.6.12"
-log = "0.4.29"
+log = "0.4.32"
 # Serialization
 bitcode = "0.6.9"
 serde = { version = "1.0.228", features = ["rc", "serde_derive"] }
 # Bindings
-pyo3 = { version = "0.28.3", features = ["full"] }
+pyo3 = { version = "0.29.0", features = ["full"] }
 #arrow = { version = "56.1.0", features = ["default", "ffi"] }
 # Other
 dhat = "0.3.3"

@@ -27,4 +27,4 @@ ahash = { workspace = true }
 bitcode = { workspace = true, optional = true }
 
 [features]
-bitcode = ["dep:bitcode"]
+bitcode = ["dep:bitcode", "biobit-core-rs/bitcode", "biobit-io-rs/bitcode", "biobit-collections-rs/bitcode"]

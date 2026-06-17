@@ -1,5 +1,5 @@
 use biobit_core_py::loc::{IntervalOp, IntoPyInterval};
-pub use biobit_io_rs::fasta::{EXTENSIONS, IndexedReader, IndexedReaderMutOp};
+pub use biobit_io_rs::fasta::{EXTENSIONS, IndexedReaderMutOp, IndexedSources};
 use derive_more::Into;
 use eyre::{ContextCompat, Result};
 use pyo3::prelude::*;
@@ -8,32 +8,49 @@ use std::io;
 use std::path::PathBuf;
 use substratum_compress::Decoder;
 
-#[pyclass(name = "IndexedReader")]
-#[derive(Into)]
-pub struct PyIndexedReader {
-    pub paths: Vec<PathBuf>,
-    pub rs: Box<dyn IndexedReaderMutOp + Send + Sync + 'static>,
+#[pyclass(name = "IndexedSources", skip_from_py_object)]
+#[derive(Clone, Into)]
+pub struct PyIndexedSources {
+    pub rs: IndexedSources,
 }
 
 #[pymethods]
-impl PyIndexedReader {
+impl PyIndexedSources {
     #[new]
     fn new(path: Bound<PyAny>) -> Result<Self> {
-        // Could be either a single path or a list of paths
-        let paths = if let Ok(path) = path.extract::<PathBuf>() {
-            vec![path]
+        let mut paths = Vec::new();
+        if let Ok(path) = path.extract::<PathBuf>() {
+            paths.push(path);
         } else {
-            path.extract::<Vec<PathBuf>>()?
-        };
+            paths = path.extract::<Vec<PathBuf>>()?;
+        }
+
         let decoders = paths
             .iter()
             .map(|x| Decoder::from_path(x, EXTENSIONS))
             .collect::<Result<Vec<_>, io::Error>>()?;
         let indexed: Vec<_> = paths.iter().zip(decoders).collect();
-        let rs = IndexedReader::from_paths(&indexed)?;
-        Ok(Self { paths, rs })
+
+        Ok(Self {
+            rs: IndexedSources::from_paths(&indexed),
+        })
     }
 
+    fn open(&self) -> Result<PyIndexedReader> {
+        Ok(PyIndexedReader {
+            rs: self.rs.open()?,
+        })
+    }
+}
+
+#[pyclass(name = "IndexedReader")]
+#[derive(Into)]
+pub struct PyIndexedReader {
+    pub rs: Box<dyn IndexedReaderMutOp + Send + Sync + 'static>,
+}
+
+#[pymethods]
+impl PyIndexedReader {
     fn lengths(&self) -> HashMap<String, u64> {
         self.rs.lengths()
     }

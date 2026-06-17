@@ -29,8 +29,8 @@ build-docs = { cmd = "mkdocs build", cwd = "biobit/docs" }
 # Rust
 ########################################################################################################################
 [feature.rust.dependencies]
-rust = "==1.94.0"               # .pixi/envs/default/bin
-rust-src = "==1.94.0"           # .pixi/envs/default/lib/rustlib/src/rust
+rust = "==1.96.0"               # .pixi/envs/default/bin
+rust-src = "==1.96.0"           # .pixi/envs/default/lib/rustlib/src/rust
 
 [feature.rust.tasks]
 rs-upgrade = "cargo upgrade --incompatible allow && cargo update"
@@ -52,8 +52,7 @@ cmd = [
 # Python
 ########################################################################################################################
 [feature.python.dependencies]
-pixi-pycharm = "==0.0.11"
-pip = "==26.0.1"
+pip = "==26.1.2"
 
 [feature.python.tasks]
 py-ci-ruff = "ruff check"
@@ -63,16 +62,16 @@ py-ci-test = { cmd = "pytest -v -x biobit/py", depends-on = ["py-ci-build"] }
 py-ci = { depends-on = ["py-ci-test"] }
 
 [feature.python.pypi-dependencies]
-mypy = "==1.20.1"
-ruff = "==0.15.11"
-maturin = "==1.13.1"
-pytest = "==9.0.3"
+mypy = "==2.1.0"
+ruff = "==0.15.17"
+maturin = "==1.14.0"
+pytest = "==9.1.0"
 pytest-env = "==1.6.0"
 attrs = "==26.1.0"
 cattrs = { version = "==26.1.0", extras = ["pyyaml"] }
 PyYAML = "==6.0.3"
-pandas = "==3.0.2"
-pandas-stubs = "==3.0.0.260204"
+pandas = "==3.0.3"
+pandas-stubs = "==3.0.3.260530"
 
 [feature.py-3-14t.dependencies]
-python-freethreading = "==3.14.4"
+python-freethreading = "==3.14.6"
