@@ -73,7 +73,7 @@ impl<Ctg: Contig, Idx: PrimInt> Partition<Ctg, Idx> {
                 // Build the partition index for each orientation
                 let mut itree: PerOrientation<Bits<_, _>> = PerOrientation::default();
                 for (orientation, elements) in index {
-                    itree[orientation] = Bits::new(elements.into_iter());
+                    itree[orientation] = Bits::new(elements);
                 }
 
                 Partition::new(contig.clone(), segment, itree, elements)

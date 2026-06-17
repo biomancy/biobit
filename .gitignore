@@ -102,6 +102,9 @@ __pypackages__/
 celerybeat-schedule
 celerybeat.pid
 
+# XML files (e.g., IGV session files)
+*.xml
+
 # SageMath parsed files
 *.sage.py
 
