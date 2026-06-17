@@ -24,7 +24,7 @@ pub struct Worker<SeqId, Idx: PrimUInt, Cnts: PrimUInt> {
     reference: RefReader,
     pileups: PileupCache<Idx, Cnts>,
     selection: Selection,
-    min_phread: u8,
+    min_phred: u8,
 }
 
 impl<SeqId, Idx, Cnts> Worker<SeqId, Idx, Cnts>
@@ -35,7 +35,7 @@ where
     pub fn new(
         reference: Box<dyn IndexedReaderMutOp + Send + Sync>,
         selector: Arc<dyn Selector<SeqId, Idx, Cnts> + Send + Sync>,
-        min_phread: u8,
+        min_phred: u8,
         size_hint: usize,
     ) -> Self {
         Self {
@@ -43,7 +43,7 @@ where
             reference: RefReader::with_capacity(reference, size_hint),
             pileups: PileupCache::with_capacity(size_hint),
             selection: Selection::zeros(size_hint),
-            min_phread,
+            min_phred,
         }
     }
 }
@@ -72,7 +72,7 @@ where
                 let pileup = self.pileups.get(task, orientation)?;
                 debug_assert_eq!(pileup.interval(), task.envelope());
                 for record in records {
-                    process::process(envelope, pileup.counts_mut(), record, self.min_phread)?;
+                    process::process(envelope, pileup.counts_mut(), record, self.min_phred)?;
                 }
             }
         }
