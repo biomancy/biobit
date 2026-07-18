@@ -21,6 +21,8 @@ members = [
     "modules/toolkit/countit/benches",
     # SeqProj
     "modules/toolkit/seqproj/*",
+    # BioProj
+    "modules/toolkit/bioproj/*",
     # Reaper
     "modules/toolkit/reaper/*",
     # Repeto

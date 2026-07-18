@@ -1,0 +1,20 @@
+[package]
+name = "biobit-bioproj-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Immutable biological-project manifests"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]
+eyre = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1.0.150"

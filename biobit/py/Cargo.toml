@@ -23,5 +23,6 @@ biobit-io-py = { path = "../../modules/io/py" }
 biobit-countit-py = { path = "../../modules/toolkit/countit/py" }
 biobit-reaper-py = { path = "../../modules/toolkit/reaper/py" }
 biobit-reat-py = { path = "../../modules/toolkit/reat/py" }
+biobit-bioproj-py = { path = "../../modules/toolkit/bioproj/py" }
 biobit-seqproj-py = { path = "../../modules/toolkit/seqproj/py" }
 biobit-repeto-py = { path = "../../modules/toolkit/repeto/py" }
