@@ -48,6 +48,17 @@ impl<T: IsEmpty> NonEmpty<T> {
     }
 }
 
+impl<T: Ord> NonEmpty<BTreeSet<T>> {
+    /// Collects an iterator into a non-empty set, rejecting duplicate entries.
+    pub fn try_from_iter(values: impl IntoIterator<Item = T>) -> Result<Self> {
+        let mut result = BTreeSet::new();
+        for value in values {
+            ensure!(result.insert(value), "Set must not contain duplicate values");
+        }
+        Self::new(result)
+    }
+}
+
 impl<T: IsEmpty> AsRef<T> for NonEmpty<T> {
     fn as_ref(&self) -> &T {
         &self.0
@@ -103,13 +114,27 @@ impl<T: IsEmpty + Serialize> Serialize for NonEmpty<T>
     }
 }
 
-impl<'de, T: Deserialize<'de> + IsEmpty> Deserialize<'de> for NonEmpty<T>
+impl<'de> Deserialize<'de> for NonEmpty<String> {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+// Deserialize through a sequence: `BTreeSet`'s own deserializer silently
+// discards duplicate elements before `NonEmpty` can validate them.
+impl<'de, T> Deserialize<'de> for NonEmpty<BTreeSet<T>>
+where
+    T: Deserialize<'de> + Ord,
 {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Self::new(T::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+        Self::try_from_iter(Vec::<T>::deserialize(deserializer)?)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -122,6 +147,11 @@ mod tests {
     fn rejects_empty_scalars_and_sets() {
         assert!(NonEmpty::new(String::new()).is_err());
         assert!(NonEmpty::new(BTreeSet::<String>::new()).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_set_input() {
+        assert!(NonEmpty::try_from_iter(["a".to_owned(), "a".to_owned()]).is_err());
     }
 
     #[test]

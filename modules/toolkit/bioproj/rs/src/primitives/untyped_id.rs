@@ -1,17 +1,18 @@
+use super::NonEmpty;
 use eyre::{Result, ensure};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-/// A workspace-local identifier shared by all entity-specific ID types.
+/// An untyped workspace-local identifier shared by entity-specific ID types.
 ///
 /// IDs must match `[A-Za-z0-9_-]+` so they are safe to use in downstream
 /// table-oriented environments without escaping.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Id(String);
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+pub struct UntypedId(NonEmpty<String>);
 
-impl Id {
+impl UntypedId {
     /// Creates a validated identifier.
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
@@ -22,51 +23,45 @@ impl Id {
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')),
             "ID '{value}' must match [A-Za-z0-9_-]+"
         );
-        Ok(Self(value))
+        NonEmpty::new(value).map(Self)
     }
 
     /// Returns the identifier as a string slice.
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.0.as_ref()
     }
 
-    /// Consumes this ID and returns its underlying string.
+    /// Consumes this untyped ID and returns its underlying string.
     pub fn into_inner(self) -> String {
-        self.0
+        self.0.into_inner()
     }
 }
 
-impl AsRef<Id> for Id {
-    fn as_ref(&self) -> &Id {
-        self
-    }
-}
-
-impl AsRef<str> for Id {
+impl AsRef<str> for UntypedId {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl Borrow<str> for Id {
+impl Borrow<str> for UntypedId {
     fn borrow(&self) -> &str {
         self.as_str()
     }
 }
 
-impl Display for Id {
+impl Display for UntypedId {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
     }
 }
 
-impl From<Id> for String {
-    fn from(value: Id) -> Self {
+impl From<UntypedId> for String {
+    fn from(value: UntypedId) -> Self {
         value.into_inner()
     }
 }
 
-impl FromStr for Id {
+impl FromStr for UntypedId {
     type Err = eyre::Report;
 
     fn from_str(value: &str) -> Result<Self> {
@@ -74,7 +69,7 @@ impl FromStr for Id {
     }
 }
 
-impl TryFrom<String> for Id {
+impl TryFrom<String> for UntypedId {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self> {
@@ -82,7 +77,7 @@ impl TryFrom<String> for Id {
     }
 }
 
-impl TryFrom<&str> for Id {
+impl TryFrom<&str> for UntypedId {
     type Error = eyre::Report;
 
     fn try_from(value: &str) -> Result<Self> {
@@ -90,22 +85,12 @@ impl TryFrom<&str> for Id {
     }
 }
 
-impl Serialize for Id {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for Id {
+impl<'de> Deserialize<'de> for UntypedId {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let value = String::deserialize(deserializer)?;
-        Self::new(value).map_err(serde::de::Error::custom)
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
 }
 
@@ -124,39 +109,28 @@ macro_rules! define_entity_id {
             ::serde::Deserialize,
         )]
         #[serde(transparent)]
-        pub struct $name($crate::Id);
+        pub struct $name($crate::UntypedId);
 
         impl $name {
             /// Creates a validated entity-specific identifier.
             pub fn new(value: impl Into<::std::string::String>) -> ::eyre::Result<Self> {
-                Ok(Self($crate::Id::new(value)?))
+                $crate::UntypedId::new(value).map(Self)
             }
 
-            /// Returns the common workspace-local ID.
-            pub fn as_id(&self) -> &$crate::Id {
+            /// Returns the untyped workspace-local ID.
+            pub fn as_untyped(&self) -> &$crate::UntypedId {
                 &self.0
             }
 
-            /// Returns the identifier as a string slice.
-            pub fn as_str(&self) -> &str {
-                self.0.as_str()
-            }
-
-            /// Consumes this typed ID and returns its common ID.
-            pub fn into_id(self) -> $crate::Id {
+            /// Consumes this typed ID and returns its untyped workspace-local ID.
+            pub fn into_untyped(self) -> $crate::UntypedId {
                 self.0
             }
         }
 
-        impl ::core::convert::AsRef<$crate::Id> for $name {
-            fn as_ref(&self) -> &$crate::Id {
-                self.as_id()
-            }
-        }
-
-        impl ::core::convert::AsRef<str> for $name {
-            fn as_ref(&self) -> &str {
-                self.as_str()
+        impl ::std::borrow::Borrow<$crate::UntypedId> for $name {
+            fn borrow(&self) -> &$crate::UntypedId {
+                self.as_untyped()
             }
         }
 
@@ -196,19 +170,36 @@ pub(crate) use define_entity_id;
 
 #[cfg(test)]
 mod tests {
-    use super::Id;
+    use super::UntypedId;
+    use crate::provenance::SourceId;
+    use std::collections::BTreeMap;
 
     #[test]
     fn accepts_documented_identifier_charset() {
         for value in ["a", "SRC_01", "library-2", "A0_b-C"] {
-            assert_eq!(Id::new(value).unwrap().as_str(), value);
+            assert_eq!(UntypedId::new(value).unwrap().as_str(), value);
         }
     }
 
     #[test]
     fn rejects_invalid_identifiers() {
         for value in ["", "with space", "with.dot", "with/slash", "ünicode"] {
-            assert!(Id::new(value).is_err(), "{value:?} should be rejected");
+            assert!(UntypedId::new(value).is_err(), "{value:?} should be rejected");
         }
+    }
+
+    #[test]
+    fn deserialization_applies_identifier_validation() {
+        assert!(serde_json::from_str::<UntypedId>(r#""with space""#).is_err());
+        assert!(serde_json::from_str::<SourceId>(r#""with space""#).is_err());
+    }
+
+    #[test]
+    fn typed_ids_borrow_as_untyped_ids() {
+        let typed = SourceId::new("ENTITY1").unwrap();
+        let untyped = UntypedId::new("ENTITY1").unwrap();
+        let values = BTreeMap::from([(typed, true)]);
+
+        assert_eq!(values.get(&untyped), Some(&true));
     }
 }
