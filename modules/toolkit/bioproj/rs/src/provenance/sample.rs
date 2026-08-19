@@ -1,5 +1,5 @@
-use crate::primitives::{NonEmptyIdSet, define_entity_id};
-use crate::{Meta, MetaVal};
+use crate::primitives::define_entity_id;
+use crate::{Meta, NonEmpty};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -11,31 +11,38 @@ define_entity_id!(
     "The identifier of a [`crate::provenance::Sample`]."
 );
 
-/// Physical material extracted from one or more biological sources.
+/// A collected portion of biological material from one or more sources.
+///
+/// A sample captures the material's condition at collection, so details such
+/// as tissue, treatment, or time point belong in its `meta`. Multiple samples
+/// may come from the same source, while a mixture references every source that
+/// contributed material.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Sample {
     id: SampleId,
-    sources: NonEmptyIdSet<SourceId>,
+    sources: NonEmpty<BTreeSet<SourceId>>,
     #[serde(default, skip_serializing_if = "Meta::is_empty")]
     meta: Meta,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 impl Sample {
-    /// Creates a sample with one or more parent sources.
+    /// Creates a sample with every source that contributed material.
     pub fn new(
         id: SampleId,
         sources: impl IntoIterator<Item = SourceId>,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         Ok(Self {
             id,
-            sources: NonEmptyIdSet::new("Sample::sources", sources)?,
-            meta: Meta::new(meta)?,
-            description: description.map(Into::into),
+            sources: NonEmpty::try_from_iter(sources)?,
+            meta,
+            description: description
+                .map(|description| NonEmpty::new(description.into()))
+                .transpose()?,
         })
     }
 
@@ -44,9 +51,9 @@ impl Sample {
         &self.id
     }
 
-    /// Returns the IDs of this sample's parent sources.
-    pub fn sources(&self) -> &BTreeSet<SourceId> {
-        self.sources.as_set()
+    /// Returns the IDs of all sources that contributed material.
+    pub fn sources(&self) -> &NonEmpty<BTreeSet<SourceId>> {
+        &self.sources
     }
 
     /// Returns auxiliary, non-structural metadata.
@@ -55,8 +62,8 @@ impl Sample {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.description.as_ref()
     }
 }
 
@@ -71,7 +78,7 @@ mod tests {
             Sample::new(
                 SampleId::new("SMP1").unwrap(),
                 Vec::<SourceId>::new(),
-                [("kind", "tissue")],
+                Default::default(),
                 None::<String>,
             )
             .is_err()
@@ -83,7 +90,7 @@ mod tests {
                     SourceId::new("SRC1").unwrap(),
                     SourceId::new("SRC1").unwrap()
                 ],
-                [("kind", "tissue")],
+                Default::default(),
                 None::<String>,
             )
             .is_err()

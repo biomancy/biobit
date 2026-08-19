@@ -1,6 +1,5 @@
 use crate::primitives::define_entity_id;
-use crate::validation;
-use crate::{Meta, MetaVal};
+use crate::{Meta, NonEmpty};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -9,17 +8,22 @@ define_entity_id!(
     "The identifier of a [`crate::provenance::Source`]."
 );
 
-/// A biological root, such as a donor, cell line, or pathogen.
+/// A stable biological origin, such as a donor, cell line, or pathogen.
+///
+/// A source identifies one biological entity and carries facts shared by all
+/// material derived from it, such as organism, genotype, or prior treatment
+/// history. Conditions specific to collected material belong to its
+/// [`Sample`](crate::provenance::Sample); mixtures are represented by a sample
+/// that references multiple sources.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
     id: SourceId,
-    #[serde(deserialize_with = "validation::deserialize_non_empty_string")]
-    organism: String,
+    organism: NonEmpty<String>,
     #[serde(default, skip_serializing_if = "Meta::is_empty")]
     meta: Meta,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 impl Source {
@@ -27,14 +31,16 @@ impl Source {
     pub fn new(
         id: SourceId,
         organism: impl Into<String>,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         Ok(Self {
             id,
-            organism: validation::non_empty_string("Source::organism", organism)?,
-            meta: Meta::new(meta)?,
-            description: description.map(Into::into),
+            organism: NonEmpty::new(organism.into())?,
+            meta,
+            description: description
+                .map(|description| NonEmpty::new(description.into()))
+                .transpose()?,
         })
     }
 
@@ -44,7 +50,7 @@ impl Source {
     }
 
     /// Returns the source organism.
-    pub fn organism(&self) -> &str {
+    pub fn organism(&self) -> &NonEmpty<String> {
         &self.organism
     }
 
@@ -54,27 +60,31 @@ impl Source {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.description.as_ref()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Source, SourceId};
-    use crate::MetaVal;
+    use crate::{Meta, MetaVal, NonEmpty};
+    use std::collections::BTreeMap;
 
     #[test]
     fn stores_organism_and_boolean_metadata() {
         let source = Source::new(
             SourceId::new("SRC1").unwrap(),
             "Homo sapiens",
-            [("is_control", true)],
+            Meta::from(BTreeMap::from([(
+                NonEmpty::new("is_control".to_owned()).unwrap(),
+                MetaVal::from(true),
+            )])),
             None::<String>,
         )
         .unwrap();
 
-        assert_eq!(source.organism(), "Homo sapiens");
+        assert_eq!(source.organism().as_ref(), "Homo sapiens");
         assert_eq!(source.meta().get("is_control"), Some(&MetaVal::Bool(true)));
     }
 
@@ -84,7 +94,7 @@ mod tests {
             Source::new(
                 SourceId::new("SRC1").unwrap(),
                 "",
-                [("kind", "donor")],
+                Default::default(),
                 None::<String>,
             )
             .is_err()
@@ -97,8 +107,18 @@ mod tests {
     }
 
     #[test]
+    fn deserialization_rejects_an_empty_description() {
+        assert!(
+            serde_json::from_str::<Source>(
+                r#"{"id":"SRC1","organism":"Homo sapiens","description":""}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn typed_id_preserves_the_common_identifier() {
         let id = SourceId::new("SRC1").unwrap();
-        assert_eq!(id.as_id().as_str(), "SRC1");
+        assert_eq!(id.as_untyped().as_str(), "SRC1");
     }
 }
