@@ -184,7 +184,10 @@ mod tests {
     #[test]
     fn rejects_invalid_identifiers() {
         for value in ["", "with space", "with.dot", "with/slash", "ünicode"] {
-            assert!(UntypedId::new(value).is_err(), "{value:?} should be rejected");
+            assert!(
+                UntypedId::new(value).is_err(),
+                "{value:?} should be rejected"
+            );
         }
     }
 

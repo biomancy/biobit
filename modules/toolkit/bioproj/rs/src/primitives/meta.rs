@@ -134,7 +134,10 @@ mod tests {
                 NonEmpty::new("organism".to_owned()).unwrap(),
                 MetaVal::from("Homo sapiens"),
             ),
-            (NonEmpty::new("paired".to_owned()).unwrap(), MetaVal::from(true)),
+            (
+                NonEmpty::new("paired".to_owned()).unwrap(),
+                MetaVal::from(true),
+            ),
         ]));
 
         assert_eq!(

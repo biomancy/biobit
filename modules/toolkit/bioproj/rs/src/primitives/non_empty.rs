@@ -53,7 +53,10 @@ impl<T: Ord> NonEmpty<BTreeSet<T>> {
     pub fn try_from_iter(values: impl IntoIterator<Item = T>) -> Result<Self> {
         let mut result = BTreeSet::new();
         for value in values {
-            ensure!(result.insert(value), "Set must not contain duplicate values");
+            ensure!(
+                result.insert(value),
+                "Set must not contain duplicate values"
+            );
         }
         Self::new(result)
     }
@@ -104,8 +107,7 @@ impl<T: IsEmpty + Display> Display for NonEmpty<T> {
     }
 }
 
-impl<T: IsEmpty + Serialize> Serialize for NonEmpty<T>
-{
+impl<T: IsEmpty + Serialize> Serialize for NonEmpty<T> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -133,8 +135,7 @@ where
     where
         D: Deserializer<'de>,
     {
-        Self::try_from_iter(Vec::<T>::deserialize(deserializer)?)
-            .map_err(serde::de::Error::custom)
+        Self::try_from_iter(Vec::<T>::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
 }
 
