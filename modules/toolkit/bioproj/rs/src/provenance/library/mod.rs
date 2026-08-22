@@ -1,9 +1,12 @@
 //! Concrete, acquisition-ready library preparations.
 
+mod id;
 pub mod p5p7;
 pub mod strandedness;
 
-use crate::{Meta, NonEmpty, UntypedId};
+pub use id::{LibraryId, LibraryIdRef};
+
+use crate::{Meta, NonEmpty};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -26,10 +29,10 @@ pub enum Library {
 }
 
 impl Library {
-    /// Returns the untyped workspace-local identifier for this library.
-    pub fn untyped_id(&self) -> &UntypedId {
+    /// Returns this library's concrete borrowed identifier.
+    pub fn id(&self) -> LibraryIdRef<'_> {
         match self {
-            Self::P5P7(library) => library.id().as_untyped(),
+            Self::P5P7(library) => LibraryIdRef::P5P7(library.id()),
         }
     }
 
