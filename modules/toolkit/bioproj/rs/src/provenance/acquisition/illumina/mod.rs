@@ -1,4 +1,4 @@
-//! Illumina sequencing assays.
+//! Illumina sequencing acquisitions.
 
 mod paired_end;
 mod single_end;

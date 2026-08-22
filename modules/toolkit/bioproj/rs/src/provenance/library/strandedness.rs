@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// Strand specificity of an RNA-derived library.
 ///
 /// This describes the relationship between a library preparation and its
-/// source RNA. An assay's acquisition layout determines how that relationship
+/// source RNA. An acquisition's read layout determines how that relationship
 /// is observed in individual reads.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Strandedness {

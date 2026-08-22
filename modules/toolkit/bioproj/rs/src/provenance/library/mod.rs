@@ -12,7 +12,7 @@ use super::SampleId;
 /// A concrete, acquisition-ready library preparation.
 ///
 /// Each variant describes the stable physical interface presented to
-/// compatible assays. Its concrete value records the input material and
+/// compatible acquisitions. Its concrete value records the input material and
 /// preparation details.
 ///
 /// For example, a [`Library::P5P7`] library is prepared by adding P5 and P7

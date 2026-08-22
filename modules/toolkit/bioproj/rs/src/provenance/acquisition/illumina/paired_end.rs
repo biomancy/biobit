@@ -1,23 +1,23 @@
 use super::validate;
 use crate::primitives::define_entity_id;
 use crate::provenance::library::Library;
-use crate::provenance::library::p5p7::LibraryId;
+use crate::provenance::library::p5p7;
 use crate::{Meta, NonEmpty, UntypedId};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 define_entity_id!(
     PairedEndSequencingId,
-    "The identifier of a [`crate::provenance::assay::illumina::PairedEndSequencing`]."
+    "The identifier of a [`crate::provenance::acquisition::illumina::PairedEndSequencing`]."
 );
 
-/// Standard paired-end Illumina sequencing of a compatible library.
+/// One logical paired-end Illumina sequencing acquisition.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PairedEndSequencing {
     id: PairedEndSequencingId,
-    library: LibraryId,
+    libraries: NonEmpty<BTreeSet<p5p7::LibraryId>>,
     #[serde(default, skip_serializing_if = "Meta::is_empty")]
     meta: Meta,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -25,16 +25,16 @@ pub struct PairedEndSequencing {
 }
 
 impl PairedEndSequencing {
-    /// Creates a paired-end Illumina sequencing assay.
+    /// Creates a paired-end acquisition from one or more intentionally pooled libraries.
     pub fn new(
         id: PairedEndSequencingId,
-        library: LibraryId,
+        libraries: impl IntoIterator<Item = p5p7::LibraryId>,
         meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         Ok(Self {
             id,
-            library,
+            libraries: NonEmpty::try_from_iter(libraries)?,
             meta,
             description: description
                 .map(|description| NonEmpty::new(description.into()))
@@ -42,18 +42,18 @@ impl PairedEndSequencing {
         })
     }
 
-    /// Returns this assay's identifier.
+    /// Returns this acquisition's identifier.
     pub fn id(&self) -> &PairedEndSequencingId {
         &self.id
     }
 
-    /// Returns this assay's typed library input.
-    pub fn library(&self) -> &LibraryId {
-        &self.library
+    /// Returns the libraries intentionally pooled into this acquisition.
+    pub fn libraries(&self) -> &NonEmpty<BTreeSet<p5p7::LibraryId>> {
+        &self.libraries
     }
 
     pub(crate) fn validate(&self, libraries: &BTreeMap<UntypedId, Library>) -> Result<()> {
-        validate::validate(self.library(), libraries)
+        validate::validate(&self.libraries, libraries)
     }
 
     /// Returns auxiliary, non-structural metadata.
