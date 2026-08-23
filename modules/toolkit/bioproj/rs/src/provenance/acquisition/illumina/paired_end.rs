@@ -1,5 +1,6 @@
 use super::validate;
-use crate::primitives::define_entity_id;
+use crate::primitives::{define_entity_id, impl_kind};
+use crate::provenance::acquisition::AcquisitionKind;
 use crate::provenance::library::Library;
 use crate::provenance::library::p5p7;
 use crate::{Meta, NonEmpty, UntypedId};
@@ -9,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 define_entity_id!(
     PairedEndSequencingId,
-    "The identifier of a [`crate::provenance::acquisition::illumina::PairedEndSequencing`]."
+    "The identifier of a [`bioproj::provenance::acquisition::illumina::PairedEndSequencing`]."
 );
 
 /// One logical paired-end Illumina sequencing acquisition.
@@ -23,6 +24,11 @@ pub struct PairedEndSequencing {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     description: Option<NonEmpty<String>>,
 }
+
+impl_kind!(
+    AcquisitionKind,
+    IlluminaPairedEndSequencing => PairedEndSequencing, PairedEndSequencingId,
+);
 
 impl PairedEndSequencing {
     /// Creates a paired-end acquisition from one or more intentionally pooled libraries.
