@@ -4,7 +4,7 @@ use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-use super::source::SourceId;
+use super::{Provenance, source::SourceId};
 
 define_entity_id!(
     SampleId,
@@ -65,6 +65,21 @@ impl Sample {
     pub fn description(&self) -> Option<&NonEmpty<String>> {
         self.description.as_ref()
     }
+}
+
+/// Validates every Sample-to-Source edge in a provenance graph.
+pub(crate) fn validate(provenance: &Provenance) -> Result<()> {
+    for sample in provenance.samples() {
+        for source_id in sample.sources() {
+            if provenance.get(source_id).is_none() {
+                eyre::bail!(
+                    "Sample '{}' references unknown Source '{source_id}'",
+                    sample.id()
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

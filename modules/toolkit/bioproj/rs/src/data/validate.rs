@@ -43,7 +43,8 @@ pub(crate) fn validate(
         }
     }
 
-    for acquisition_id in provenance.acquisitions().keys() {
+    for acquisition in provenance.acquisitions() {
+        let acquisition_id = acquisition.id().as_untyped();
         if !represented_acquisitions.contains(acquisition_id) {
             bail!("Acquisition '{acquisition_id}' has no Dataset");
         }

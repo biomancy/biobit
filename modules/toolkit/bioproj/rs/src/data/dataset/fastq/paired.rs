@@ -1,7 +1,7 @@
 use crate::data::asset::fastq::FastqId;
 use crate::primitives::define_entity_id;
 use crate::provenance::acquisition::illumina::PairedEndSequencingId;
-use crate::provenance::{Acquisition, AcquisitionIdRef, Provenance};
+use crate::provenance::{AcquisitionIdRef, Provenance};
 use crate::{Meta, NonEmpty};
 use eyre::{Result, bail, ensure};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -16,7 +16,7 @@ define_entity_id!(
 ///
 /// This dataset-owned contract can grow to include other paired FASTQ
 /// producers without coupling [`crate::data::Asset`] to acquisition semantics.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
 pub enum PairedInput {
     /// Paired-end Illumina sequencing.
     IlluminaPairedEndSequencing(PairedEndSequencingId),
@@ -26,23 +26,23 @@ impl PairedInput {
     /// Returns the concrete borrowed acquisition identifier.
     pub fn id(&self) -> AcquisitionIdRef<'_> {
         match self {
-            Self::IlluminaPairedEndSequencing(id) => {
-                AcquisitionIdRef::IlluminaPairedEndSequencing(id)
-            }
+            Self::IlluminaPairedEndSequencing(id) => id.into(),
         }
     }
 
     pub(crate) fn validate(&self, provenance: &Provenance) -> Result<()> {
-        let id = self.id().as_untyped();
-        match (self, provenance.acquisition(id)) {
-            (
-                Self::IlluminaPairedEndSequencing(_),
-                Some(Acquisition::IlluminaPairedEndSequencing(_)),
-            ) => Ok(()),
-            (_, Some(_)) => bail!(
-                "Paired FASTQ Dataset Acquisition reference '{id}' resolves to an incompatible Acquisition type"
-            ),
-            (_, None) => bail!("Paired FASTQ Dataset references unknown Acquisition '{id}'"),
+        match self {
+            Self::IlluminaPairedEndSequencing(id) => match provenance.get(id) {
+                Some(Ok(_)) => Ok(()),
+                Some(Err(_)) => bail!(
+                    "Paired FASTQ Dataset Acquisition reference '{}' resolves to an incompatible Acquisition type",
+                    id.as_untyped()
+                ),
+                None => bail!(
+                    "Paired FASTQ Dataset references unknown Acquisition '{}'",
+                    id.as_untyped()
+                ),
+            },
         }
     }
 }
@@ -62,12 +62,6 @@ impl<'de> Deserialize<'de> for PairedInput {
         D: Deserializer<'de>,
     {
         PairedEndSequencingId::deserialize(deserializer).map(Self::IlluminaPairedEndSequencing)
-    }
-}
-
-impl From<PairedEndSequencingId> for PairedInput {
-    fn from(id: PairedEndSequencingId) -> Self {
-        Self::IlluminaPairedEndSequencing(id)
     }
 }
 

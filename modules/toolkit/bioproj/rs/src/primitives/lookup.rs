@@ -51,9 +51,39 @@ macro_rules! impl_checked_lookup {
                         Err(::eyre::eyre!(
                             "ID '{}' expects {}, but identifies {}",
                             key.as_untyped(),
-                            key.kind(),
-                            entity.kind()
+                            ::kinded::Kinded::kind(key),
+                            ::kinded::Kinded::kind(entity)
                         ))
+                    }
+                })
+            }
+        }
+    };
+}
+
+/// Implements [`Lookup`] for one concrete variant stored in a heterogeneous
+/// entity map.
+///
+/// A matching raw ID can still identify another variant, so a found value is
+/// returned as a [`Result`](eyre::Result) rather than as a bare reference.
+macro_rules! impl_variant_lookup {
+    ($container:ty, $key:ty, $entity:ty, $field:ident, $family:ident::$variant:ident) => {
+        impl $crate::primitives::SealedLookup<$key> for $container {}
+
+        impl $crate::Lookup<$key> for $container {
+            type Found<'a> = ::eyre::Result<&'a $entity>;
+
+            fn lookup<'a>(&'a self, key: &$key) -> Option<Self::Found<'a>> {
+                self.$field.get(key.as_untyped()).map(|entity| {
+                    #[allow(unreachable_patterns)]
+                    match entity {
+                        $family::$variant(entity) => Ok(entity),
+                        entity => Err(::eyre::eyre!(
+                            "ID '{}' expects {}, but identifies {}",
+                            key.as_untyped(),
+                            ::kinded::Kinded::kind(key),
+                            ::kinded::Kinded::kind(entity)
+                        )),
                     }
                 })
             }
@@ -67,4 +97,5 @@ mod sealed {
 
 pub(crate) use impl_checked_lookup;
 pub(crate) use impl_direct_lookup;
+pub(crate) use impl_variant_lookup;
 pub(crate) use sealed::Sealed;

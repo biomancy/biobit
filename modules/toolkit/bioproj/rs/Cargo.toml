@@ -13,8 +13,9 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
+derive_more = { workspace = true }
 eyre = { workspace = true }
+kinded = { workspace = true }
 serde = { workspace = true }
-
-[dev-dependencies]
-serde_json = "1.0.150"
+serde_json = { workspace = true }
+toml = { workspace = true }

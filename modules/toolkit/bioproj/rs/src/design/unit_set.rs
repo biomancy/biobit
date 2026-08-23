@@ -1,8 +1,7 @@
 use super::DesignUnit;
 use super::core::DesignCore;
 use super::{DesignId, DesignUnitId};
-use crate::primitives::NonEmptyIdSet;
-use crate::{Id, Meta, MetaVal};
+use crate::{Meta, NonEmpty};
 use eyre::{Result, bail};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UnitSet {
     core: DesignCore,
-    units: NonEmptyIdSet<DesignUnitId>,
+    units: NonEmpty<BTreeSet<DesignUnitId>>,
 }
 
 impl UnitSet {
@@ -19,20 +18,20 @@ impl UnitSet {
     pub fn new(
         id: DesignId,
         units: impl IntoIterator<Item = DesignUnitId>,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         Ok(Self {
             core: DesignCore::new(id, meta, description)?,
-            units: NonEmptyIdSet::new("UnitSet::units", units)?,
+            units: NonEmpty::try_from_iter(units)?,
         })
     }
 
     fn from_parts(
         id: DesignId,
-        units: NonEmptyIdSet<DesignUnitId>,
+        units: NonEmpty<BTreeSet<DesignUnitId>>,
         meta: Meta,
-        description: Option<String>,
+        description: Option<NonEmpty<String>>,
     ) -> Self {
         Self {
             core: DesignCore {
@@ -50,8 +49,8 @@ impl UnitSet {
     }
 
     /// Returns the unordered design units.
-    pub fn units(&self) -> &BTreeSet<DesignUnitId> {
-        self.units.as_set()
+    pub fn units(&self) -> &NonEmpty<BTreeSet<DesignUnitId>> {
+        &self.units
     }
 
     /// Returns auxiliary, non-structural metadata.
@@ -60,15 +59,15 @@ impl UnitSet {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.core.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.core.description.as_ref()
     }
 
     pub(crate) fn validate_references(
         &self,
         units: &BTreeMap<DesignUnitId, DesignUnit>,
     ) -> Result<()> {
-        for unit_id in self.units() {
+        for unit_id in self.units().as_ref() {
             if !units.contains_key(unit_id) {
                 bail!(
                     "UnitSet Design '{}' references unknown DesignUnit '{unit_id}'",
@@ -77,12 +76,6 @@ impl UnitSet {
             }
         }
         Ok(())
-    }
-}
-
-impl AsRef<Id> for UnitSet {
-    fn as_ref(&self) -> &Id {
-        self.id().as_id()
     }
 }
 
@@ -95,7 +88,7 @@ impl Serialize for UnitSet {
             id: self.id(),
             units: &self.units,
             meta: (!self.core.meta.is_empty()).then_some(&self.core.meta),
-            description: self.core.description.as_deref(),
+            description: self.core.description.as_ref(),
         }
         .serialize(serializer)
     }
@@ -104,11 +97,11 @@ impl Serialize for UnitSet {
 #[derive(Serialize)]
 struct SerializedUnitSet<'a> {
     id: &'a DesignId,
-    units: &'a NonEmptyIdSet<DesignUnitId>,
+    units: &'a NonEmpty<BTreeSet<DesignUnitId>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     meta: Option<&'a Meta>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
+    description: Option<&'a NonEmpty<String>>,
 }
 
 impl<'de> Deserialize<'de> for UnitSet {
@@ -130,11 +123,11 @@ impl<'de> Deserialize<'de> for UnitSet {
 #[serde(deny_unknown_fields)]
 struct DeserializedUnitSet {
     id: DesignId,
-    units: NonEmptyIdSet<DesignUnitId>,
+    units: NonEmpty<BTreeSet<DesignUnitId>>,
     #[serde(default)]
     meta: Meta,
     #[serde(default)]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 #[cfg(test)]
@@ -149,7 +142,7 @@ mod tests {
             UnitSet::new(
                 DesignId::new("DES1").unwrap(),
                 [unit.clone(), unit],
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .is_err()

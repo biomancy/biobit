@@ -1,7 +1,7 @@
 use super::DesignUnit;
 use super::core::DesignCore;
 use super::{DesignId, DesignUnitId};
-use crate::{Id, Meta, MetaVal};
+use crate::{Meta, NonEmpty};
 use eyre::{Result, bail, ensure};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, BTreeSet};
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for MatchedPair {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MatchedPairs {
     core: DesignCore,
-    pairs: BTreeSet<MatchedPair>,
+    pairs: NonEmpty<BTreeSet<MatchedPair>>,
 }
 
 impl MatchedPairs {
@@ -68,21 +68,28 @@ impl MatchedPairs {
     pub fn new(
         id: DesignId,
         pairs: impl IntoIterator<Item = (DesignUnitId, DesignUnitId)>,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         let pairs = pairs
             .into_iter()
             .map(|(first, second)| MatchedPair::new(first, second))
             .collect::<Result<Vec<_>>>()?;
-        Self::from_parts(id, pairs, Meta::new(meta)?, description.map(Into::into))
+        Self::from_parts(
+            id,
+            pairs,
+            meta,
+            description
+                .map(|description| NonEmpty::new(description.into()))
+                .transpose()?,
+        )
     }
 
     fn from_parts(
         id: DesignId,
         pairs: impl IntoIterator<Item = MatchedPair>,
         meta: Meta,
-        description: Option<String>,
+        description: Option<NonEmpty<String>>,
     ) -> Result<Self> {
         Ok(Self {
             core: DesignCore {
@@ -100,7 +107,7 @@ impl MatchedPairs {
     }
 
     /// Returns the ordered matched pairs.
-    pub fn pairs(&self) -> &BTreeSet<MatchedPair> {
+    pub fn pairs(&self) -> &NonEmpty<BTreeSet<MatchedPair>> {
         &self.pairs
     }
 
@@ -110,15 +117,15 @@ impl MatchedPairs {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.core.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.core.description.as_ref()
     }
 
     pub(crate) fn validate_references(
         &self,
         units: &BTreeMap<DesignUnitId, DesignUnit>,
     ) -> Result<()> {
-        for pair in self.pairs() {
+        for pair in self.pairs().as_ref() {
             for unit_id in [pair.first(), pair.second()] {
                 if !units.contains_key(unit_id) {
                     bail!(
@@ -132,13 +139,9 @@ impl MatchedPairs {
     }
 }
 
-impl AsRef<Id> for MatchedPairs {
-    fn as_ref(&self) -> &Id {
-        self.id().as_id()
-    }
-}
-
-fn collect_pairs(pairs: impl IntoIterator<Item = MatchedPair>) -> Result<BTreeSet<MatchedPair>> {
+fn collect_pairs(
+    pairs: impl IntoIterator<Item = MatchedPair>,
+) -> Result<NonEmpty<BTreeSet<MatchedPair>>> {
     let mut result = BTreeSet::new();
     let mut members = BTreeSet::new();
 
@@ -160,8 +163,7 @@ fn collect_pairs(pairs: impl IntoIterator<Item = MatchedPair>) -> Result<BTreeSe
         }
     }
 
-    ensure!(!result.is_empty(), "MatchedPairs::pairs must not be empty");
-    Ok(result)
+    NonEmpty::new(result)
 }
 
 impl Serialize for MatchedPairs {
@@ -173,7 +175,7 @@ impl Serialize for MatchedPairs {
             id: self.id(),
             pairs: self.pairs(),
             meta: (!self.core.meta.is_empty()).then_some(&self.core.meta),
-            description: self.core.description.as_deref(),
+            description: self.core.description.as_ref(),
         }
         .serialize(serializer)
     }
@@ -182,11 +184,11 @@ impl Serialize for MatchedPairs {
 #[derive(Serialize)]
 struct SerializedMatchedPairs<'a> {
     id: &'a DesignId,
-    pairs: &'a BTreeSet<MatchedPair>,
+    pairs: &'a NonEmpty<BTreeSet<MatchedPair>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     meta: Option<&'a Meta>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
+    description: Option<&'a NonEmpty<String>>,
 }
 
 impl<'de> Deserialize<'de> for MatchedPairs {
@@ -208,7 +210,7 @@ struct DeserializedMatchedPairs {
     #[serde(default)]
     meta: Meta,
     #[serde(default)]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 #[cfg(test)]
@@ -224,7 +226,7 @@ mod tests {
                 DesignUnitId::new("UNIT_B").unwrap(),
                 DesignUnitId::new("UNIT_A").unwrap(),
             )],
-            Vec::<(String, String)>::new(),
+            Default::default(),
             None::<String>,
         )
         .unwrap();
@@ -243,7 +245,7 @@ mod tests {
                 DesignUnitId::new("UNIT_A").unwrap(),
                 DesignUnitId::new("UNIT_B").unwrap(),
             )],
-            Vec::<(String, String)>::new(),
+            Default::default(),
             None::<String>,
         )
         .unwrap();
@@ -253,7 +255,7 @@ mod tests {
                 DesignUnitId::new("UNIT_B").unwrap(),
                 DesignUnitId::new("UNIT_A").unwrap(),
             )],
-            Vec::<(String, String)>::new(),
+            Default::default(),
             None::<String>,
         )
         .unwrap();
@@ -271,7 +273,7 @@ mod tests {
                     (unit_a.clone(), DesignUnitId::new("UNIT_B").unwrap()),
                     (unit_a, DesignUnitId::new("UNIT_C").unwrap()),
                 ],
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .is_err()

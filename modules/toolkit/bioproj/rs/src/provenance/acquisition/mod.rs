@@ -1,8 +1,8 @@
 //! Logical data acquisitions grouped by measurement family.
 
-mod id;
 pub mod illumina;
 mod root;
+mod validate;
 
-pub use id::{AcquisitionId, AcquisitionIdRef};
-pub use root::{Acquisition, AcquisitionKind};
+pub use root::{Acquisition, AcquisitionId, AcquisitionIdRef, AcquisitionKind};
+pub(crate) use validate::validate;

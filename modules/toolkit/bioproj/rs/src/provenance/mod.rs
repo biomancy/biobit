@@ -1,38 +1,34 @@
 //! The physical and technical provenance DAG.
 
-pub mod assay;
+pub mod acquisition;
 pub mod library;
-pub mod run;
+mod lookup;
 pub mod sample;
 pub mod source;
+mod validate;
 
-pub use assay::Assay;
-pub use library::Library;
-pub use run::Run;
+pub use acquisition::{Acquisition, AcquisitionId, AcquisitionIdRef, AcquisitionKind};
+pub use library::{Library, LibraryId, LibraryIdRef, LibraryKind};
 pub use sample::{Sample, SampleId};
 pub use source::{Source, SourceId};
 
-use self::assay::UnresolvedAssay;
-use self::run::UnresolvedRun;
-use crate::Id;
-use crate::validation;
-use eyre::{Result, bail};
+use crate::primitives::UniqueMap;
+use crate::{Lookup, UntypedId};
+use eyre::Result;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::BTreeMap;
 
 /// The resolved, immutable provenance graph for a released description.
 ///
 /// This initial graph models biological material and its immediate acquisition
-/// contract: [`Source`] <- [`Sample`] <- [`Library`] <- [`Assay`] <- [`Run`].
-/// A library retains its concrete material type, while each child owns the
-/// explicit set of concrete parent ID types it can consume.
+/// contract: [`Source`] <- [`Sample`] <- [`Library`] <- [`Acquisition`].
+/// A library retains its concrete downstream interface and input path, while
+/// each child owns the concrete parent ID types it can consume.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Provenance {
-    sources: BTreeMap<SourceId, Source>,
-    samples: BTreeMap<SampleId, Sample>,
-    libraries: BTreeMap<Id, Library>,
-    assays: BTreeMap<Id, Assay>,
-    runs: BTreeMap<Id, Run>,
+    sources: UniqueMap<SourceId, Source>,
+    samples: UniqueMap<SampleId, Sample>,
+    libraries: UniqueMap<UntypedId, Library>,
+    acquisitions: UniqueMap<UntypedId, Acquisition>,
 }
 
 impl Provenance {
@@ -41,166 +37,95 @@ impl Provenance {
         sources: impl IntoIterator<Item = Source>,
         samples: impl IntoIterator<Item = Sample>,
         libraries: impl IntoIterator<Item = Library>,
-        assays: impl IntoIterator<Item = Assay>,
-        runs: impl IntoIterator<Item = Run>,
+        acquisitions: impl IntoIterator<Item = Acquisition>,
     ) -> Result<Self> {
-        let sources: Vec<_> = sources.into_iter().collect();
-        let samples: Vec<_> = samples.into_iter().collect();
-        let libraries: Vec<_> = libraries.into_iter().collect();
-        let assays: Vec<_> = assays.into_iter().collect();
-        let runs: Vec<_> = runs.into_iter().collect();
-
-        validation::unique_ids(
-            "provenance",
-            sources
-                .iter()
-                .map(|source| source.id().as_id())
-                .chain(samples.iter().map(|sample| sample.id().as_id()))
-                .chain(libraries.iter().map(Library::id))
-                .chain(assays.iter().map(Assay::id))
-                .chain(runs.iter().map(Run::id)),
-        )?;
-
-        let sources = sources
-            .into_iter()
-            .map(|source| (source.id().clone(), source))
-            .collect();
-        let samples = samples
-            .into_iter()
-            .map(|sample| (sample.id().clone(), sample))
-            .collect();
-        let libraries = libraries
-            .into_iter()
-            .map(|library| (library.id().clone(), library))
-            .collect();
-        let assays = assays
-            .into_iter()
-            .map(|assay| (assay.id().clone(), assay))
-            .collect();
-        let runs = runs
-            .into_iter()
-            .map(|run| (run.id().clone(), run))
-            .collect();
-
-        validate_material_references(&sources, &samples, &libraries)?;
-        validate_assay_references(&libraries, &assays)?;
-        validate_run_references(&assays, &runs)?;
-
-        Ok(Self {
-            sources,
-            samples,
-            libraries,
-            assays,
-            runs,
-        })
+        let provenance = Self {
+            sources: UniqueMap::try_from_iter(
+                sources
+                    .into_iter()
+                    .map(|source| (source.id().clone(), source)),
+            )?,
+            samples: UniqueMap::try_from_iter(
+                samples
+                    .into_iter()
+                    .map(|sample| (sample.id().clone(), sample)),
+            )?,
+            libraries: UniqueMap::try_from_iter(
+                libraries
+                    .into_iter()
+                    .map(|library| (library.id().as_untyped().clone(), library)),
+            )?,
+            acquisitions: UniqueMap::try_from_iter(
+                acquisitions
+                    .into_iter()
+                    .map(|acquisition| (acquisition.id().as_untyped().clone(), acquisition)),
+            )?,
+        };
+        provenance.validate()?;
+        Ok(provenance)
     }
 
-    /// Returns sources keyed by their typed IDs.
-    pub fn sources(&self) -> &BTreeMap<SourceId, Source> {
-        &self.sources
+    /// Iterates over all sources.
+    pub fn sources(&self) -> impl ExactSizeIterator<Item = &Source> + '_ {
+        self.sources.values()
     }
 
-    /// Returns samples keyed by their typed IDs.
-    pub fn samples(&self) -> &BTreeMap<SampleId, Sample> {
-        &self.samples
+    /// Iterates over all samples.
+    pub fn samples(&self) -> impl ExactSizeIterator<Item = &Sample> + '_ {
+        self.samples.values()
     }
 
-    /// Returns concrete libraries keyed by their globally unique raw IDs.
-    pub fn libraries(&self) -> &BTreeMap<Id, Library> {
-        &self.libraries
+    /// Iterates over all concrete libraries.
+    pub fn libraries(&self) -> impl ExactSizeIterator<Item = &Library> + '_ {
+        self.libraries.values()
     }
 
-    /// Returns concrete assays keyed by their globally unique raw IDs.
-    pub fn assays(&self) -> &BTreeMap<Id, Assay> {
-        &self.assays
+    /// Iterates over all concrete acquisitions.
+    pub fn acquisitions(&self) -> impl ExactSizeIterator<Item = &Acquisition> + '_ {
+        self.acquisitions.values()
     }
 
-    /// Returns concrete runs keyed by their globally unique raw IDs.
-    pub fn runs(&self) -> &BTreeMap<Id, Run> {
-        &self.runs
+    /// Performs a lookup whose result is determined by its typed ID.
+    pub fn get<'a, K: ?Sized>(&'a self, key: &K) -> Option<<Self as Lookup<K>>::Found<'a>>
+    where
+        Self: Lookup<K>,
+    {
+        <Self as Lookup<K>>::lookup(self, key)
     }
 
-    /// Finds a source by its typed ID.
-    pub fn source(&self, id: &SourceId) -> Option<&Source> {
+    /// Finds a source by its untyped ID.
+    pub fn source(&self, id: &UntypedId) -> Option<&Source> {
         self.sources.get(id)
     }
 
-    /// Finds a sample by its typed ID.
-    pub fn sample(&self, id: &SampleId) -> Option<&Sample> {
+    /// Finds a sample by its untyped ID.
+    pub fn sample(&self, id: &UntypedId) -> Option<&Sample> {
         self.samples.get(id)
     }
 
-    /// Finds a concrete library by its globally unique raw ID.
-    pub fn library(&self, id: &Id) -> Option<&Library> {
+    /// Finds a library by its untyped ID.
+    pub fn library(&self, id: &UntypedId) -> Option<&Library> {
         self.libraries.get(id)
     }
 
-    /// Finds an assay by its globally unique raw ID.
-    pub fn assay(&self, id: &Id) -> Option<&Assay> {
-        self.assays.get(id)
-    }
-
-    /// Finds a concrete run by its globally unique raw ID.
-    pub fn run(&self, id: &Id) -> Option<&Run> {
-        self.runs.get(id)
+    /// Finds an acquisition by its untyped ID.
+    pub fn acquisition(&self, id: &UntypedId) -> Option<&Acquisition> {
+        self.acquisitions.get(id)
     }
 
     /// Iterates over all IDs already occupied by this provenance graph.
-    pub(crate) fn ids(&self) -> impl Iterator<Item = &Id> {
+    pub(crate) fn ids(&self) -> impl Iterator<Item = &UntypedId> {
         self.sources
-            .values()
-            .map(|source| source.id().as_id())
-            .chain(self.samples.values().map(|sample| sample.id().as_id()))
+            .keys()
+            .map(SourceId::as_untyped)
+            .chain(self.samples.keys().map(SampleId::as_untyped))
             .chain(self.libraries.keys())
-            .chain(self.assays.keys())
-            .chain(self.runs.keys())
-    }
-}
-
-fn validate_material_references(
-    sources: &BTreeMap<SourceId, Source>,
-    samples: &BTreeMap<SampleId, Sample>,
-    libraries: &BTreeMap<Id, Library>,
-) -> Result<()> {
-    for sample in samples.values() {
-        for source_id in sample.sources() {
-            if !sources.contains_key(source_id) {
-                bail!(
-                    "Sample '{}' references unknown Source '{source_id}'",
-                    sample.id()
-                );
-            }
-        }
+            .chain(self.acquisitions.keys())
     }
 
-    for library in libraries.values() {
-        for sample_id in library.samples() {
-            if !samples.contains_key(sample_id) {
-                bail!(
-                    "Library '{}' references unknown Sample '{sample_id}'",
-                    library.id()
-                );
-            }
-        }
+    fn validate(&self) -> Result<()> {
+        validate::validate(self)
     }
-    Ok(())
-}
-
-fn validate_assay_references(
-    libraries: &BTreeMap<Id, Library>,
-    assays: &BTreeMap<Id, Assay>,
-) -> Result<()> {
-    for assay in assays.values() {
-        assay.validate_references(libraries)?;
-    }
-    Ok(())
-}
-
-fn validate_run_references(assays: &BTreeMap<Id, Assay>, runs: &BTreeMap<Id, Run>) -> Result<()> {
-    for run in runs.values() {
-        run.validate_references(assays)?;
-    }
-    Ok(())
 }
 
 #[derive(Serialize)]
@@ -208,8 +133,7 @@ struct SerializedProvenance<'a> {
     sources: Vec<&'a Source>,
     samples: Vec<&'a Sample>,
     libraries: Vec<&'a Library>,
-    assays: Vec<&'a Assay>,
-    runs: Vec<&'a Run>,
+    acquisitions: Vec<&'a Acquisition>,
 }
 
 impl Serialize for Provenance {
@@ -221,8 +145,7 @@ impl Serialize for Provenance {
             sources: self.sources.values().collect(),
             samples: self.samples.values().collect(),
             libraries: self.libraries.values().collect(),
-            assays: self.assays.values().collect(),
-            runs: self.runs.values().collect(),
+            acquisitions: self.acquisitions.values().collect(),
         }
         .serialize(serializer)
     }
@@ -234,8 +157,7 @@ struct DeserializedProvenance {
     sources: Vec<Source>,
     samples: Vec<Sample>,
     libraries: Vec<Library>,
-    assays: Vec<UnresolvedAssay>,
-    runs: Vec<UnresolvedRun>,
+    acquisitions: Vec<Acquisition>,
 }
 
 impl<'de> Deserialize<'de> for Provenance {
@@ -244,44 +166,11 @@ impl<'de> Deserialize<'de> for Provenance {
         D: Deserializer<'de>,
     {
         let provenance = DeserializedProvenance::deserialize(deserializer)?;
-        validation::unique_ids(
-            "deserialized libraries",
-            provenance.libraries.iter().map(Library::id),
-        )
-        .map_err(serde::de::Error::custom)?;
-
-        let library_index = provenance
-            .libraries
-            .iter()
-            .map(|library| (library.id().clone(), library.clone()))
-            .collect();
-        let assays = provenance
-            .assays
-            .into_iter()
-            .map(|assay| assay.resolve(&library_index))
-            .collect::<Result<Vec<_>>>()
-            .map_err(serde::de::Error::custom)?;
-
-        validation::unique_ids("deserialized assays", assays.iter().map(Assay::id))
-            .map_err(serde::de::Error::custom)?;
-
-        let assay_index = assays
-            .iter()
-            .map(|assay| (assay.id().clone(), assay.clone()))
-            .collect();
-        let runs = provenance
-            .runs
-            .into_iter()
-            .map(|run| run.resolve(&assay_index))
-            .collect::<Result<Vec<_>>>()
-            .map_err(serde::de::Error::custom)?;
-
         Self::new(
             provenance.sources,
             provenance.samples,
             provenance.libraries,
-            assays,
-            runs,
+            provenance.acquisitions,
         )
         .map_err(serde::de::Error::custom)
     }
@@ -289,17 +178,15 @@ impl<'de> Deserialize<'de> for Provenance {
 
 #[cfg(test)]
 mod tests {
-    use super::assay::illumina::{
-        PairedEndSequencing, PairedEndSequencingId, SequencingInput, SingleEndSequencing,
-        SingleEndSequencingId,
+    use super::acquisition::illumina::{
+        PairedEndSequencing, PairedEndSequencingId, SingleEndSequencing, SingleEndSequencingId,
     };
-    use super::library::illumina::{CdnaLibrary, CdnaLibraryId, DnaLibrary, DnaLibraryId};
+    use super::library::p5p7::{Input, Library as P5P7, LibraryId};
     use super::library::strandedness::Strandedness;
-    use super::run::illumina::{
-        PairedEndSequencing as PairedEndRun, PairedEndSequencingId as PairedEndRunId,
-        SingleEndSequencing as SingleEndRun, SingleEndSequencingId as SingleEndRunId,
+    use super::{
+        Acquisition, AcquisitionId, AcquisitionIdRef, Library, LibraryId as AnyLibraryId,
+        LibraryIdRef, Provenance, Sample, SampleId, Source, SourceId,
     };
-    use super::{Assay, Library, Provenance, Run, Sample, SampleId, Source, SourceId};
 
     fn source_id(id: &str) -> SourceId {
         SourceId::new(id).unwrap()
@@ -309,130 +196,93 @@ mod tests {
         SampleId::new(id).unwrap()
     }
 
-    fn dna_library_id(id: &str) -> DnaLibraryId {
-        DnaLibraryId::new(id).unwrap()
-    }
-
-    fn cdna_library_id(id: &str) -> CdnaLibraryId {
-        CdnaLibraryId::new(id).unwrap()
+    fn library_id(id: &str) -> LibraryId {
+        LibraryId::new(id).unwrap()
     }
 
     fn source(id: &str) -> Source {
         Source::new(
             source_id(id),
             "Homo sapiens",
-            [("kind", "donor")],
+            Default::default(),
             None::<String>,
         )
         .unwrap()
     }
 
     fn sample(id: &str, sources: impl IntoIterator<Item = SourceId>) -> Sample {
-        Sample::new(sample_id(id), sources, [("kind", "tissue")], None::<String>).unwrap()
+        Sample::new(sample_id(id), sources, Default::default(), None::<String>).unwrap()
     }
 
-    fn dna_library(id: &str, samples: impl IntoIterator<Item = SampleId>) -> Library {
-        Library::IlluminaDna(
-            DnaLibrary::new(
-                dna_library_id(id),
-                samples,
-                ["DNA"],
-                ["none"],
-                [("kind", "dna")],
-                None::<String>,
-            )
-            .unwrap(),
+    fn library(id: &str, samples: impl IntoIterator<Item = SampleId>, input: Input) -> Library {
+        P5P7::new(
+            library_id(id),
+            samples,
+            input,
+            Default::default(),
+            None::<String>,
         )
-    }
-
-    fn cdna_library(id: &str, samples: impl IntoIterator<Item = SampleId>) -> Library {
-        Library::IlluminaCdna(
-            CdnaLibrary::new(
-                cdna_library_id(id),
-                samples,
-                ["cDNA"],
-                ["poly-A"],
-                Strandedness::Forward,
-                [("kind", "rna")],
-                None::<String>,
-            )
-            .unwrap(),
-        )
+        .unwrap()
+        .into()
     }
 
     #[test]
-    fn dna_and_cdna_libraries_can_feed_both_illumina_layouts() {
+    fn dna_and_rna_inputs_can_feed_both_illumina_layouts() {
         let source = source_id("SRC1");
         let sample = sample_id("SMP1");
-        let dna = dna_library_id("LIB_DNA");
-        let cdna = cdna_library_id("LIB_CDNA");
-        let single_end_dna = SingleEndSequencingId::new("ASY_SE_DNA").unwrap();
-        let paired_end_dna = PairedEndSequencingId::new("ASY_PE_DNA").unwrap();
-        let single_end_cdna = SingleEndSequencingId::new("ASY_SE_CDNA").unwrap();
-        let paired_end_cdna = PairedEndSequencingId::new("ASY_PE_CDNA").unwrap();
-        let single_end_run = SingleEndRunId::new("RUN_SE_DNA").unwrap();
-        let paired_end_run = PairedEndRunId::new("RUN_PE_DNA").unwrap();
+        let dna = library_id("LIB_DNA");
+        let rna = library_id("LIB_RNA");
+        let single_end_dna = SingleEndSequencingId::new("ACQ_SE_DNA").unwrap();
+        let paired_end_dna = PairedEndSequencingId::new("ACQ_PE_DNA").unwrap();
+        let single_end_rna = SingleEndSequencingId::new("ACQ_SE_RNA").unwrap();
+        let paired_end_rna = PairedEndSequencingId::new("ACQ_PE_RNA").unwrap();
 
         let provenance = Provenance::new(
             [self::source("SRC1")],
             [self::sample("SMP1", [source])],
             [
-                dna_library("LIB_DNA", [sample.clone()]),
-                cdna_library("LIB_CDNA", [sample]),
-            ],
-            [
-                Assay::IlluminaSingleEndSequencing(
-                    SingleEndSequencing::new(
-                        single_end_dna.clone(),
-                        SequencingInput::Dna(dna.clone()),
-                        Vec::<(String, String)>::new(),
-                        None::<String>,
-                    )
-                    .unwrap(),
-                ),
-                Assay::IlluminaPairedEndSequencing(
-                    PairedEndSequencing::new(
-                        paired_end_dna.clone(),
-                        SequencingInput::Dna(dna.clone()),
-                        Vec::<(String, String)>::new(),
-                        None::<String>,
-                    )
-                    .unwrap(),
-                ),
-                Assay::IlluminaSingleEndSequencing(
-                    SingleEndSequencing::new(
-                        single_end_cdna.clone(),
-                        SequencingInput::Cdna(cdna.clone()),
-                        Vec::<(String, String)>::new(),
-                        None::<String>,
-                    )
-                    .unwrap(),
-                ),
-                Assay::IlluminaPairedEndSequencing(
-                    PairedEndSequencing::new(
-                        paired_end_cdna.clone(),
-                        SequencingInput::Cdna(cdna.clone()),
-                        Vec::<(String, String)>::new(),
-                        None::<String>,
-                    )
-                    .unwrap(),
+                library("LIB_DNA", [sample.clone()], Input::FromDna),
+                library(
+                    "LIB_RNA",
+                    [sample],
+                    Input::FromRna {
+                        strandedness: Strandedness::Forward,
+                    },
                 ),
             ],
             [
-                Run::IlluminaSingleEndSequencing(
-                    SingleEndRun::new(
-                        single_end_run.clone(),
+                Acquisition::IlluminaSingleEndSequencing(
+                    SingleEndSequencing::new(
                         single_end_dna.clone(),
-                        Vec::<(String, String)>::new(),
+                        [dna.clone()],
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
                 ),
-                Run::IlluminaPairedEndSequencing(
-                    PairedEndRun::new(
-                        paired_end_run.clone(),
+                Acquisition::IlluminaPairedEndSequencing(
+                    PairedEndSequencing::new(
                         paired_end_dna.clone(),
-                        Vec::<(String, String)>::new(),
+                        [dna.clone()],
+                        Default::default(),
+                        None::<String>,
+                    )
+                    .unwrap(),
+                ),
+                Acquisition::IlluminaSingleEndSequencing(
+                    SingleEndSequencing::new(
+                        single_end_rna.clone(),
+                        [rna.clone()],
+                        Default::default(),
+                        None::<String>,
+                    )
+                    .unwrap(),
+                ),
+                Acquisition::IlluminaPairedEndSequencing(
+                    PairedEndSequencing::new(
+                        paired_end_rna.clone(),
+                        [rna.clone()],
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -442,89 +292,62 @@ mod tests {
         .unwrap();
 
         assert!(matches!(
-            provenance.library(dna.as_id()),
-            Some(Library::IlluminaDna(_))
+            provenance.get(&dna),
+            Some(Ok(library)) if matches!(library.input(), Input::FromDna)
         ));
+        let dna_id = AnyLibraryId::from(dna.clone());
         assert!(matches!(
-            provenance.library(cdna.as_id()),
-            Some(Library::IlluminaCdna(_))
+            provenance.get(&dna_id),
+            Some(Ok(Library::P5P7(library))) if matches!(library.input(), Input::FromDna)
         ));
+        let rna_id = LibraryIdRef::P5P7(&rna);
         assert!(matches!(
-            provenance.assay(single_end_dna.as_id()),
-            Some(Assay::IlluminaSingleEndSequencing(_))
+            provenance.get(&rna_id),
+            Some(Ok(Library::P5P7(library)))
+                if matches!(library.input(), Input::FromRna { .. })
         ));
+        let single_end_dna_id = AcquisitionId::from(single_end_dna.clone());
         assert!(matches!(
-            provenance.assay(paired_end_dna.as_id()),
-            Some(Assay::IlluminaPairedEndSequencing(_))
+            provenance.get(&single_end_dna_id),
+            Some(Ok(Acquisition::IlluminaSingleEndSequencing(_)))
         ));
+        let paired_end_dna_id = AcquisitionIdRef::IlluminaPairedEndSequencing(&paired_end_dna);
         assert!(matches!(
-            provenance.assay(single_end_cdna.as_id()),
-            Some(Assay::IlluminaSingleEndSequencing(_))
+            provenance.get(&paired_end_dna_id),
+            Some(Ok(Acquisition::IlluminaPairedEndSequencing(_)))
         ));
+        let single_end_rna_id = AcquisitionIdRef::IlluminaSingleEndSequencing(&single_end_rna);
         assert!(matches!(
-            provenance.assay(paired_end_cdna.as_id()),
-            Some(Assay::IlluminaPairedEndSequencing(_))
+            provenance.get(&single_end_rna_id),
+            Some(Ok(Acquisition::IlluminaSingleEndSequencing(_)))
         ));
+        let paired_end_rna_id = AcquisitionIdRef::IlluminaPairedEndSequencing(&paired_end_rna);
         assert!(matches!(
-            provenance.run(single_end_run.as_id()),
-            Some(Run::IlluminaSingleEndSequencing(_))
+            provenance.get(&paired_end_rna_id),
+            Some(Ok(Acquisition::IlluminaPairedEndSequencing(_)))
         ));
-        assert!(matches!(
-            provenance.run(paired_end_run.as_id()),
-            Some(Run::IlluminaPairedEndSequencing(_))
-        ));
-    }
 
-    #[test]
-    fn rejects_typed_input_that_resolves_to_the_wrong_library_variant() {
-        let source = source_id("SRC1");
-        let sample = sample_id("SMP1");
-
-        assert!(
-            Provenance::new(
-                [self::source("SRC1")],
-                [self::sample("SMP1", [source])],
-                [cdna_library("LIB1", [sample])],
-                [Assay::IlluminaSingleEndSequencing(
-                    SingleEndSequencing::new(
-                        SingleEndSequencingId::new("ASY1").unwrap(),
-                        SequencingInput::Dna(dna_library_id("LIB1")),
-                        Vec::<(String, String)>::new(),
-                        None::<String>,
-                    )
-                    .unwrap(),
-                )],
-                Vec::<Run>::new(),
-            )
-            .is_err()
+        let wrong_variant = AcquisitionId::from(
+            PairedEndSequencingId::new(single_end_dna.as_untyped().as_str()).unwrap(),
         );
+        assert!(matches!(provenance.get(&wrong_variant), Some(Err(_))));
     }
 
     #[test]
-    fn rejects_typed_run_parent_that_resolves_to_the_wrong_assay_variant() {
+    fn rejects_an_unknown_acquisition_library() {
         let source = source_id("SRC1");
         let sample = sample_id("SMP1");
-        let library = dna_library_id("LIB1");
 
         assert!(
             Provenance::new(
                 [self::source("SRC1")],
                 [self::sample("SMP1", [source])],
-                [dna_library("LIB1", [sample])],
-                [Assay::IlluminaSingleEndSequencing(
+                [library("LIB1", [sample], Input::FromDna)],
+                [Acquisition::IlluminaSingleEndSequencing(
                     SingleEndSequencing::new(
-                        SingleEndSequencingId::new("ASY1").unwrap(),
-                        SequencingInput::Dna(library),
-                        Vec::<(String, String)>::new(),
-                        None::<String>,
-                    )
-                    .unwrap(),
-                )],
-                [Run::IlluminaPairedEndSequencing(
-                    PairedEndRun::new(
-                        PairedEndRunId::new("RUN1").unwrap(),
-                        PairedEndSequencingId::new("ASY1").unwrap(),
-                        Vec::<(String, String)>::new(),
+                        SingleEndSequencingId::new("ACQ1").unwrap(),
+                        [library_id("MISSING_LIBRARY")],
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -541,8 +364,7 @@ mod tests {
                 Vec::<Source>::new(),
                 [self::sample("SMP1", [source_id("MISSING_SOURCE")])],
                 Vec::<Library>::new(),
-                Vec::<Assay>::new(),
-                Vec::<Run>::new(),
+                Vec::<Acquisition>::new(),
             )
             .is_err()
         );
@@ -551,9 +373,12 @@ mod tests {
             Provenance::new(
                 [self::source("SRC1")],
                 Vec::<Sample>::new(),
-                [dna_library("LIB1", [sample_id("MISSING_SAMPLE")])],
-                Vec::<Assay>::new(),
-                Vec::<Run>::new(),
+                [library(
+                    "LIB1",
+                    [sample_id("MISSING_SAMPLE")],
+                    Input::FromDna,
+                )],
+                Vec::<Acquisition>::new(),
             )
             .is_err()
         );
@@ -565,16 +390,28 @@ mod tests {
             Provenance::new(
                 [self::source("DUP")],
                 [self::sample("SMP1", [source_id("DUP")])],
-                [dna_library("DUP", [sample_id("SMP1")])],
-                Vec::<Assay>::new(),
-                Vec::<Run>::new(),
+                [library("DUP", [sample_id("SMP1")], Input::FromDna)],
+                Vec::<Acquisition>::new(),
             )
             .is_err()
         );
     }
 
     #[test]
-    fn serializes_and_resolves_assay_input_types() {
+    fn rejects_repeated_ids_within_an_entity_type() {
+        assert!(
+            Provenance::new(
+                [self::source("DUP"), self::source("DUP")],
+                Vec::<Sample>::new(),
+                Vec::<Library>::new(),
+                Vec::<Acquisition>::new(),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn serializes_and_resolves_p5p7_acquisition_inputs() {
         let provenance: Provenance = serde_json::from_str(
             r#"{
                 "sources": [
@@ -585,47 +422,33 @@ mod tests {
                 ],
                 "libraries": [
                     {
-                        "type": "IlluminaCdna",
+                        "type": "P5P7",
                         "id": "LIB1",
                         "samples": ["SMP1"],
-                        "molecule": ["cDNA"],
-                        "selection": ["poly-A"],
-                        "strandedness": "Unknown"
+                        "input": {
+                            "type": "FromRna",
+                            "strandedness": "Unknown"
+                        },
+                        "meta": {"selection": "poly-A"}
                     }
                 ],
-                "assays": [
+                "acquisitions": [
                     {
                         "type": "IlluminaPairedEndSequencing",
-                        "id": "ASY1",
-                        "library": "LIB1"
-                    }
-                ],
-                "runs": [
-                    {
-                        "type": "IlluminaPairedEndSequencing",
-                        "id": "RUN1",
-                        "assay": "ASY1"
+                        "id": "ACQ1",
+                        "libraries": ["LIB1"]
                     }
                 ]
             }"#,
         )
         .unwrap();
 
-        let assay_id = PairedEndSequencingId::new("ASY1").unwrap();
-        let assay = provenance.assay(assay_id.as_id()).unwrap();
-        let Assay::IlluminaPairedEndSequencing(assay) = assay else {
-            panic!("serialized paired-end Illumina assay resolved to a different variant");
-        };
-        assert_eq!(
-            assay.library(),
-            &SequencingInput::Cdna(cdna_library_id("LIB1"))
-        );
-
-        let run_id = PairedEndRunId::new("RUN1").unwrap();
-        assert!(matches!(
-            provenance.run(run_id.as_id()),
-            Some(Run::IlluminaPairedEndSequencing(_))
-        ));
+        let acquisition_id = PairedEndSequencingId::new("ACQ1").unwrap();
+        let acquisition = provenance
+            .get(&acquisition_id)
+            .expect("serialized acquisition should be present")
+            .expect("serialized acquisition should have the requested type");
+        assert!(acquisition.libraries().contains(&library_id("LIB1")));
 
         assert_eq!(
             serde_json::from_str::<Provenance>(&serde_json::to_string(&provenance).unwrap())

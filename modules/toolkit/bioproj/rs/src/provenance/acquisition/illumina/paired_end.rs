@@ -1,16 +1,15 @@
 use super::validate;
-use crate::primitives::{define_entity_id, impl_kind};
-use crate::provenance::acquisition::AcquisitionKind;
-use crate::provenance::library::Library;
+use crate::primitives::define_entity_id;
+use crate::provenance::Provenance;
 use crate::provenance::library::p5p7;
-use crate::{Meta, NonEmpty, UntypedId};
+use crate::{Meta, NonEmpty};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 define_entity_id!(
     PairedEndSequencingId,
-    "The identifier of a [`bioproj::provenance::acquisition::illumina::PairedEndSequencing`]."
+    "The identifier of a [`crate::provenance::acquisition::illumina::PairedEndSequencing`]."
 );
 
 /// One logical paired-end Illumina sequencing acquisition.
@@ -24,11 +23,6 @@ pub struct PairedEndSequencing {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     description: Option<NonEmpty<String>>,
 }
-
-impl_kind!(
-    AcquisitionKind,
-    IlluminaPairedEndSequencing => PairedEndSequencing, PairedEndSequencingId,
-);
 
 impl PairedEndSequencing {
     /// Creates a paired-end acquisition from one or more intentionally pooled libraries.
@@ -58,8 +52,8 @@ impl PairedEndSequencing {
         &self.libraries
     }
 
-    pub(crate) fn validate(&self, libraries: &BTreeMap<UntypedId, Library>) -> Result<()> {
-        validate::validate(&self.libraries, libraries)
+    pub(crate) fn validate(&self, provenance: &Provenance) -> Result<()> {
+        validate::validate(&self.libraries, provenance)
     }
 
     /// Returns auxiliary, non-structural metadata.

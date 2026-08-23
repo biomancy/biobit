@@ -1,12 +1,10 @@
-use super::NonEmpty;
-use serde::de::{self, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use super::{NonEmpty, UniqueMap};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fmt::Formatter;
 use std::ops::Deref;
 
 /// A scalar metadata value.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, derive_more::From)]
 #[serde(untagged)]
 pub enum MetaVal {
     /// A free-form string value.
@@ -15,21 +13,9 @@ pub enum MetaVal {
     Bool(bool),
 }
 
-impl From<String> for MetaVal {
-    fn from(value: String) -> Self {
-        Self::String(value)
-    }
-}
-
 impl From<&str> for MetaVal {
     fn from(value: &str) -> Self {
         Self::String(value.into())
-    }
-}
-
-impl From<bool> for MetaVal {
-    fn from(value: bool) -> Self {
-        Self::Bool(value)
     }
 }
 
@@ -39,9 +25,9 @@ impl From<bool> for MetaVal {
 /// an entity's identity, graph edges, compatibility, or other validated model
 /// properties; those belong to explicit fields and tagged variants. Keys must
 /// be non-empty and unique.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Meta(BTreeMap<NonEmpty<String>, MetaVal>);
+pub struct Meta(UniqueMap<NonEmpty<String>, MetaVal>);
 
 impl Meta {
     /// Returns whether this metadata map has no entries.
@@ -52,19 +38,19 @@ impl Meta {
 
     /// Consumes this metadata map and returns its ordered entries.
     pub fn into_inner(self) -> BTreeMap<NonEmpty<String>, MetaVal> {
-        self.0
+        self.0.into_inner()
     }
 }
 
 impl From<BTreeMap<NonEmpty<String>, MetaVal>> for Meta {
     fn from(values: BTreeMap<NonEmpty<String>, MetaVal>) -> Self {
-        Self(values)
+        Self(values.into())
     }
 }
 
 impl AsRef<BTreeMap<NonEmpty<String>, MetaVal>> for Meta {
     fn as_ref(&self) -> &BTreeMap<NonEmpty<String>, MetaVal> {
-        &self.0
+        self.0.as_ref()
     }
 }
 
@@ -72,7 +58,7 @@ impl Deref for Meta {
     type Target = BTreeMap<NonEmpty<String>, MetaVal>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_ref()
     }
 }
 
@@ -82,43 +68,6 @@ impl<'a> IntoIterator for &'a Meta {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
-    }
-}
-
-// This cannot use the derived `BTreeMap` deserializer: duplicate keys in a
-// serialized map overwrite their earlier values there. Released manifests
-// reject that ambiguous input rather than applying last-write-wins semantics.
-impl<'de> Deserialize<'de> for Meta {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct MetaVisitor;
-
-        impl<'de> Visitor<'de> for MetaVisitor {
-            type Value = Meta;
-
-            fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("a metadata map with unique, non-empty keys")
-            }
-
-            fn visit_map<A>(self, mut map: A) -> std::result::Result<Meta, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut values = BTreeMap::new();
-                while let Some((key, value)) = map.next_entry::<NonEmpty<String>, MetaVal>()? {
-                    if values.insert(key.clone(), value).is_some() {
-                        return Err(de::Error::custom(format!(
-                            "metadata key '{key}' is not unique"
-                        )));
-                    }
-                }
-                Ok(Meta(values))
-            }
-        }
-
-        deserializer.deserialize_map(MetaVisitor)
     }
 }
 

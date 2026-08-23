@@ -1,5 +1,6 @@
-use crate::primitives::{NonEmptyIdSet, define_entity_id};
-use crate::{Id, Meta, MetaVal};
+use crate::primitives::define_entity_id;
+use crate::provenance::{AcquisitionId, Provenance};
+use crate::{Meta, NonEmpty, UntypedId};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -9,35 +10,48 @@ define_entity_id!(
     "The identifier of a [`crate::design::DesignUnit`]."
 );
 
-/// A named, non-empty collection of assays logically pooled for computation.
-///
-/// Assay references use the common [`Id`] type deliberately: design units can
-/// pool assays of any current or future concrete assay type.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// A named, non-empty collection of acquisitions pooled for computation.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DesignUnit {
     id: DesignUnitId,
-    assays: NonEmptyIdSet<Id>,
+    acquisitions: NonEmpty<BTreeSet<AcquisitionId>>,
     #[serde(default, skip_serializing_if = "Meta::is_empty")]
     meta: Meta,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 impl DesignUnit {
-    /// Creates a design unit from one or more assays.
+    /// Creates a design unit from one or more acquisitions.
     pub fn new(
         id: DesignUnitId,
-        assays: impl IntoIterator<Item = Id>,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        acquisitions: impl IntoIterator<Item = AcquisitionId>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         Ok(Self {
             id,
-            assays: NonEmptyIdSet::new("DesignUnit::assays", assays)?,
-            meta: Meta::new(meta)?,
-            description: description.map(Into::into),
+            acquisitions: NonEmpty::try_from_iter(acquisitions)?,
+            meta,
+            description: description
+                .map(|description| NonEmpty::new(description.into()))
+                .transpose()?,
         })
+    }
+
+    fn from_parts(
+        id: DesignUnitId,
+        acquisitions: NonEmpty<BTreeSet<AcquisitionId>>,
+        meta: Meta,
+        description: Option<NonEmpty<String>>,
+    ) -> Self {
+        Self {
+            id,
+            acquisitions,
+            meta,
+            description,
+        }
     }
 
     /// Returns this design unit's identifier.
@@ -45,9 +59,9 @@ impl DesignUnit {
         &self.id
     }
 
-    /// Returns the assays logically pooled in this unit.
-    pub fn assays(&self) -> &BTreeSet<Id> {
-        self.assays.as_set()
+    /// Returns the acquisitions logically pooled in this unit.
+    pub fn acquisitions(&self) -> &NonEmpty<BTreeSet<AcquisitionId>> {
+        &self.acquisitions
     }
 
     /// Returns auxiliary, non-structural metadata.
@@ -56,43 +70,45 @@ impl DesignUnit {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.description.as_ref()
     }
 }
 
-impl AsRef<Id> for DesignUnit {
-    fn as_ref(&self) -> &Id {
-        self.id().as_id()
-    }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct UnresolvedDesignUnit {
+    id: DesignUnitId,
+    acquisitions: NonEmpty<BTreeSet<UntypedId>>,
+    #[serde(default)]
+    meta: Meta,
+    #[serde(default)]
+    description: Option<NonEmpty<String>>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{DesignUnit, DesignUnitId};
-    use crate::Id;
-
-    #[test]
-    fn requires_distinct_assays() {
-        assert!(
-            DesignUnit::new(
-                DesignUnitId::new("UNIT1").unwrap(),
-                Vec::<Id>::new(),
-                Vec::<(String, String)>::new(),
-                None::<String>,
-            )
-            .is_err()
-        );
-
-        let assay = Id::new("ASY1").unwrap();
-        assert!(
-            DesignUnit::new(
-                DesignUnitId::new("UNIT1").unwrap(),
-                [assay.clone(), assay],
-                Vec::<(String, String)>::new(),
-                None::<String>,
-            )
-            .is_err()
-        );
+impl UnresolvedDesignUnit {
+    pub(crate) fn resolve(self, provenance: &Provenance) -> Result<DesignUnit> {
+        let acquisitions = self
+            .acquisitions
+            .into_inner()
+            .into_iter()
+            .map(|id| {
+                provenance
+                    .acquisition(&id)
+                    .map(|acquisition| acquisition.id().to_owned())
+                    .ok_or_else(|| {
+                        eyre::eyre!(
+                            "DesignUnit '{}' references unknown Acquisition '{id}'",
+                            self.id
+                        )
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(DesignUnit::from_parts(
+            self.id,
+            NonEmpty::try_from_iter(acquisitions)?,
+            self.meta,
+            self.description,
+        ))
     }
 }

@@ -1,40 +1,31 @@
 # bioproj
 
-`biobit-bioproj-rs` is the Rust core for immutable biological-project manifests.
-
-The current implementation models released provenance through a logical,
-demultiplexed run:
+`biobit-bioproj-rs` is the Rust core for immutable released biological-project
+descriptions.
 
 ```text
-Source <- Sample <- Library <- Assay <- Run
+Source <- Sample <- Library <- Acquisition
 ```
 
-Samples may pool multiple sources and libraries may pool multiple samples. The
-implemented concrete library types are `provenance::library::illumina::DnaLibrary` and
-`provenance::library::illumina::CdnaLibrary`; the latter has an explicit
-`provenance::library::strandedness::Strandedness`, including `Unknown`.
-`provenance::assay::illumina::SingleEndSequencing` and `PairedEndSequencing` own the
-compatibility contract and accept either concrete library type.
-`provenance::run::illumina::SingleEndSequencing` and `PairedEndSequencing` then own the
-matching typed assay parents.
+Libraries expose a technical interface to compatible Acquisitions. The current
+P5/P7 Library records one DNA- or RNA-derived input path, and Illumina
+single-end and paired-end Acquisitions can intentionally pool one or more P5/P7
+Libraries. Acquisition currently combines the measurement specification and
+one execution; those concepts may be separated later.
 
-Assets remain a separate domain and are children of runs. `Asset::Fastq` is a
-single-file FASTQ format; `Asset::PairedFastq` preserves distinct read-one and
-read-two file locations. Their typed input contracts currently accept matching
-single- and paired-end Illumina runs without coupling the format name to
-Illumina itself. `Assets::new(&provenance, assets)` validates the asset-to-run
-relationship and ID uniqueness. `Project` owns the resulting asset collection
-alongside its provenance and revalidates it as part of the released graph.
+The `data` domain owns Assets and Datasets. Assets are independent storage
+records: `Asset::Fastq` represents one file at one location and has no
+provenance reference. A Dataset connects a complete stored representation to
+exactly one compatible Acquisition. `Dataset::Fastq` groups independent FASTQ
+files, while `Dataset::PairedFastq` stores ordered FASTQ ID pairs. The same
+Acquisition may have several overlapping Datasets, but an Asset cannot be
+reused across different Acquisitions.
 
-Design is a separate logical overlay. `DesignUnit` holds a non-empty set of
-raw assay IDs, allowing it to pool heterogeneous assay types. `Design` has
-`TwoUnits`, `TwoGroups`, `MatchedPairs`, and `UnitSet` variants.
-`MatchedPairs` uses ordered two-element unit tuples, so `(A, B)` differs from
-`(B, A)`. `Designs::new(&provenance, units, designs)` validates assay and
-design-unit references; `Project` owns the resulting overlay.
+Design is a logical overlay. Each `DesignUnit` pools one or more Acquisitions;
+`TwoUnits`, `TwoGroups`, `MatchedPairs`, and `UnitSet` arrange those units into
+analysis topologies.
 
-`Provenance` validates raw-ID uniqueness, material references, and the typed
-library-to-assay-to-run relationships. `Project` owns provenance, assets, and
-design, validates their cross-domain ID uniqueness, and supports complete JSON
-round-trips. Workspace manifests and storage adapters are intentionally outside
-this slice.
+`Project` owns the resolved provenance, data, and design domains. It has no
+monolithic wire format. `Manifest::load("bioproj.toml")` loads the three
+explicit payloads through the closed JSON adapter and constructs the validated
+Project.

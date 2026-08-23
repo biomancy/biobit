@@ -1,6 +1,6 @@
 use super::asset::fastq::{Fastq, FastqId};
 use super::dataset::fastq::{Paired, PairedId, PairedInput, Single, SingleId, SingleInput};
-use super::{Asset, Data, Dataset};
+use super::{Asset, AssetId, Data, Dataset, DatasetId};
 use crate::provenance::acquisition::illumina::{
     PairedEndSequencing, PairedEndSequencingId, SingleEndSequencing, SingleEndSequencingId,
 };
@@ -118,6 +118,21 @@ fn serializes_and_resolves_assets_with_their_datasets() {
         ],
     )
     .unwrap();
+
+    let asset_id = AssetId::from(FastqId::new("LONG").unwrap());
+    assert!(matches!(
+        data.asset(asset_id.as_ref()),
+        Some(Asset::Fastq(_))
+    ));
+
+    let dataset_id = DatasetId::from(SingleId::new("DATA_SINGLE").unwrap());
+    assert!(matches!(
+        data.dataset(dataset_id.as_ref()),
+        Some(Dataset::Fastq(_))
+    ));
+
+    let wrong_variant = DatasetId::from(PairedId::new("DATA_SINGLE").unwrap());
+    assert!(data.dataset(wrong_variant.as_ref()).is_none());
 
     let json = serde_json::to_string(&data).unwrap();
     assert_eq!(

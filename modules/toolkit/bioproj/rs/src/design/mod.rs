@@ -7,7 +7,7 @@ pub mod two_units;
 pub mod unit;
 pub mod unit_set;
 
-use crate::Id;
+use crate::UntypedId;
 use crate::primitives::define_entity_id;
 use crate::provenance::Provenance;
 use crate::validation;
@@ -27,7 +27,7 @@ define_entity_id!(DesignId, "The identifier of a [`crate::design::Design`].");
 ///
 /// Each variant describes only the relationships among logical design units;
 /// it does not prescribe a model, algorithm, or software parameters.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, derive_more::From)]
 #[serde(tag = "type")]
 pub enum Design {
     /// A direct contrast between one control and one treatment unit.
@@ -61,16 +61,10 @@ impl Design {
     }
 }
 
-impl AsRef<Id> for Design {
-    fn as_ref(&self) -> &Id {
-        self.id().as_id()
-    }
-}
-
 /// A resolved collection of design units and experimental designs.
 ///
 /// Construction and deserialization require parent [`Provenance`] so every
-/// assay reference in a [`DesignUnit`] can be checked against the released
+/// acquisition reference in a [`DesignUnit`] can be checked against released
 /// provenance graph. The collection remains independently usable, while
 /// [`crate::Project`] owns it together with provenance in a complete release.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -93,8 +87,8 @@ impl Designs {
             "provenance and design",
             provenance
                 .ids()
-                .chain(units.iter().map(|unit| unit.id().as_id()))
-                .chain(designs.iter().map(|design| design.id().as_id())),
+                .chain(units.iter().map(|unit| unit.id().as_untyped()))
+                .chain(designs.iter().map(|design| design.id().as_untyped())),
         )?;
 
         let units = units
@@ -112,14 +106,14 @@ impl Designs {
         Ok(result)
     }
 
-    /// Returns design units keyed by their typed IDs.
-    pub fn units(&self) -> &BTreeMap<DesignUnitId, DesignUnit> {
-        &self.units
+    /// Iterates over all design units.
+    pub fn units(&self) -> impl ExactSizeIterator<Item = &DesignUnit> + '_ {
+        self.units.values()
     }
 
-    /// Returns experimental designs keyed by their typed IDs.
-    pub fn designs(&self) -> &BTreeMap<DesignId, Design> {
-        &self.designs
+    /// Iterates over all experimental designs.
+    pub fn designs(&self) -> impl ExactSizeIterator<Item = &Design> + '_ {
+        self.designs.values()
     }
 
     /// Finds a design unit by its typed ID.
@@ -140,16 +134,16 @@ impl Designs {
     }
 
     /// Iterates over IDs occupied by design units and designs.
-    pub(crate) fn ids(&self) -> impl Iterator<Item = &Id> {
+    pub(crate) fn ids(&self) -> impl Iterator<Item = &UntypedId> {
         self.units
             .values()
-            .map(|unit| unit.id().as_id())
-            .chain(self.designs.values().map(|design| design.id().as_id()))
+            .map(|unit| unit.id().as_untyped())
+            .chain(self.designs.values().map(|design| design.id().as_untyped()))
     }
 
     /// Deserializes and validates a design payload using parent provenance.
     ///
-    /// A standalone `Deserialize` implementation would lack the assays needed
+    /// A standalone `Deserialize` implementation would lack the acquisitions needed
     /// to validate design-unit references. This explicit method provides that
     /// context when deserializing the domain on its own.
     pub fn deserialize_with_provenance<'de, D>(
@@ -170,12 +164,19 @@ fn validate_unit_references(
     provenance: &Provenance,
 ) -> Result<()> {
     for unit in units.values() {
-        for assay_id in unit.assays() {
-            if !provenance.assays().contains_key(assay_id) {
-                bail!(
-                    "DesignUnit '{}' references unknown Assay '{assay_id}'",
-                    unit.id()
-                );
+        for acquisition_id in unit.acquisitions() {
+            match provenance.get(acquisition_id) {
+                Some(Ok(_)) => {}
+                Some(Err(_)) => bail!(
+                    "DesignUnit '{}' Acquisition '{}' resolves to a different type",
+                    unit.id(),
+                    acquisition_id.as_untyped()
+                ),
+                None => bail!(
+                    "DesignUnit '{}' references unknown Acquisition '{}'",
+                    unit.id(),
+                    acquisition_id.as_untyped()
+                ),
             }
         }
     }
@@ -214,108 +215,112 @@ impl Serialize for Designs {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct UnresolvedDesigns {
-    units: Vec<DesignUnit>,
+    units: Vec<unit::UnresolvedDesignUnit>,
     designs: Vec<Design>,
 }
 
 impl UnresolvedDesigns {
     pub(crate) fn resolve(self, provenance: &Provenance) -> Result<Designs> {
-        Designs::new(provenance, self.units, self.designs)
+        let units = self
+            .units
+            .into_iter()
+            .map(|unit| unit.resolve(provenance))
+            .collect::<Result<Vec<_>>>()?;
+        Designs::new(provenance, units, self.designs)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Design, DesignId, DesignUnit, DesignUnitId, Designs, TwoGroups, UnitSet};
-    use crate::Id;
     use crate::design::matched_pairs::MatchedPairs;
     use crate::design::two_units::TwoUnits;
-    use crate::provenance::assay::illumina::{
-        SequencingInput, SingleEndSequencing, SingleEndSequencingId,
+    use crate::provenance::acquisition::illumina::{SingleEndSequencing, SingleEndSequencingId};
+    use crate::provenance::library::p5p7;
+    use crate::provenance::{
+        Acquisition, AcquisitionId, Library, Provenance, Sample, SampleId, Source, SourceId,
     };
-    use crate::provenance::library::illumina::{DnaLibrary, DnaLibraryId};
-    use crate::provenance::{Assay, Library, Provenance, Sample, SampleId, Source, SourceId};
 
     fn provenance() -> Provenance {
         let source_id = SourceId::new("SRC1").unwrap();
         let sample_id = SampleId::new("SMP1").unwrap();
-        let library_id = DnaLibraryId::new("LIB1").unwrap();
-        let assay_one_id = SingleEndSequencingId::new("ASY1").unwrap();
-        let assay_two_id = SingleEndSequencingId::new("ASY2").unwrap();
+        let library_id = p5p7::LibraryId::new("LIB1").unwrap();
+        let acquisition_one_id = SingleEndSequencingId::new("ACQ1").unwrap();
+        let acquisition_two_id = SingleEndSequencingId::new("ACQ2").unwrap();
 
         Provenance::new(
             [Source::new(
                 source_id.clone(),
                 "Homo sapiens",
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .unwrap()],
             [Sample::new(
                 sample_id.clone(),
                 [source_id],
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .unwrap()],
-            [Library::IlluminaDna(
-                DnaLibrary::new(
+            [Library::P5P7(
+                p5p7::Library::new(
                     library_id.clone(),
                     [sample_id],
-                    ["DNA"],
-                    ["none"],
-                    Vec::<(String, String)>::new(),
+                    p5p7::Input::FromDna,
+                    Default::default(),
                     None::<String>,
                 )
                 .unwrap(),
             )],
             [
-                Assay::IlluminaSingleEndSequencing(
+                Acquisition::IlluminaSingleEndSequencing(
                     SingleEndSequencing::new(
-                        assay_one_id,
-                        SequencingInput::Dna(library_id.clone()),
-                        Vec::<(String, String)>::new(),
+                        acquisition_one_id,
+                        [library_id.clone()],
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
                 ),
-                Assay::IlluminaSingleEndSequencing(
+                Acquisition::IlluminaSingleEndSequencing(
                     SingleEndSequencing::new(
-                        assay_two_id,
-                        SequencingInput::Dna(library_id),
-                        Vec::<(String, String)>::new(),
+                        acquisition_two_id,
+                        [library_id],
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
                 ),
             ],
-            Vec::new(),
         )
         .unwrap()
     }
 
-    fn unit(id: &str, assay: &str) -> DesignUnit {
+    fn unit(id: &str, acquisition: &str) -> DesignUnit {
         DesignUnit::new(
             DesignUnitId::new(id).unwrap(),
-            [Id::new(assay).unwrap()],
-            Vec::<(String, String)>::new(),
+            [AcquisitionId::IlluminaSingleEndSequencing(
+                SingleEndSequencingId::new(acquisition).unwrap(),
+            )],
+            Default::default(),
             None::<String>,
         )
         .unwrap()
     }
 
     #[test]
-    fn validates_assay_and_design_unit_references() {
+    fn validates_acquisition_and_design_unit_references() {
         let provenance = provenance();
         let designs = Designs::new(
             &provenance,
-            [unit("UNIT_CTRL", "ASY1"), unit("UNIT_TREAT", "ASY2")],
+            [unit("UNIT_CTRL", "ACQ1"), unit("UNIT_TREAT", "ACQ2")],
             [Design::TwoUnits(
                 TwoUnits::new(
                     DesignId::new("DES1").unwrap(),
                     DesignUnitId::new("UNIT_CTRL").unwrap(),
                     DesignUnitId::new("UNIT_TREAT").unwrap(),
-                    Vec::<(String, String)>::new(),
+                    Default::default(),
                     None::<String>,
                 )
                 .unwrap(),
@@ -338,13 +343,13 @@ mod tests {
         assert!(
             Designs::new(
                 &provenance,
-                [unit("UNIT_CTRL", "ASY1")],
+                [unit("UNIT_CTRL", "ACQ1")],
                 [Design::TwoUnits(
                     TwoUnits::new(
                         DesignId::new("DES1").unwrap(),
                         DesignUnitId::new("UNIT_CTRL").unwrap(),
                         DesignUnitId::new("UNIT_MISSING").unwrap(),
-                        Vec::<(String, String)>::new(),
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -360,8 +365,8 @@ mod tests {
         let mut deserializer = serde_json::Deserializer::from_str(
             r#"{
                 "units": [
-                    {"id": "UNIT_A", "assays": ["ASY1"]},
-                    {"id": "UNIT_B", "assays": ["ASY2"]}
+                    {"id": "UNIT_A", "acquisitions": ["ACQ1"]},
+                    {"id": "UNIT_B", "acquisitions": ["ACQ2"]}
                 ],
                 "designs": [
                     {
@@ -378,9 +383,9 @@ mod tests {
         else {
             panic!("serialized matched pairs resolved to a different design type");
         };
-        let pair = design.pairs().first().unwrap();
-        assert_eq!(pair.first().as_str(), "UNIT_B");
-        assert_eq!(pair.second().as_str(), "UNIT_A");
+        let pair = design.pairs().as_ref().first().unwrap();
+        assert_eq!(pair.first().as_untyped().as_str(), "UNIT_B");
+        assert_eq!(pair.second().as_untyped().as_str(), "UNIT_A");
     }
 
     #[test]
@@ -389,13 +394,13 @@ mod tests {
         assert!(
             Designs::new(
                 &provenance,
-                [unit("UNIT_CTRL", "ASY1"), unit("UNIT_TREAT", "ASY2")],
+                [unit("UNIT_CTRL", "ACQ1"), unit("UNIT_TREAT", "ACQ2")],
                 [Design::TwoUnits(
                     TwoUnits::new(
-                        DesignId::new("ASY1").unwrap(),
+                        DesignId::new("ACQ1").unwrap(),
                         DesignUnitId::new("UNIT_CTRL").unwrap(),
                         DesignUnitId::new("UNIT_TREAT").unwrap(),
-                        Vec::<(String, String)>::new(),
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -410,7 +415,7 @@ mod tests {
         let provenance = provenance();
         let designs = Designs::new(
             &provenance,
-            [unit("UNIT_B", "ASY2"), unit("UNIT_A", "ASY1")],
+            [unit("UNIT_B", "ACQ2"), unit("UNIT_A", "ACQ1")],
             [Design::MatchedPairs(
                 MatchedPairs::new(
                     DesignId::new("DES1").unwrap(),
@@ -418,7 +423,7 @@ mod tests {
                         DesignUnitId::new("UNIT_B").unwrap(),
                         DesignUnitId::new("UNIT_A").unwrap(),
                     )],
-                    Vec::<(String, String)>::new(),
+                    Default::default(),
                     None::<String>,
                 )
                 .unwrap(),
@@ -428,7 +433,7 @@ mod tests {
 
         assert_eq!(
             serde_json::to_string(&designs).unwrap(),
-            r#"{"units":[{"id":"UNIT_A","assays":["ASY1"]},{"id":"UNIT_B","assays":["ASY2"]}],"designs":[{"type":"MatchedPairs","id":"DES1","pairs":[["UNIT_B","UNIT_A"]]}]}"#
+            r#"{"units":[{"id":"UNIT_A","acquisitions":["ACQ1"]},{"id":"UNIT_B","acquisitions":["ACQ2"]}],"designs":[{"type":"MatchedPairs","id":"DES1","pairs":[["UNIT_B","UNIT_A"]]}]}"#
         );
     }
 
@@ -445,7 +450,7 @@ mod tests {
         .unwrap() else {
             panic!("serialized design resolved to a different design type");
         };
-        assert_eq!(design.id().as_str(), "DES1");
+        assert_eq!(design.id().as_untyped().as_str(), "DES1");
 
         assert!(serde_json::from_str::<Design>(r#"{"type":"Unknown","id":"DES1"}"#).is_err());
         assert!(
@@ -468,7 +473,7 @@ mod tests {
                         DesignId::new("DES_TWO_UNITS").unwrap(),
                         unit_a.clone(),
                         unit_b.clone(),
-                        Vec::<(String, String)>::new(),
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -481,7 +486,7 @@ mod tests {
                         DesignId::new("DES_TWO_GROUPS").unwrap(),
                         [unit_a.clone()],
                         [unit_b.clone()],
-                        Vec::<(String, String)>::new(),
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -493,7 +498,7 @@ mod tests {
                     MatchedPairs::new(
                         DesignId::new("DES_PAIRS").unwrap(),
                         [(unit_a.clone(), unit_b.clone())],
-                        Vec::<(String, String)>::new(),
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),
@@ -505,7 +510,7 @@ mod tests {
                     UnitSet::new(
                         DesignId::new("DES_SET").unwrap(),
                         [unit_a, unit_b],
-                        Vec::<(String, String)>::new(),
+                        Default::default(),
                         None::<String>,
                     )
                     .unwrap(),

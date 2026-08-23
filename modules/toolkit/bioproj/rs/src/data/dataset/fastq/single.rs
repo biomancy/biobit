@@ -1,7 +1,7 @@
 use crate::data::asset::fastq::FastqId;
 use crate::primitives::define_entity_id;
 use crate::provenance::acquisition::illumina::SingleEndSequencingId;
-use crate::provenance::{Acquisition, AcquisitionIdRef, Provenance};
+use crate::provenance::{AcquisitionIdRef, Provenance};
 use crate::{Meta, NonEmpty};
 use eyre::{Result, bail};
 use serde::{Deserialize, Serialize, Serializer};
@@ -16,7 +16,7 @@ define_entity_id!(
 ///
 /// This dataset-owned contract can grow to include other single-file FASTQ
 /// producers without coupling [`crate::data::Asset`] to acquisition semantics.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
 pub enum SingleInput {
     /// Single-end Illumina sequencing.
     IlluminaSingleEndSequencing(SingleEndSequencingId),
@@ -26,23 +26,23 @@ impl SingleInput {
     /// Returns the concrete borrowed acquisition identifier.
     pub fn id(&self) -> AcquisitionIdRef<'_> {
         match self {
-            Self::IlluminaSingleEndSequencing(id) => {
-                AcquisitionIdRef::IlluminaSingleEndSequencing(id)
-            }
+            Self::IlluminaSingleEndSequencing(id) => id.into(),
         }
     }
 
     pub(crate) fn validate(&self, provenance: &Provenance) -> Result<()> {
-        let id = self.id().as_untyped();
-        match (self, provenance.acquisition(id)) {
-            (
-                Self::IlluminaSingleEndSequencing(_),
-                Some(Acquisition::IlluminaSingleEndSequencing(_)),
-            ) => Ok(()),
-            (_, Some(_)) => bail!(
-                "FASTQ Dataset Acquisition reference '{id}' resolves to an incompatible Acquisition type"
-            ),
-            (_, None) => bail!("FASTQ Dataset references unknown Acquisition '{id}'"),
+        match self {
+            Self::IlluminaSingleEndSequencing(id) => match provenance.get(id) {
+                Some(Ok(_)) => Ok(()),
+                Some(Err(_)) => bail!(
+                    "FASTQ Dataset Acquisition reference '{}' resolves to an incompatible Acquisition type",
+                    id.as_untyped()
+                ),
+                None => bail!(
+                    "FASTQ Dataset references unknown Acquisition '{}'",
+                    id.as_untyped()
+                ),
+            },
         }
     }
 }
@@ -62,12 +62,6 @@ impl<'de> Deserialize<'de> for SingleInput {
         D: serde::Deserializer<'de>,
     {
         SingleEndSequencingId::deserialize(deserializer).map(Self::IlluminaSingleEndSequencing)
-    }
-}
-
-impl From<SingleEndSequencingId> for SingleInput {
-    fn from(id: SingleEndSequencingId) -> Self {
-        Self::IlluminaSingleEndSequencing(id)
     }
 }
 

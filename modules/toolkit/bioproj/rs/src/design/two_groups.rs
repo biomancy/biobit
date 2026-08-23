@@ -1,8 +1,7 @@
 use super::DesignUnit;
 use super::core::DesignCore;
 use super::{DesignId, DesignUnitId};
-use crate::primitives::NonEmptyIdSet;
-use crate::{Id, Meta, MetaVal};
+use crate::{Meta, NonEmpty};
 use eyre::{Result, bail};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,8 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TwoGroups {
     core: DesignCore,
-    control: NonEmptyIdSet<DesignUnitId>,
-    treatment: NonEmptyIdSet<DesignUnitId>,
+    control: NonEmpty<BTreeSet<DesignUnitId>>,
+    treatment: NonEmpty<BTreeSet<DesignUnitId>>,
 }
 
 impl TwoGroups {
@@ -21,11 +20,11 @@ impl TwoGroups {
         id: DesignId,
         control: impl IntoIterator<Item = DesignUnitId>,
         treatment: impl IntoIterator<Item = DesignUnitId>,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
-        let control = NonEmptyIdSet::new("TwoGroups::control", control)?;
-        let treatment = NonEmptyIdSet::new("TwoGroups::treatment", treatment)?;
+        let control = NonEmpty::try_from_iter(control)?;
+        let treatment = NonEmpty::try_from_iter(treatment)?;
         validate_disjoint_groups(&control, &treatment)?;
         Ok(Self {
             core: DesignCore::new(id, meta, description)?,
@@ -36,10 +35,10 @@ impl TwoGroups {
 
     fn from_parts(
         id: DesignId,
-        control: NonEmptyIdSet<DesignUnitId>,
-        treatment: NonEmptyIdSet<DesignUnitId>,
+        control: NonEmpty<BTreeSet<DesignUnitId>>,
+        treatment: NonEmpty<BTreeSet<DesignUnitId>>,
         meta: Meta,
-        description: Option<String>,
+        description: Option<NonEmpty<String>>,
     ) -> Result<Self> {
         validate_disjoint_groups(&control, &treatment)?;
         Ok(Self {
@@ -59,13 +58,13 @@ impl TwoGroups {
     }
 
     /// Returns the control group.
-    pub fn control(&self) -> &BTreeSet<DesignUnitId> {
-        self.control.as_set()
+    pub fn control(&self) -> &NonEmpty<BTreeSet<DesignUnitId>> {
+        &self.control
     }
 
     /// Returns the treatment group.
-    pub fn treatment(&self) -> &BTreeSet<DesignUnitId> {
-        self.treatment.as_set()
+    pub fn treatment(&self) -> &NonEmpty<BTreeSet<DesignUnitId>> {
+        &self.treatment
     }
 
     /// Returns auxiliary, non-structural metadata.
@@ -74,15 +73,20 @@ impl TwoGroups {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.core.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.core.description.as_ref()
     }
 
     pub(crate) fn validate_references(
         &self,
         units: &BTreeMap<DesignUnitId, DesignUnit>,
     ) -> Result<()> {
-        for unit_id in self.control().iter().chain(self.treatment()) {
+        for unit_id in self
+            .control()
+            .as_ref()
+            .iter()
+            .chain(self.treatment().as_ref())
+        {
             if !units.contains_key(unit_id) {
                 bail!(
                     "TwoGroups Design '{}' references unknown DesignUnit '{unit_id}'",
@@ -94,17 +98,11 @@ impl TwoGroups {
     }
 }
 
-impl AsRef<Id> for TwoGroups {
-    fn as_ref(&self) -> &Id {
-        self.id().as_id()
-    }
-}
-
 fn validate_disjoint_groups(
-    control: &NonEmptyIdSet<DesignUnitId>,
-    treatment: &NonEmptyIdSet<DesignUnitId>,
+    control: &NonEmpty<BTreeSet<DesignUnitId>>,
+    treatment: &NonEmpty<BTreeSet<DesignUnitId>>,
 ) -> Result<()> {
-    if let Some(unit_id) = control.as_set().intersection(treatment.as_set()).next() {
+    if let Some(unit_id) = control.as_ref().intersection(treatment.as_ref()).next() {
         bail!("TwoGroups::control and TwoGroups::treatment must not share DesignUnit '{unit_id}'");
     }
     Ok(())
@@ -120,7 +118,7 @@ impl Serialize for TwoGroups {
             control: &self.control,
             treatment: &self.treatment,
             meta: (!self.core.meta.is_empty()).then_some(&self.core.meta),
-            description: self.core.description.as_deref(),
+            description: self.core.description.as_ref(),
         }
         .serialize(serializer)
     }
@@ -129,12 +127,12 @@ impl Serialize for TwoGroups {
 #[derive(Serialize)]
 struct SerializedTwoGroups<'a> {
     id: &'a DesignId,
-    control: &'a NonEmptyIdSet<DesignUnitId>,
-    treatment: &'a NonEmptyIdSet<DesignUnitId>,
+    control: &'a NonEmpty<BTreeSet<DesignUnitId>>,
+    treatment: &'a NonEmpty<BTreeSet<DesignUnitId>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     meta: Option<&'a Meta>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
+    description: Option<&'a NonEmpty<String>>,
 }
 
 impl<'de> Deserialize<'de> for TwoGroups {
@@ -158,12 +156,12 @@ impl<'de> Deserialize<'de> for TwoGroups {
 #[serde(deny_unknown_fields)]
 struct DeserializedTwoGroups {
     id: DesignId,
-    control: NonEmptyIdSet<DesignUnitId>,
-    treatment: NonEmptyIdSet<DesignUnitId>,
+    control: NonEmpty<BTreeSet<DesignUnitId>>,
+    treatment: NonEmpty<BTreeSet<DesignUnitId>>,
     #[serde(default)]
     meta: Meta,
     #[serde(default)]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 #[cfg(test)]
@@ -180,7 +178,7 @@ mod tests {
                 DesignId::new("DES1").unwrap(),
                 Vec::<DesignUnitId>::new(),
                 [unit.clone()],
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .is_err()
@@ -191,7 +189,7 @@ mod tests {
                 DesignId::new("DES1").unwrap(),
                 [unit.clone()],
                 [unit],
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .is_err()

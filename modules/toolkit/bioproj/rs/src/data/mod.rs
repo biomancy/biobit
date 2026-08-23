@@ -4,8 +4,8 @@ pub mod asset;
 pub mod dataset;
 mod validate;
 
-pub use asset::{Asset, AssetId, AssetIdRef};
-pub use dataset::{Dataset, DatasetId, DatasetIdRef};
+pub use asset::{Asset, AssetId, AssetIdRef, AssetKind};
+pub use dataset::{Dataset, DatasetId, DatasetIdRef, DatasetKind};
 
 use crate::UntypedId;
 use crate::provenance::Provenance;
@@ -57,24 +57,28 @@ impl Data {
         Ok(data)
     }
 
-    /// Returns assets keyed by their globally unique untyped IDs.
-    pub fn assets(&self) -> &BTreeMap<UntypedId, Asset> {
-        &self.assets
+    /// Iterates over all assets.
+    pub fn assets(&self) -> impl ExactSizeIterator<Item = &Asset> + '_ {
+        self.assets.values()
     }
 
-    /// Finds an asset by its globally unique untyped ID.
-    pub fn asset(&self, id: &UntypedId) -> Option<&Asset> {
-        self.assets.get(id)
+    /// Finds an asset by its tagged identifier.
+    pub fn asset(&self, id: AssetIdRef<'_>) -> Option<&Asset> {
+        self.assets
+            .get(id.as_untyped())
+            .filter(|asset| asset.id() == id)
     }
 
-    /// Returns datasets keyed by their globally unique untyped IDs.
-    pub fn datasets(&self) -> &BTreeMap<UntypedId, Dataset> {
-        &self.datasets
+    /// Iterates over all datasets.
+    pub fn datasets(&self) -> impl ExactSizeIterator<Item = &Dataset> + '_ {
+        self.datasets.values()
     }
 
-    /// Finds a dataset by its globally unique untyped ID.
-    pub fn dataset(&self, id: &UntypedId) -> Option<&Dataset> {
-        self.datasets.get(id)
+    /// Finds a dataset by its tagged identifier.
+    pub fn dataset(&self, id: DatasetIdRef<'_>) -> Option<&Dataset> {
+        self.datasets
+            .get(id.as_untyped())
+            .filter(|dataset| dataset.id() == id)
     }
 
     /// Deserializes and validates data using its parent provenance graph.

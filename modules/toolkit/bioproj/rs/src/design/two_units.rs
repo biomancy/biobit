@@ -1,7 +1,7 @@
 use super::DesignUnit;
 use super::core::DesignCore;
 use super::{DesignId, DesignUnitId};
-use crate::{Id, Meta, MetaVal};
+use crate::{Meta, NonEmpty};
 use eyre::{Result, bail, ensure};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -20,7 +20,7 @@ impl TwoUnits {
         id: DesignId,
         control: DesignUnitId,
         treatment: DesignUnitId,
-        meta: impl IntoIterator<Item = (impl Into<String>, impl Into<MetaVal>)>,
+        meta: Meta,
         description: Option<impl Into<String>>,
     ) -> Result<Self> {
         validate_distinct_units(&control, &treatment)?;
@@ -36,7 +36,7 @@ impl TwoUnits {
         control: DesignUnitId,
         treatment: DesignUnitId,
         meta: Meta,
-        description: Option<String>,
+        description: Option<NonEmpty<String>>,
     ) -> Result<Self> {
         validate_distinct_units(&control, &treatment)?;
         Ok(Self {
@@ -71,8 +71,8 @@ impl TwoUnits {
     }
 
     /// Returns the optional human-readable description.
-    pub fn description(&self) -> Option<&str> {
-        self.core.description.as_deref()
+    pub fn description(&self) -> Option<&NonEmpty<String>> {
+        self.core.description.as_ref()
     }
 
     pub(crate) fn validate_references(
@@ -88,12 +88,6 @@ impl TwoUnits {
             }
         }
         Ok(())
-    }
-}
-
-impl AsRef<Id> for TwoUnits {
-    fn as_ref(&self) -> &Id {
-        self.id().as_id()
     }
 }
 
@@ -115,7 +109,7 @@ impl Serialize for TwoUnits {
             control: self.control(),
             treatment: self.treatment(),
             meta: (!self.core.meta.is_empty()).then_some(&self.core.meta),
-            description: self.core.description.as_deref(),
+            description: self.core.description.as_ref(),
         }
         .serialize(serializer)
     }
@@ -129,7 +123,7 @@ struct SerializedTwoUnits<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     meta: Option<&'a Meta>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
+    description: Option<&'a NonEmpty<String>>,
 }
 
 impl<'de> Deserialize<'de> for TwoUnits {
@@ -158,7 +152,7 @@ struct DeserializedTwoUnits {
     #[serde(default)]
     meta: Meta,
     #[serde(default)]
-    description: Option<String>,
+    description: Option<NonEmpty<String>>,
 }
 
 #[cfg(test)]
@@ -174,7 +168,7 @@ mod tests {
                 DesignId::new("DES1").unwrap(),
                 unit.clone(),
                 unit,
-                Vec::<(String, String)>::new(),
+                Default::default(),
                 None::<String>,
             )
             .is_err()
