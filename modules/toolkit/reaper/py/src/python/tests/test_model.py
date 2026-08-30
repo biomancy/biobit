@@ -1,6 +1,8 @@
 import copy
 import pickle
 
+import pytest
+
 from biobit.toolkit.reaper import model
 
 
@@ -29,3 +31,12 @@ def test_reaper_model():
         "+", [[(1, 2), (400, 600)], [(4, 5)]], True, [10, 20]
     )
     assert deepcopy != pileup1 and pileup1 == pileup2
+
+
+def test_reaper_model_rejects_invalid_numerical_settings():
+    with pytest.raises(RuntimeError):
+        model.RNAPileup().set_sensitivity(0)
+    with pytest.raises(RuntimeError):
+        model.RNAPileup().set_control_baseline(float("nan"))
+    with pytest.raises(RuntimeError):
+        model.RNAPileup().set_min_signal(-1)

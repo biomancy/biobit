@@ -72,13 +72,6 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
             >,
     {
-        assert_eq!(
-            query.1,
-            Idx::zero(),
-            "Query start must be 0, but is {:?}",
-            query.1
-        );
-
         // 1. Calculate pileup for the signal & control sources
         let mut cntmodel = self.cnts_cache.pop().unwrap_or_default();
         let (ccnts, control, mut cntcov) = config.model.model_control(
@@ -121,13 +114,20 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
 
         for (orientation, enrichment) in enrichment.iter() {
             let mut _peaks = config.pcalling.run(enrichment);
-            let _nms = config.postfilter.run(
+            let mut _nms = config.postfilter.run(
                 orientation,
                 (query.1, query.2),
                 &_peaks,
                 &sigcnts[orientation],
                 &ccnts[orientation],
             )?;
+
+            for peak in &mut _peaks {
+                peak.shift(query.1);
+            }
+            for peak in &mut _nms {
+                peak.shift(query.1);
+            }
 
             peaks[orientation] = _peaks;
             nms[orientation] = _nms;
@@ -185,15 +185,66 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             .map(|x| (x, Vec::new()))
             .collect::<Vec<_>>();
 
+        let mut regions = Vec::new();
         for worker in workers {
-            for ((cmpind, _), peaks) in worker.comparisons.drain() {
-                result[cmpind].1.extend(peaks);
-            }
+            regions.extend(worker.comparisons.drain());
+        }
+        regions.sort_by_key(|((cmpind, workind), _)| (*cmpind, *workind));
+        for ((cmpind, _), peaks) in regions {
+            result[cmpind].1.extend(peaks);
         }
 
         result
             .into_iter()
             .map(|(tag, peaks)| Harvest::new(tag, peaks))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use biobit_collections_rs::rle_vec::Identical;
+    use biobit_core_rs::loc::Orientation;
+
+    #[test]
+    fn approximate_identity_uses_sensitivity() {
+        let identical = RleIdentical::new(1e-3f64);
+
+        assert!(identical.identical(&0.0, &0.0005));
+        assert!(identical.identical(&1.0, &1.0005));
+        assert!(!identical.identical(&0.0, &0.002));
+        assert!(!identical.identical(&1.0, &1.002));
+    }
+
+    fn region(start: usize) -> HarvestRegion<String, usize, f32> {
+        HarvestRegion::new(
+            "chr1".to_string(),
+            Orientation::Forward,
+            Interval::new(start, start + 1).unwrap(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        )
+    }
+
+    #[test]
+    fn collapse_orders_regions_by_workload_index() {
+        let mut first = Worker::<String, usize, f32>::default();
+        let mut second = Worker::<String, usize, f32>::default();
+        first.comparisons.insert((0, 1), vec![region(10)]);
+        second.comparisons.insert((0, 0), vec![region(0)]);
+
+        let result = Worker::collapse(vec!["comparison"], [&mut first, &mut second].into_iter());
+        assert_eq!(
+            *result[0].regions()[0].interval(),
+            Interval::new(0, 1).unwrap()
+        );
+        assert_eq!(
+            *result[0].regions()[1].interval(),
+            Interval::new(10, 11).unwrap()
+        );
     }
 }

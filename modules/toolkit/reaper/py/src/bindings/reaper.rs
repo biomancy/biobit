@@ -63,9 +63,8 @@ impl PyReaper {
         layout: PyLayout,
     ) -> PyResult<PyRefMut<Self>> {
         let py = slf.py();
-        let sample = slf.find_or_insert_sample(tag, py)?;
-
         let source = biobit_io_py::bam::utils::to_alignment_segments(py, source, layout)?;
+        let sample = slf.find_or_insert_sample(tag, py)?;
 
         slf.reaper.add_source(sample, source);
         Ok(slf)
@@ -78,14 +77,16 @@ impl PyReaper {
         layout: PyLayout,
     ) -> PyResult<PyRefMut<Self>> {
         let py = slf.py();
-        let sample = slf.find_or_insert_sample(sample, py)?;
-
+        if sources.is_empty() {
+            return Err(eyre!("At least one source is required for a sample").into());
+        }
         let sources = sources
             .into_iter()
             .map(|source| biobit_io_py::bam::utils::to_alignment_segments(py, source, layout))
             .collect::<Result<Vec<_>>>()?;
+        let sample = slf.find_or_insert_sample(sample, py)?;
 
-        slf.reaper.add_sources(sample, sources);
+        slf.reaper.add_sources(sample, sources)?;
         Ok(slf)
     }
 
@@ -115,12 +116,14 @@ impl PyReaper {
     pub fn run(mut slf: PyRefMut<Self>) -> PyResult<Vec<PyHarvest>> {
         let reaped = slf.reaper.run()?.into_iter().map(PyHarvest::from).collect();
         slf.reaper.reset();
+        slf.samples.clear();
 
         Ok(reaped)
     }
 
     pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
         slf.reaper.reset();
+        slf.samples.clear();
         slf
     }
 }

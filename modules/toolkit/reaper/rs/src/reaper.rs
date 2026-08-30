@@ -55,9 +55,12 @@ where
         self
     }
 
-    pub fn add_sources(&mut self, tag: SmplTag, sources: Vec<Src>) -> &mut Self {
+    pub fn add_sources(&mut self, tag: SmplTag, sources: Vec<Src>) -> Result<&mut Self> {
+        if sources.is_empty() {
+            return Err(eyre!("At least one source is required for a sample"));
+        }
         self.samples.entry(tag).or_default().extend(sources);
-        self
+        Ok(self)
     }
 
     pub fn add_comparison(
@@ -94,10 +97,8 @@ where
         let sources = self
             .samples
             .get(tag)
-            .ok_or_else(|| eyre!("Unknown sample tag"))?
-            .iter()
-            .map(|x| dyn_clone::clone(x))
-            .collect();
+            .ok_or_else(|| eyre!("Unknown sample tag"))?;
+        let sources = sources.iter().map(|x| dyn_clone::clone(x)).collect();
         Ok(sources)
     }
 }

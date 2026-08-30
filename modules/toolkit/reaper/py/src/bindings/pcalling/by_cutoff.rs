@@ -21,19 +21,19 @@ impl PyByCutoff {
         PyByCutoff::new(ByCutoff::new())
     }
 
-    fn set_min_length(mut slf: PyRefMut<Self>, min_length: usize) -> PyRefMut<Self> {
-        slf.rs.set_min_length(min_length);
-        slf
+    fn set_min_length(mut slf: PyRefMut<Self>, min_length: usize) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_min_length(min_length)?;
+        Ok(slf)
     }
 
-    fn set_merge_within(mut slf: PyRefMut<Self>, merge_within: usize) -> PyRefMut<Self> {
-        slf.rs.set_merge_within(merge_within);
-        slf
+    fn set_merge_within(mut slf: PyRefMut<Self>, merge_within: usize) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_merge_within(merge_within)?;
+        Ok(slf)
     }
 
-    fn set_cutoff(mut slf: PyRefMut<Self>, cutoff: f32) -> PyRefMut<Self> {
-        slf.rs.set_cutoff(cutoff);
-        slf
+    fn set_cutoff(mut slf: PyRefMut<Self>, cutoff: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_cutoff(cutoff)?;
+        Ok(slf)
     }
 
     fn __getstate__(&self) -> Vec<u8> {

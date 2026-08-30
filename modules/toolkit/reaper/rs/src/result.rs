@@ -18,8 +18,10 @@ pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     orientation: Orientation,
     interval: Interval<Idx>,
     // In global coordinates:
-    // * Regions that were covered by at least 1 read in signal/control experiments
-    // * Regions that passed modelling thresholds
+    // * Signal regions that were covered by at least one read
+    // * Control regions with non-zero modeled signal after smoothing, but before applying the
+    //   final control baseline
+    // * Signal regions that passed modelling thresholds
     // * Raw peaks
     // * NMS peaks
     signal: Vec<Interval<Idx>>,

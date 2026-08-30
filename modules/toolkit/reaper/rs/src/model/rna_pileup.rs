@@ -66,9 +66,18 @@ impl<Idx: PrimInt> ControlModel<Idx> {
         buffer.clear();
 
         // Prepare the ROI coordinates and length
-        let roi = Interval::new(start, end).unwrap();
-        let length = roi.len();
-        debug_assert_eq!(length.to_usize().unwrap(), saveto.len());
+        let roi = Interval::new(start, end)?;
+        let length = roi
+            .len()
+            .to_usize()
+            .ok_or_eyre("Control-model query length exceeds usize")?;
+        if source.len() != length || saveto.len() != length {
+            return Err(eyre!(
+                "Control-model buffers must match the query length ({length}), got source={} and destination={}",
+                source.len(),
+                saveto.len()
+            ));
+        }
 
         // Each chain is processed independently
         let mut links = Vec::new();
@@ -79,7 +88,7 @@ impl<Idx: PrimInt> ControlModel<Idx> {
                 chain
                     .links()
                     .iter()
-                    .filter_map(|x| (x << start).clamped(&roi)),
+                    .filter_map(|x| x.clamped(&roi).map(|x| x << start)),
             );
             if links.is_empty() {
                 continue;
@@ -103,7 +112,7 @@ impl<Idx: PrimInt> ControlModel<Idx> {
 
             // Calculate the smoothed signal for the chain using each window size
             for &winsize in &self.winsizes {
-                if winsize >= buffer.len() {
+                if winsize > buffer.len() {
                     continue;
                 }
 
@@ -113,21 +122,25 @@ impl<Idx: PrimInt> ControlModel<Idx> {
                     .take(winsize)
                     .fold(Cnts::zero(), |acc, x| acc + *x);
 
-                // Backtracking utilities
-                let offset = winsize / 2;
-                let backpos = backmap.iter().flat_map(|x| x.clone()).skip(offset);
-                let bufpos = offset..buffer.len() - offset;
+                let window_count = buffer.len() - winsize + 1;
+                let mut centers = backmap
+                    .iter()
+                    .flat_map(|range| range.clone())
+                    .skip(winsize / 2);
+                let divisor = Cnts::from(winsize).unwrap();
 
-                // Run the calculations
-                for (bufpos, backpos) in bufpos.zip(backpos) {
-                    saveto[backpos] = saveto[backpos].max(sum / Cnts::from(winsize).unwrap());
-                    sum = sum + buffer[bufpos + offset] - buffer[bufpos - offset];
+                // Emit the first window, then roll the sum through the remaining windows.
+                let center = centers.next().unwrap();
+                saveto[center] = saveto[center].max(sum / divisor);
+                for (window_start, center) in (1..window_count).zip(centers) {
+                    sum = sum + buffer[window_start + winsize - 1] - buffer[window_start - 1];
+                    saveto[center] = saveto[center].max(sum / divisor);
                 }
             }
 
             // Apply the uniform baseline if necessary
             if self.uniform_baseline {
-                let baseline = sumval / Cnts::from(length).unwrap();
+                let baseline = sumval / Cnts::from(buffer.len()).unwrap();
                 for link in &links {
                     let rng = link.start().to_usize().unwrap()..link.end().to_usize().unwrap();
                     for val in saveto[rng].iter_mut() {
@@ -173,19 +186,28 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Self::default()
     }
 
-    pub fn set_sensitivity(&mut self, sensitivity: Cnts) -> &mut Self {
+    pub fn set_sensitivity(&mut self, sensitivity: Cnts) -> Result<&mut Self> {
+        if !sensitivity.is_finite() || sensitivity <= Cnts::zero() {
+            return Err(eyre!("Sensitivity must be finite and greater than zero"));
+        }
         self.sensitivity = sensitivity;
-        self
+        Ok(self)
     }
 
-    pub fn set_control_baseline(&mut self, control_baseline: Cnts) -> &mut Self {
+    pub fn set_control_baseline(&mut self, control_baseline: Cnts) -> Result<&mut Self> {
+        if !control_baseline.is_finite() || control_baseline < Cnts::zero() {
+            return Err(eyre!("Control baseline must be finite and non-negative"));
+        }
         self.control_baseline = control_baseline;
-        self
+        Ok(self)
     }
 
-    pub fn set_min_signal(&mut self, min_signal: Cnts) -> &mut Self {
+    pub fn set_min_signal(&mut self, min_signal: Cnts) -> Result<&mut Self> {
+        if !min_signal.is_finite() || min_signal < Cnts::zero() {
+            return Err(eyre!("Minimum signal must be finite and non-negative"));
+        }
         self.min_signal = min_signal;
-        self
+        Ok(self)
     }
 
     pub fn add_control_model(
@@ -330,7 +352,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
                 }
 
                 // Save modeled segments
-                if *val <= self.min_signal {
+                if *val < self.min_signal {
                     *val = Cnts::zero();
                 } else if start == model_end {
                     model_end = end;
@@ -438,5 +460,65 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         })?;
 
         Ok((counts, rle, covered))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chain(links: &[(usize, usize)]) -> Result<ChainInterval<usize>> {
+        ChainInterval::try_from_iter(
+            links
+                .iter()
+                .map(|&(start, end)| Interval::new(start, end))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter(),
+        )
+    }
+
+    #[test]
+    fn smoothing_handles_nonzero_queries_and_exact_windows() -> Result<()> {
+        let model = ControlModel::new(vec![chain(&[(100, 103)])?], false, vec![3])?;
+        let mut result = vec![0.0; 3];
+        model.apply(100, 103, 1e-6, &[1.0, 2.0, 3.0], &mut result)?;
+        assert_eq!(result, vec![0.0, 2.0, 0.0]);
+        Ok(())
+    }
+
+    #[test]
+    fn odd_smoothing_windows_roll_over_every_position() -> Result<()> {
+        let model = ControlModel::new(vec![chain(&[(0, 5)])?], false, vec![3])?;
+        let mut result = vec![0.0; 5];
+        model.apply(0, 5, 1e-6, &[1.0, 2.0, 3.0, 4.0, 5.0], &mut result)?;
+        assert_eq!(result, vec![0.0, 2.0, 3.0, 4.0, 0.0]);
+        Ok(())
+    }
+
+    #[test]
+    fn uniform_baseline_uses_chain_length() -> Result<()> {
+        let model = ControlModel::new(vec![chain(&[(2, 4)])?], true, vec![])?;
+        let source = [0.0, 0.0, 2.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let mut result = vec![0.0; source.len()];
+        model.apply(0, 10, 1e-6, &source, &mut result)?;
+
+        assert_eq!(
+            result,
+            vec![0.0, 0.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn setters_reject_invalid_model_parameters() {
+        let mut model = RNAPileup::<usize, f64>::new();
+        assert_eq!(*model.control_baseline(), 0.0);
+        assert!(model.set_control_baseline(0.0).is_ok());
+        assert!(model.set_sensitivity(0.0).is_err());
+        assert!(model.set_sensitivity(f64::NAN).is_err());
+        assert!(model.set_control_baseline(-1.0).is_err());
+        assert!(model.set_control_baseline(f64::INFINITY).is_err());
+        assert!(model.set_min_signal(-1.0).is_err());
+        assert!(model.set_min_signal(f64::NAN).is_err());
     }
 }
