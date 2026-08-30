@@ -1,6 +1,8 @@
 import copy
 import pickle
 
+import pytest
+
 from biobit.toolkit.reaper import postfilter
 
 
@@ -34,3 +36,12 @@ def test_reaper_postfilter():
 
     deepcopy.add_regions("+", True, [[(1, 2), (4, 6)]])
     assert deepcopy != nms1 and nms1 == nms2
+
+
+def test_reaper_postfilter_rejects_invalid_numerical_settings():
+    with pytest.raises(RuntimeError):
+        postfilter.NMS().set_fecutoff(float("nan"))
+    with pytest.raises(RuntimeError):
+        postfilter.NMS().set_slopfrac(float("inf"))
+    with pytest.raises(RuntimeError):
+        postfilter.NMS().set_sensitivity(0)

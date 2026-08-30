@@ -3,7 +3,7 @@ use biobit_reaper_rs::cmp::Enrichment;
 use derive_getters::Dissolve;
 use derive_more::{Constructor, From, Into};
 use eyre::Result;
-use pyo3::{PyRefMut, pyclass, pymethods};
+use pyo3::{PyRefMut, PyResult, pyclass, pymethods};
 
 #[pyclass(from_py_object, eq, name = "Enrichment")]
 #[derive(Clone, Debug, PartialEq, Constructor, Dissolve, From, Into)]
@@ -18,9 +18,9 @@ impl PyEnrichment {
         PyEnrichment::new(Enrichment::new())
     }
 
-    fn set_scaling(mut slf: PyRefMut<Self>, signal: f32, control: f32) -> PyRefMut<Self> {
-        slf.rs.set_scaling(signal, control);
-        slf
+    fn set_scaling(mut slf: PyRefMut<Self>, signal: f32, control: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_scaling(signal, control)?;
+        Ok(slf)
     }
 
     fn __getstate__(&self) -> Vec<u8> {

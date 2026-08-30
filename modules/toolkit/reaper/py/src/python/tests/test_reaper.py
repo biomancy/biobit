@@ -1,6 +1,8 @@
 import pickle
 from pathlib import Path
 
+import pytest
+
 from biobit.core.ngs import Layout, Strandedness
 from biobit.toolkit import reaper as rp
 
@@ -44,3 +46,9 @@ def test_ripper():
     for (ind, cmp) in enumerate(["Signal vs Control", "Control vs Signal"]):
         assert ripped[ind].comparison == cmp
         assert len(ripped[ind].regions) == 0
+
+
+def test_reaper_rejects_empty_source_lists():
+    layout = Layout.Single(Strandedness.Unstranded)
+    with pytest.raises(RuntimeError):
+        rp.Reaper().add_sources("Empty", [], layout)
