@@ -21,19 +21,22 @@ impl PyRNAPileup {
         PyRNAPileup::new(RNAPileup::new())
     }
 
-    fn set_sensitivity(mut slf: PyRefMut<Self>, sensitivity: f32) -> PyRefMut<Self> {
-        slf.rs.set_sensitivity(sensitivity);
-        slf
+    fn set_sensitivity(mut slf: PyRefMut<Self>, sensitivity: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_sensitivity(sensitivity)?;
+        Ok(slf)
     }
 
-    fn set_control_baseline(mut slf: PyRefMut<Self>, control_baseline: f32) -> PyRefMut<Self> {
-        slf.rs.set_control_baseline(control_baseline);
-        slf
+    fn set_control_baseline(
+        mut slf: PyRefMut<Self>,
+        control_baseline: f32,
+    ) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_control_baseline(control_baseline)?;
+        Ok(slf)
     }
 
-    fn set_min_signal(mut slf: PyRefMut<Self>, min_signal: f32) -> PyRefMut<Self> {
-        slf.rs.set_min_signal(min_signal);
-        slf
+    fn set_min_signal(mut slf: PyRefMut<Self>, min_signal: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_min_signal(min_signal)?;
+        Ok(slf)
     }
 
     fn add_control_model(

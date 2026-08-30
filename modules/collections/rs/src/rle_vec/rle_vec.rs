@@ -1,4 +1,4 @@
-use std::iter::Zip;
+use std::iter::{Filter, Zip};
 use std::vec::IntoIter;
 
 use derive_getters::Dissolve;
@@ -219,28 +219,37 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVec<V, L, I> {
     }
 
     pub fn runs(&self) -> impl Iterator<Item = (&V, &L)> {
-        self.values.iter().zip(self.lengths.iter())
+        self.values
+            .iter()
+            .zip(self.lengths.iter())
+            .filter(|(_, length)| **length > L::zero())
     }
 
     pub fn runs_mut(&mut self) -> impl Iterator<Item = (&mut V, &mut L)> {
-        self.values.iter_mut().zip(self.lengths.iter_mut())
+        self.values
+            .iter_mut()
+            .zip(self.lengths.iter_mut())
+            .filter(|(_, length)| **length > L::zero())
     }
 
     pub fn values(&self) -> impl Iterator<Item = &V> {
-        self.values.iter()
+        self.runs().map(|(value, _)| value)
     }
 
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
-        self.values.iter_mut()
+        self.runs_mut().map(|(value, _)| value)
     }
 }
 
 impl<V, L: PrimUInt, I: Identical<V>> IntoIterator for RleVec<V, L, I> {
     type Item = (V, L);
-    type IntoIter = Zip<IntoIter<V>, IntoIter<L>>;
+    type IntoIter = Filter<Zip<IntoIter<V>, IntoIter<L>>, fn(&(V, L)) -> bool>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter().zip(self.lengths)
+        self.values
+            .into_iter()
+            .zip(self.lengths)
+            .filter(|(_, length)| *length > L::zero())
     }
 }
 
@@ -307,6 +316,27 @@ mod tests {
 
             assert_rle_eq(&byref, &expected);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn zero_length_runs_are_hidden_by_iterators() -> Result<()> {
+        let mut rle = RleVector::builder(PartialEq::eq)
+            .with_rle_values(vec![1, 2, 3], vec![0, 2, 0])?
+            .build();
+
+        assert_rle_eq(&rle, &[(2, 2)]);
+        assert_eq!(rle.values().copied().collect::<Vec<_>>(), vec![2]);
+
+        for value in rle.values_mut() {
+            *value += 10;
+        }
+        assert_rle_eq(&rle, &[(12, 2)]);
+        assert_eq!(rle.clone().into_iter().collect::<Vec<_>>(), vec![(12, 2)]);
+
+        let (values, lengths) = rle.into();
+        assert_eq!(values, vec![1, 12, 3]);
+        assert_eq!(lengths, vec![0, 2, 0]);
         Ok(())
     }
 }

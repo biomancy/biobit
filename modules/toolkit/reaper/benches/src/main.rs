@@ -129,17 +129,23 @@ fn main() {
         let mut model = reaper::model::RNAPileup::new();
         model
             .set_sensitivity(1e-3f32)
+            .unwrap()
             .set_control_baseline(1e-3)
-            .set_min_signal(10.0);
+            .unwrap()
+            .set_min_signal(10.0)
+            .unwrap();
 
         let mut enrichment = reaper::cmp::Enrichment::new();
-        enrichment.set_scaling(1.0, 1.0);
+        enrichment.set_scaling(1.0, 1.0).unwrap();
 
         let mut pcalling = reaper::pcalling::ByCutoff::new();
         pcalling
             .set_cutoff(4.0)
+            .unwrap()
             .set_min_length(25)
-            .set_merge_within(25);
+            .unwrap()
+            .set_merge_within(25)
+            .unwrap();
 
         let mut nms = reaper::postfilter::NMS::new();
         nms.set_sloplim(100, 1_000)
