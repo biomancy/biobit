@@ -57,10 +57,8 @@ impl<Idx: PrimInt> ChainInterval<Idx> {
     pub fn cast<T: PrimInt>(&self) -> Option<ChainInterval<T>> {
         let mut links = Vec::with_capacity(self.links.len());
         for link in &self.links {
-            match link.cast() {
-                Some(link) => links.push(link),
-                None => return None,
-            }
+            let link = link.cast()?;
+            links.push(link);
         }
         Some(ChainInterval { links })
     }

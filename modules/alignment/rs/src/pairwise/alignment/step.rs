@@ -270,12 +270,10 @@ where
     type Item = StepWithOffset<Len, Seq1Idx, Seq2Idx>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let step = match self.iter.next() {
-            None => return None,
-            Some(x) => StepWithOffset {
-                start: self.offset,
-                step: x.into(),
-            },
+        let nxt = self.iter.next()?;
+        let step = StepWithOffset {
+            start: self.offset,
+            step: nxt.into(),
         };
 
         step.step

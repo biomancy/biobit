@@ -166,7 +166,7 @@ impl PyInvRepeat {
         if !args.is_empty() {
             return Err(eyre!(
                 "to_bed12 doesn't support positional arguments except 'seqid'"
-            ))?;
+            ));
         }
 
         let brange = self.brange().rs;
