@@ -18,6 +18,7 @@ define_id_binding!(PyAssetFastqId, RsAssetFastqId, "FastqId");
 pub struct PyAssetFastq(pub Frozen<RsAssetFastq>);
 
 frozen_wrapper!(PyAssetFastq, RsAssetFastq);
+crate::utils::pickle::pickle_methods!(PyAssetFastq, RsAssetFastq, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyAssetFastq {

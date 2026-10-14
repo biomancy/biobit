@@ -7,6 +7,7 @@ use std::fmt::{Display, Formatter};
 /// Strandedness describes single reads or the first read of an inward pair;
 /// the second read has the opposite orientation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub enum Layout {
     /// Each source molecule is sequenced once in one direction.
     Single { strandedness: Strandedness },
@@ -25,6 +26,33 @@ impl Display for Layout {
                 strandedness,
                 orientation,
             } => write!(formatter, "Paired({orientation}, {strandedness})"),
+        }
+    }
+}
+
+#[cfg(all(test, feature = "bitcode"))]
+mod tests {
+    use super::{Layout, MatesOrientation, Strandedness};
+
+    #[test]
+    fn bitcode_roundtrip() {
+        for strandedness in [
+            Strandedness::Forward,
+            Strandedness::Reverse,
+            Strandedness::Unstranded,
+        ] {
+            for value in [
+                Layout::Single { strandedness },
+                Layout::Paired {
+                    strandedness,
+                    orientation: MatesOrientation::Inward,
+                },
+            ] {
+                assert_eq!(
+                    bitcode::decode::<Layout>(&bitcode::encode(&value)).unwrap(),
+                    value
+                );
+            }
         }
     }
 }

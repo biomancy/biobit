@@ -15,6 +15,7 @@ define_entity_id!(
 /// may come from the same source, while a mixture references its known origins.
 /// These references do not assert exhaustive identification of its composition.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Sample {
     id: SampleId,
     sources: NonEmpty<OrderedSet<SourceId>>,

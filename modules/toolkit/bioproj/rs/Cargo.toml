@@ -13,7 +13,11 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
+bitcode = { workspace = true, optional = true }
 derive_more = { workspace = true }
 kinded = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["raw_value"] }
+
+[features]
+bitcode = ["dep:bitcode"]

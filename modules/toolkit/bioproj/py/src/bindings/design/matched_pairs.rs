@@ -19,6 +19,9 @@ define_id_binding!(
 pub struct PyMatchedPairs(pub Frozen<rs::design::MatchedPairs>);
 
 frozen_wrapper!(PyMatchedPairs, rs::design::MatchedPairs);
+crate::utils::pickle::pickle_methods!(PyMatchedPairs, rs::design::MatchedPairs, |value| value
+    .0
+    .as_ref());
 
 #[pymethods]
 impl PyMatchedPairs {

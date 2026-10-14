@@ -12,6 +12,7 @@ use std::fmt::{Display, Formatter};
     Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize,
 )]
 #[repr(i8)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub enum Strandedness {
     /// The library preserves the forward orientation of the source RNA.
     Forward = 1,
@@ -42,6 +43,21 @@ impl Display for Strandedness {
 #[cfg(test)]
 mod tests {
     use super::Strandedness;
+
+    #[cfg(feature = "bitcode")]
+    #[test]
+    fn bitcode_roundtrip() {
+        for value in [
+            Strandedness::Forward,
+            Strandedness::Reverse,
+            Strandedness::Unstranded,
+        ] {
+            assert_eq!(
+                bitcode::decode::<Strandedness>(&bitcode::encode(&value)).unwrap(),
+                value
+            );
+        }
+    }
 
     #[test]
     fn rejects_unknown_and_serializes_unstranded() {

@@ -163,10 +163,143 @@ impl Display for FilePath {
     }
 }
 
+#[cfg(feature = "bitcode")]
+mod bitcode_impl {
+    //! PathBuf has no native bitcode Encode/Decode implementation, so Root and
+    //! FilePath cannot derive those traits directly. This implementation uses
+    //! bitcode's private codec API and may need adjustment when bitcode is updated.
+    //!
+    //! Both types store Unix paths as bytes, preserving their OS representation
+    //! without UTF-8 conversion. Decoding trusts values encoded from valid
+    //! objects and restores paths without domain validation or filesystem access.
+
+    use super::*;
+    use bitcode::__private::{Buffer, Decoder, Encoder, View};
+    use bitcode::{Decode, Encode};
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    type EncodedPath = Vec<u8>;
+
+    fn encode_path(path: &Path) -> EncodedPath {
+        path.as_os_str().as_bytes().to_vec()
+    }
+
+    fn decode_path(value: EncodedPath) -> PathBuf {
+        PathBuf::from(std::ffi::OsString::from_vec(value))
+    }
+
+    #[derive(Default)]
+    pub struct RootEncoder(<EncodedPath as Encode>::Encoder);
+
+    impl Buffer for RootEncoder {
+        fn collect_into(&mut self, out: &mut Vec<u8>) {
+            self.0.collect_into(out);
+        }
+
+        fn reserve(&mut self, additional: std::num::NonZeroUsize) {
+            self.0.reserve(additional);
+        }
+    }
+
+    impl Encoder<Root> for RootEncoder {
+        fn encode(&mut self, value: &Root) {
+            Encoder::<EncodedPath>::encode(&mut self.0, &encode_path(value.as_path()));
+        }
+    }
+
+    #[derive(Default)]
+    pub struct RootDecoder<'a>(<EncodedPath as Decode<'a>>::Decoder);
+
+    impl<'a> View<'a> for RootDecoder<'a> {
+        fn populate(
+            &mut self,
+            input: &mut &'a [u8],
+            length: usize,
+        ) -> std::result::Result<(), bitcode::Error> {
+            self.0.populate(input, length)
+        }
+    }
+
+    impl<'a> Decoder<'a, Root> for RootDecoder<'a> {
+        fn decode(&mut self) -> Root {
+            let path = decode_path(Decoder::<EncodedPath>::decode(&mut self.0));
+            Root(Arc::new(path))
+        }
+    }
+
+    impl Encode for Root {
+        type Encoder = RootEncoder;
+    }
+
+    impl<'a> Decode<'a> for Root {
+        type Decoder = RootDecoder<'a>;
+    }
+
+    #[derive(Encode, Decode)]
+    pub enum FilePathValue {
+        Absolute(EncodedPath),
+        Relative { path: EncodedPath, root: Root },
+    }
+
+    impl Encoder<FilePath> for <FilePathValue as Encode>::Encoder {
+        fn encode(&mut self, value: &FilePath) {
+            let path = encode_path(value.as_path());
+            let value = match value {
+                FilePath::Absolute(_) => FilePathValue::Absolute(path),
+                FilePath::Relative { root, .. } => FilePathValue::Relative {
+                    path,
+                    root: root.clone(),
+                },
+            };
+            Encoder::<FilePathValue>::encode(self, &value);
+        }
+    }
+
+    impl<'a> Decoder<'a, FilePath> for <FilePathValue as Decode<'a>>::Decoder {
+        fn decode(&mut self) -> FilePath {
+            match Decoder::<FilePathValue>::decode(self) {
+                FilePathValue::Absolute(path) => FilePath::Absolute(decode_path(path)),
+                FilePathValue::Relative { path, root } => FilePath::Relative {
+                    path: decode_path(path),
+                    root,
+                },
+            }
+        }
+    }
+
+    impl Encode for FilePath {
+        type Encoder = <FilePathValue as Encode>::Encoder;
+    }
+
+    impl<'a> Decode<'a> for FilePath {
+        type Decoder = <FilePathValue as Decode<'a>>::Decoder;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{FilePath, Root};
     use std::path::Path;
+
+    #[cfg(all(feature = "bitcode", unix))]
+    #[test]
+    fn bitcode_preserves_non_utf8_roots() {
+        use std::os::unix::ffi::OsStringExt;
+        let path = std::env::temp_dir().join(std::ffi::OsString::from_vec(b"root-\xff".to_vec()));
+
+        // Model the stored snapshot without requiring a directory for this codec test.
+        let root = Root(std::sync::Arc::new(path.clone()));
+        let restored = bitcode::decode::<Root>(&bitcode::encode(&root)).unwrap();
+
+        assert_eq!(restored, root);
+        assert_eq!(restored.as_path(), path);
+
+        let file = FilePath::from_relative("reads.fq.gz", root).unwrap();
+        assert_eq!(
+            bitcode::decode::<FilePath>(&bitcode::encode(&file)).unwrap(),
+            file
+        );
+    }
 
     #[test]
     fn roots_require_existing_directories_and_are_canonical() {

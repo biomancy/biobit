@@ -11,6 +11,7 @@ define_entity_id!(
 
 /// One logical paired-end Illumina sequencing acquisition.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct PairedEndSequencing {
     id: PairedEndSequencingId,
     libraries: NonEmpty<OrderedSet<p5p7::LibraryId>>,

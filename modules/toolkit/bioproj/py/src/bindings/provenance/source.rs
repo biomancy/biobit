@@ -11,6 +11,7 @@ define_id_binding!(PySourceId, rs::provenance::SourceId, "SourceId");
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PySource(pub Frozen<rs::provenance::Source>);
 frozen_wrapper!(PySource, rs::provenance::Source);
+crate::utils::pickle::pickle_methods!(PySource, rs::provenance::Source, |value| value.0.as_ref());
 
 #[pymethods]
 impl PySource {

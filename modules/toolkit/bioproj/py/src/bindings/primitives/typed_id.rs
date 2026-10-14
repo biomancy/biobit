@@ -5,6 +5,7 @@ macro_rules! define_id_binding {
         pub struct $python(pub $crate::utils::frozen::Frozen<$rust>);
 
         $crate::utils::frozen::frozen_wrapper!($python, $rust);
+        $crate::utils::pickle::pickle_methods!($python, $rust, |value| value.0.as_ref());
 
         #[pymethods]
         impl $python {

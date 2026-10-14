@@ -7,6 +7,7 @@ use std::ops::Deref;
 
 /// A metadata value: a string or a boolean.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, derive_more::From)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 #[serde(untagged)]
 pub enum MetaVal {
     /// Non-empty printable ASCII text.
@@ -38,6 +39,7 @@ impl TryFrom<String> for MetaVal {
 /// printable ASCII text, and keys are unique. Identity, relationships, and
 /// compatibility belong in the entity's explicit fields.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 #[serde(transparent)]
 pub struct Meta(OrderedMap<Text, MetaVal>);
 
@@ -101,6 +103,34 @@ mod tests {
     use super::{Meta, MetaVal, Text};
     use crate::Error;
     use std::collections::BTreeMap;
+
+    #[cfg(feature = "bitcode")]
+    #[test]
+    fn bitcode_roundtrip() {
+        for value in [
+            MetaVal::try_from("Homo sapiens").unwrap(),
+            MetaVal::Bool(false),
+        ] {
+            assert_eq!(
+                bitcode::decode::<MetaVal>(&bitcode::encode(&value)).unwrap(),
+                value
+            );
+        }
+
+        let meta = Meta::try_from_iter([
+            (
+                Text::new("organism").unwrap(),
+                MetaVal::try_from("Homo sapiens").unwrap(),
+            ),
+            (Text::new("control").unwrap(), MetaVal::Bool(true)),
+        ])
+        .unwrap();
+        let values = vec![meta.clone(), Meta::default(), meta];
+        assert_eq!(
+            bitcode::decode::<Vec<Meta>>(&bitcode::encode(&values)).unwrap(),
+            values
+        );
+    }
 
     #[test]
     fn supports_string_and_boolean_values() {

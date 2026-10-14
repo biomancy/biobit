@@ -13,6 +13,7 @@ define_entity_id!(
 /// The order is preserved in equality: `(A, B)` differs from
 /// `(B, A)`. It does not assign control or treatment labels to the members.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct MatchedPair {
     first: UnitId,
     second: UnitId,
@@ -43,6 +44,7 @@ impl MatchedPair {
 
 /// A collection of ordered, one-to-one matched unit pairs.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct MatchedPairs {
     id: MatchedPairsId,
     name: Text,

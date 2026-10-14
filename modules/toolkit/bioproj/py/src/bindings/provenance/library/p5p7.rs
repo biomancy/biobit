@@ -18,6 +18,7 @@ define_id_binding!(PyP5P7Id, RsP5P7Id, "P5P7Id");
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyP5P7(pub Frozen<RsP5P7>);
 frozen_wrapper!(PyP5P7, RsP5P7);
+crate::utils::pickle::pickle_methods!(PyP5P7, RsP5P7, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyP5P7 {

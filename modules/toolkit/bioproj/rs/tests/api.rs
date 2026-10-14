@@ -264,6 +264,14 @@ fn stub_project() -> Project {
     .unwrap()
 }
 
+#[cfg(feature = "bitcode")]
+#[test]
+fn project_bitcode_roundtrip() {
+    let project = stub_project();
+    let restored = bitcode::decode::<Project>(&bitcode::encode(&project)).unwrap();
+    assert_eq!(restored, project);
+}
+
 #[test]
 fn lookups_preserve_the_precision_of_concrete_and_family_ids() {
     let project = stub_project();

@@ -9,6 +9,7 @@ define_entity_id!(
 
 /// A direct contrast between one control and one treatment unit.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct UnitContrast {
     id: UnitContrastId,
     name: Text,

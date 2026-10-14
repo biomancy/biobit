@@ -11,6 +11,7 @@ use crate::{Lookup, Result, UntypedId};
 /// Construction checks relationships within Data. [`crate::Project`] checks
 /// Acquisition relationships against [`crate::provenance::Provenance`].
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Data {
     assets: OrderedMap<UntypedId, Asset>,
     datasets: OrderedMap<UntypedId, Dataset>,

@@ -16,6 +16,7 @@ define_entity_id!(
 /// to model it as a protocol graph. Details such as extraction, enrichment,
 /// kits, and UMIs remain library metadata until they have a stable schema.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub enum Input {
     /// The library was constructed from DNA.
     Dna,
@@ -33,6 +34,7 @@ pub enum Input {
 /// Samples prepared through different DNA- or RNA-derived paths must be
 /// represented as separate libraries.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Library {
     id: LibraryId,
     samples: NonEmpty<OrderedSet<SampleId>>,

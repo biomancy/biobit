@@ -16,6 +16,7 @@ use biobit_core_py::utils::collections::{
 pub struct PyMeta(pub Frozen<Meta>);
 
 frozen_wrapper!(PyMeta, Meta);
+crate::utils::pickle::pickle_methods!(PyMeta, Meta, |value| value.0.as_ref());
 
 impl<'a, 'py> FromPyObject<'a, 'py> for PyMeta {
     type Error = PyBioprojErr;

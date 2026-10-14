@@ -17,6 +17,9 @@ define_id_binding!(
 pub struct PyUnitContrast(pub Frozen<rs::design::UnitContrast>);
 
 frozen_wrapper!(PyUnitContrast, rs::design::UnitContrast);
+crate::utils::pickle::pickle_methods!(PyUnitContrast, rs::design::UnitContrast, |value| value
+    .0
+    .as_ref());
 
 #[pymethods]
 impl PyUnitContrast {

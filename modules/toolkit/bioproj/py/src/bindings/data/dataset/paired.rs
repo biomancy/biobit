@@ -19,6 +19,7 @@ define_id_binding!(PyPairedFastqId, RsPairedFastqId, "PairedFastqId");
 pub struct PyPairedFastq(pub Frozen<RsPairedFastq>);
 
 frozen_wrapper!(PyPairedFastq, RsPairedFastq);
+crate::utils::pickle::pickle_methods!(PyPairedFastq, RsPairedFastq, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyPairedFastq {

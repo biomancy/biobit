@@ -25,6 +25,7 @@ impl<T> IsEmpty for BTreeSet<T> {
 
 /// A value that is not empty.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 #[repr(transparent)]
 pub struct NonEmpty<T: IsEmpty>(T);
 
@@ -117,6 +118,22 @@ mod tests {
     use super::NonEmpty;
     use crate::OrderedSet;
     use std::collections::{BTreeMap, BTreeSet};
+
+    #[cfg(feature = "bitcode")]
+    #[test]
+    fn bitcode_roundtrip() {
+        let text = NonEmpty::new("nonempty".to_owned()).unwrap();
+        assert_eq!(
+            bitcode::decode::<NonEmpty<String>>(&bitcode::encode(&text)).unwrap(),
+            text
+        );
+
+        let set = NonEmpty::try_from_iter([1_u32, 2, 3]).unwrap();
+        assert_eq!(
+            bitcode::decode::<NonEmpty<OrderedSet<u32>>>(&bitcode::encode(&set)).unwrap(),
+            set
+        );
+    }
 
     #[test]
     fn rejects_empty_scalars_and_sets() {

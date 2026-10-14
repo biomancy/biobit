@@ -4,8 +4,10 @@ use pyo3::prelude::*;
 use crate::primitives::{IntoPyStrandedness, PyStrandedness};
 
 #[pyclass(from_py_object, frozen, eq, hash, name = "DNA")]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, bitcode::Encode, bitcode::Decode)]
 pub struct PyDna;
+
+crate::utils::pickle::pickle_methods!(PyDna, Self, |value| value);
 
 #[pymethods]
 impl PyDna {
@@ -16,10 +18,12 @@ impl PyDna {
 }
 
 #[pyclass(from_py_object, frozen, eq, hash, name = "RNA")]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, bitcode::Encode, bitcode::Decode)]
 pub struct PyRna {
     strandedness: Option<rs::Strandedness>,
 }
+
+crate::utils::pickle::pickle_methods!(PyRna, Self, |value| value);
 
 #[pymethods]
 impl PyRna {

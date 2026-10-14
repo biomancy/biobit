@@ -11,6 +11,7 @@ define_entity_id!(
 ///
 /// This topology does not assert independence; Units may share Acquisitions.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct UnitSet {
     id: UnitSetId,
     name: Text,

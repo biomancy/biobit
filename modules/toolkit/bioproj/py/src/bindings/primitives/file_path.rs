@@ -11,6 +11,9 @@ use crate::utils::frozen::{Frozen, frozen_wrapper};
 pub struct PyFilePath(pub Frozen<biobit_bioproj_rs::FilePath>);
 
 frozen_wrapper!(PyFilePath, biobit_bioproj_rs::FilePath);
+crate::utils::pickle::pickle_methods!(PyFilePath, biobit_bioproj_rs::FilePath, |value| value
+    .0
+    .as_ref(),);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for PyFilePath {
     type Error = PyErr;

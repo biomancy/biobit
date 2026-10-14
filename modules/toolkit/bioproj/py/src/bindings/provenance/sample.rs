@@ -14,6 +14,7 @@ define_id_binding!(PySampleId, rs::provenance::SampleId, "SampleId");
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PySample(pub Frozen<rs::provenance::Sample>);
 frozen_wrapper!(PySample, rs::provenance::Sample);
+crate::utils::pickle::pickle_methods!(PySample, rs::provenance::Sample, |value| value.0.as_ref());
 
 #[pymethods]
 impl PySample {

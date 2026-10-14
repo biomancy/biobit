@@ -10,8 +10,11 @@ use std::ops::Deref;
 
 /// An ordered map that rejects duplicate input keys.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 #[serde(transparent)]
-pub struct OrderedMap<K, V>(BTreeMap<K, V>);
+pub struct OrderedMap<K, V>(
+    #[cfg_attr(feature = "bitcode", bitcode(bound_type = "BTreeMap<K, V>"))] BTreeMap<K, V>,
+);
 
 impl<K, V> Default for OrderedMap<K, V> {
     fn default() -> Self {

@@ -15,6 +15,7 @@ define_entity_id!(
 /// that references its known contributing sources. Unknown biological composition
 /// does not require inventing Source identities. Organism may be unreported.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Source {
     id: SourceId,
     organism: Option<Text>,

@@ -14,6 +14,9 @@ macro_rules! define_record_index {
         #[derive(Clone)]
         pub struct $index(pub $crate::utils::frozen::Frozen<$domain>);
 
+        $crate::utils::frozen::frozen_wrapper!($index, $domain);
+        $crate::utils::pickle::pickle_methods!($index, $domain, |value| value.0.as_ref());
+
         impl $index {
             fn lookup_rust<'a>(
                 $get_domain: &'a $domain,

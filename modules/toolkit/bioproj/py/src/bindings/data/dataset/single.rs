@@ -19,6 +19,7 @@ define_id_binding!(PyDatasetFastqId, RsDatasetFastqId, "FastqId");
 pub struct PyDatasetFastq(pub Frozen<RsDatasetFastq>);
 
 frozen_wrapper!(PyDatasetFastq, RsDatasetFastq);
+crate::utils::pickle::pickle_methods!(PyDatasetFastq, RsDatasetFastq, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyDatasetFastq {

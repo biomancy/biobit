@@ -15,6 +15,7 @@ use crate::{Lookup, Result, UntypedId};
 /// Each collection owns its records, and each child owns the concrete parent ID
 /// types it can consume.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Provenance {
     sources: OrderedMap<SourceId, Source>,
     samples: OrderedMap<SampleId, Sample>,

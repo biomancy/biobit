@@ -13,8 +13,11 @@ use std::ops::Deref;
 /// Empty sets are allowed. Use [`NonEmpty<OrderedSet<T>>`] when at least one
 /// value is required. Serialization produces a sorted sequence.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 #[serde(transparent)]
-pub struct OrderedSet<T>(BTreeSet<T>);
+pub struct OrderedSet<T>(
+    #[cfg_attr(feature = "bitcode", bitcode(bound_type = "BTreeSet<T>"))] BTreeSet<T>,
+);
 
 impl<T> Default for OrderedSet<T> {
     fn default() -> Self {
@@ -137,6 +140,20 @@ where
 mod tests {
     use super::OrderedSet;
     use crate::Error;
+
+    #[cfg(feature = "bitcode")]
+    #[test]
+    fn bitcode_roundtrip() {
+        for value in [
+            OrderedSet::<u32>::default(),
+            OrderedSet::try_from_iter([1, 2, 3]).unwrap(),
+        ] {
+            assert_eq!(
+                bitcode::decode::<OrderedSet<u32>>(&bitcode::encode(&value)).unwrap(),
+                value
+            );
+        }
+    }
 
     #[test]
     fn rejects_duplicate_iterator_entries() {

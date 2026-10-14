@@ -19,6 +19,9 @@ define_id_binding!(
 pub struct PyGroupContrast(pub Frozen<rs::design::GroupContrast>);
 
 frozen_wrapper!(PyGroupContrast, rs::design::GroupContrast);
+crate::utils::pickle::pickle_methods!(PyGroupContrast, rs::design::GroupContrast, |value| value
+    .0
+    .as_ref());
 
 #[pymethods]
 impl PyGroupContrast {

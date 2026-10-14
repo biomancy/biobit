@@ -28,6 +28,9 @@ use source::PySource;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyProvenance(pub Frozen<rs::provenance::Provenance>);
 frozen_wrapper!(PyProvenance, rs::provenance::Provenance);
+crate::utils::pickle::pickle_methods!(PyProvenance, rs::provenance::Provenance, |value| value
+    .0
+    .as_ref());
 
 #[pymethods]
 impl PyProvenance {

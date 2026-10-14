@@ -20,31 +20,19 @@ impl PyLayout {
             }
         }
     }
-
-    fn __getnewargs__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        Ok(match self.0 {
-            Layout::Single { strandedness } => (PyStrandedness(strandedness),)
-                .into_pyobject(py)?
-                .unbind()
-                .into(),
-            Layout::Paired {
-                strandedness,
-                orientation,
-            } => (
-                PyStrandedness(strandedness),
-                PyMatesOrientation(orientation),
-            )
-                .into_pyobject(py)?
-                .unbind()
-                .into(),
-        })
-    }
 }
 
 // Variant classes carry no additional Rust data. Their constructors create the
 // matching native enum in the base, preserving isinstance and pattern matching.
 #[pyclass(skip_from_py_object, frozen, extends = PyLayout, name = "Single")]
 pub(super) struct PyLayoutSingle;
+
+crate::utils::pickle::pickle_methods!(
+    PyLayoutSingle,
+    Layout,
+    |value| &value.as_super().0,
+    init: |layout| PyClassInitializer::from(PyLayout(layout)).add_subclass(Self),
+);
 
 #[pymethods]
 impl PyLayoutSingle {
@@ -63,6 +51,13 @@ impl PyLayoutSingle {
 
 #[pyclass(skip_from_py_object, frozen, extends = PyLayout, name = "Paired")]
 pub(super) struct PyLayoutPaired;
+
+crate::utils::pickle::pickle_methods!(
+    PyLayoutPaired,
+    Layout,
+    |value| &value.as_super().0,
+    init: |layout| PyClassInitializer::from(PyLayout(layout)).add_subclass(Self),
+);
 
 #[pymethods]
 impl PyLayoutPaired {

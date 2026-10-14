@@ -44,6 +44,7 @@ define_family_conversions! {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyDesigns(pub Frozen<rs::design::Designs>);
 frozen_wrapper!(PyDesigns, rs::design::Designs);
+crate::utils::pickle::pickle_methods!(PyDesigns, rs::design::Designs, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyDesigns {

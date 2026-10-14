@@ -8,6 +8,7 @@ use std::str::FromStr;
 ///
 /// IDs contain only ASCII letters, digits, `_`, or `-`.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct UntypedId(String);
 
 impl UntypedId {
@@ -111,6 +112,7 @@ macro_rules! define_entity_id {
             ::serde::Deserialize,
         )]
         #[serde(transparent)]
+        #[cfg_attr(feature = "bitcode", derive(::bitcode::Encode, ::bitcode::Decode))]
         pub struct $name($crate::UntypedId);
 
         impl $name {
@@ -175,6 +177,22 @@ mod tests {
     use super::UntypedId;
     use crate::provenance::SourceId;
     use std::collections::BTreeMap;
+
+    #[cfg(feature = "bitcode")]
+    #[test]
+    fn bitcode_roundtrip() {
+        let untyped = UntypedId::new("RUN_1").unwrap();
+        assert_eq!(
+            bitcode::decode::<UntypedId>(&bitcode::encode(&untyped)).unwrap(),
+            untyped
+        );
+
+        let typed = crate::ProjectId::new("PROJ1").unwrap();
+        assert_eq!(
+            bitcode::decode::<crate::ProjectId>(&bitcode::encode(&typed)).unwrap(),
+            typed
+        );
+    }
 
     #[test]
     fn accepts_documented_identifier_charset() {

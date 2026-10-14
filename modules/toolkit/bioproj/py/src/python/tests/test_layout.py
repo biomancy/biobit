@@ -27,9 +27,13 @@ def test_layout_paired() -> None:
 
 def test_layout_pickle() -> None:
     for layout in [Layout.Single("Forward"), Layout.Paired("Reverse", "Inward")]:
-        restored = pickle.loads(pickle.dumps(layout))
-        assert type(restored) is type(layout)
-        assert restored == layout
+        for protocol in (0, pickle.HIGHEST_PROTOCOL):
+            restored = pickle.loads(pickle.dumps(layout, protocol=protocol))
+            assert type(restored) is type(layout)
+            assert restored == layout
+            assert restored.strandedness == layout.strandedness
+            if isinstance(layout, Layout.Paired):
+                assert restored.orientation == layout.orientation
 
 
 def test_layout_subclass_contract() -> None:

@@ -33,6 +33,7 @@ macro_rules! acquisition_binding {
         #[derive(Clone, Debug, Eq, PartialEq)]
         pub struct $python(pub Frozen<$rust>);
         frozen_wrapper!($python, $rust);
+        crate::utils::pickle::pickle_methods!($python, $rust, |value| value.0.as_ref());
 
         #[pymethods]
         impl $python {

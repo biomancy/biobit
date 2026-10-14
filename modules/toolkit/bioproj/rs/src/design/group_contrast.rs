@@ -9,6 +9,7 @@ define_entity_id!(
 
 /// A two-arm contrast without required pairwise correspondence between units.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct GroupContrast {
     id: GroupContrastId,
     name: Text,

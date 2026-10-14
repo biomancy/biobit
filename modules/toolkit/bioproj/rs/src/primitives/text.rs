@@ -10,6 +10,7 @@ use std::str::FromStr;
 /// Characters must be in `0x20..=0x7E`. Internal spaces are preserved, but
 /// whitespace at the start or end is rejected.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 #[serde(transparent)]
 pub struct Text(String);
 
@@ -118,6 +119,16 @@ impl<'de> Deserialize<'de> for Text {
 mod tests {
     use super::Text;
     use std::collections::BTreeMap;
+
+    #[cfg(feature = "bitcode")]
+    #[test]
+    fn bitcode_roundtrip() {
+        let value = Text::new("Experiment 1").unwrap();
+        assert_eq!(
+            bitcode::decode::<Text>(&bitcode::encode(&value)).unwrap(),
+            value
+        );
+    }
 
     #[test]
     fn preserves_internal_spaces_and_punctuation() {

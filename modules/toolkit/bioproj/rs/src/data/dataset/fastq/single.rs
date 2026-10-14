@@ -15,6 +15,7 @@ define_entity_id!(
 /// This dataset-owned contract can grow to include other single-file FASTQ
 /// producers without coupling [`crate::data::Asset`] to acquisition semantics.
 #[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub enum SingleInput {
     /// Single-end Illumina sequencing.
     IlluminaSingleEndSequencing(SingleEndSequencingId),
@@ -54,6 +55,7 @@ impl SingleInput {
 
 /// A complete representation made from independent FASTQ files.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Single {
     id: SingleId,
     acquisition: SingleInput,

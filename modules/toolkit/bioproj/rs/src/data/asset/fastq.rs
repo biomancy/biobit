@@ -10,6 +10,7 @@ define_entity_id!(
 
 /// One immutable FASTQ file at one storage location.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Fastq {
     id: FastqId,
     location: FilePath,

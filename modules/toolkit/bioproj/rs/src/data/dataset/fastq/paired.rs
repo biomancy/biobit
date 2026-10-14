@@ -16,6 +16,7 @@ define_entity_id!(
 /// This dataset-owned contract can grow to include other paired FASTQ
 /// producers without coupling [`crate::data::Asset`] to acquisition semantics.
 #[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub enum PairedInput {
     /// Paired-end Illumina sequencing.
     IlluminaPairedEndSequencing(PairedEndSequencingId),
@@ -55,6 +56,7 @@ impl PairedInput {
 
 /// One ordered read-one/read-two correspondence.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Pair(FastqId, FastqId);
 
 impl Pair {
@@ -82,6 +84,7 @@ impl Pair {
 
 /// A complete representation made from ordered FASTQ pairs.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Paired {
     id: PairedId,
     acquisition: PairedInput,

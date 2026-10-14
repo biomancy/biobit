@@ -12,6 +12,7 @@ define_entity_id!(ProjectId, "The identifier of a [`crate::Project`].");
 /// denotes one immutable released description;
 /// authors must assign a new ID when changing that description.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Project {
     id: ProjectId,
     provenance: Provenance,

@@ -60,6 +60,7 @@ impl Design {
 /// Construction checks Design-to-Unit relationships. [`crate::Project`]
 /// checks Unit-to-Acquisition relationships against [`crate::provenance::Provenance`].
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Designs {
     units: OrderedMap<UnitId, Unit>,
     designs: OrderedMap<UntypedId, Design>,

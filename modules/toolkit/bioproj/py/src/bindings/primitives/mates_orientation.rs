@@ -9,6 +9,8 @@ use pyo3::types::PyString;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, From, Into)]
 pub struct PyMatesOrientation(pub MatesOrientation);
 
+crate::utils::pickle::pickle_methods!(PyMatesOrientation, MatesOrientation, |value| &value.0);
+
 /// Opts an API input into accepting a mates orientation value or its full name.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, From, Into)]
@@ -64,9 +66,5 @@ impl PyMatesOrientation {
 
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         PyString::new(py, self.0.as_str()).hash()
-    }
-
-    fn __getnewargs__(&self) -> (&'static str,) {
-        (self.0.as_str(),)
     }
 }

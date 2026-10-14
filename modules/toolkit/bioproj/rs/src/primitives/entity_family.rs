@@ -16,6 +16,7 @@ macro_rules! define_entity_family {
         }
     ) => {
         $(#[$family_attr])*
+        #[cfg_attr(feature = "bitcode", derive(::bitcode::Encode, ::bitcode::Decode))]
         #[derive(
             Clone,
             Debug,
@@ -28,7 +29,10 @@ macro_rules! define_entity_family {
             kind = $kind,
             skip_derive(From, FromStr),
             derive(Hash),
-            attrs(doc = $kind_doc)
+            attrs(
+                doc = $kind_doc,
+                cfg_attr(feature = "bitcode", derive(::bitcode::Encode, ::bitcode::Decode))
+            )
         )]
         $visibility enum $entity {
             $(
@@ -61,8 +65,10 @@ macro_rules! define_entity_family {
         }
 
         #[doc = concat!("The owned identifier of any concrete [`", stringify!($entity), "`].")]
-        /// The ID includes the entity variant. It serializes as an untyped ID;
+        #[cfg_attr(feature = "bitcode", derive(::bitcode::Encode, ::bitcode::Decode))]
+        /// The ID includes the entity variant. Serde serializes an untyped ID;
         /// the owning collection restores the variant when loading references.
+        /// Bitcode preserves the variant directly.
         #[derive(
             Clone,
             Debug,
@@ -207,3 +213,35 @@ macro_rules! define_entity_family {
 }
 
 pub(crate) use define_entity_family;
+
+#[cfg(all(test, feature = "bitcode"))]
+mod tests {
+    use crate::data::{DatasetId, DatasetKind, dataset::fastq};
+
+    #[test]
+    fn bitcode_preserves_id_kinds() {
+        for value in [DatasetKind::Fastq, DatasetKind::PairedFastq] {
+            assert_eq!(
+                bitcode::decode::<DatasetKind>(&bitcode::encode(&value)).unwrap(),
+                value
+            );
+        }
+
+        let single = fastq::SingleId::new("DATA1").unwrap();
+        let paired = fastq::PairedId::new("DATA1").unwrap();
+        assert_eq!(
+            bitcode::decode::<fastq::SingleId>(&bitcode::encode(&single)).unwrap(),
+            single
+        );
+        assert_eq!(
+            bitcode::decode::<fastq::PairedId>(&bitcode::encode(&paired)).unwrap(),
+            paired
+        );
+
+        let values = vec![DatasetId::Fastq(single), DatasetId::PairedFastq(paired)];
+        assert_eq!(
+            bitcode::decode::<Vec<DatasetId>>(&bitcode::encode(&values)).unwrap(),
+            values
+        );
+    }
+}

@@ -21,6 +21,7 @@ use index::{PyAssetIndex, PyDatasetIndex};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyData(pub Frozen<rs::data::Data>);
 frozen_wrapper!(PyData, rs::data::Data);
+crate::utils::pickle::pickle_methods!(PyData, rs::data::Data, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyData {

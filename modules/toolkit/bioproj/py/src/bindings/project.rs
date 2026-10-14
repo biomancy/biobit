@@ -16,6 +16,7 @@ define_id_binding!(PyProjectId, rs::ProjectId, "ProjectId");
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyProject(pub Frozen<rs::Project>);
 frozen_wrapper!(PyProject, rs::Project);
+crate::utils::pickle::pickle_methods!(PyProject, rs::Project, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyProject {

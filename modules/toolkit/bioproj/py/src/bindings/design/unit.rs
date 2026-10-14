@@ -16,6 +16,7 @@ define_id_binding!(PyUnitId, rs::design::UnitId, "UnitId");
 pub struct PyUnit(pub Frozen<rs::design::Unit>);
 
 frozen_wrapper!(PyUnit, rs::design::Unit);
+crate::utils::pickle::pickle_methods!(PyUnit, rs::design::Unit, |value| value.0.as_ref());
 
 #[pymethods]
 impl PyUnit {

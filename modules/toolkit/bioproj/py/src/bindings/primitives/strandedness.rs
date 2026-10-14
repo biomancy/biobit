@@ -9,6 +9,8 @@ use pyo3::types::PyString;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, From, Into)]
 pub struct PyStrandedness(pub Strandedness);
 
+crate::utils::pickle::pickle_methods!(PyStrandedness, Strandedness, |value| &value.0);
+
 /// Opts an API input into accepting a strandedness value or its full name.
 /// Python output remains a strict `Strandedness`, including Layout getters.
 #[repr(transparent)]
@@ -77,9 +79,5 @@ impl PyStrandedness {
 
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         PyString::new(py, self.0.as_str()).hash()
-    }
-
-    fn __getnewargs__(&self) -> (&'static str,) {
-        (self.0.as_str(),)
     }
 }

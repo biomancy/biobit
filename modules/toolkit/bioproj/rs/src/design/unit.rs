@@ -7,6 +7,7 @@ define_entity_id!(UnitId, "The identifier of a [`crate::design::Unit`].");
 
 /// A named, non-empty collection of acquisitions pooled for computation.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bitcode", derive(bitcode::Encode, bitcode::Decode))]
 pub struct Unit {
     id: UnitId,
     acquisitions: NonEmpty<OrderedSet<AcquisitionId>>,

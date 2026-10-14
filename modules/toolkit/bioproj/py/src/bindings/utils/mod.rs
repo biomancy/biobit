@@ -3,3 +3,4 @@
 pub mod error;
 pub mod frozen;
 pub mod lookup;
+pub(crate) mod pickle;
