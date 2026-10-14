@@ -1,0 +1,5 @@
+{
+  "error": "DuplicateKey",
+  "collection": "provenance.sources",
+  "key": "SRC1"
+}

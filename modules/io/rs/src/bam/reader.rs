@@ -18,6 +18,8 @@ use super::indexed_reader::IndexedReader;
 use super::query::{Cache, Query};
 
 #[derive(Dissolve, Getters, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Reader {
     filename: PathBuf,
     inner: IndexedReader<bgzf::io::reader::Reader<File>>,

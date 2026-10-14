@@ -19,6 +19,8 @@ use biobit_core_rs::{
 use biobit_io_rs::bam::SegmentedAlignment;
 
 #[derive(Debug, Default, Dissolve, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct RleIdentical<Cnts: Float> {
     pub sensitivity: Cnts,
 }

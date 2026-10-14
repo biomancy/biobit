@@ -6,7 +6,9 @@ from biobit.core.loc.mapping import ChainMap
 
 def test_chain_map_new():
     for load in [
-        [(0, 10), ],
+        [
+            (0, 10),
+        ],
         [(0, 10), (20, 30), (40, 50)],
     ]:
         chain = ChainInterval(load)

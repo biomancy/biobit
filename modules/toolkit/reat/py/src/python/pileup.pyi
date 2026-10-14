@@ -1,7 +1,9 @@
 from collections.abc import Sequence
+from typing import Self, final
 
 from biobit.core.loc import Interval
 
+@final
 class Pileup:
     """
     Per-position nucleotide/deletion count arrays.
@@ -12,22 +14,20 @@ class Pileup:
     Note that mutating the returned lists does not affect the pileup, because only copies are returned.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         a: Sequence[int],
         c: Sequence[int],
         g: Sequence[int],
         t: Sequence[int],
         n: Sequence[int],
         deletion: Sequence[int],
-    ) -> None:
+    ) -> Self:
         """Create a pileup from equal-length count arrays."""
-        ...
 
     @staticmethod
     def zeros(len: int) -> Pileup:
         """Create a zero-filled pileup of `len` sites."""
-        ...
 
     def len(self) -> int: ...
     def is_empty(self) -> bool: ...
@@ -38,10 +38,11 @@ class Pileup:
     def n(self) -> list[int]: ...
     def deletion(self) -> list[int]: ...
     def coverage(self) -> list[int]: ...
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object, /) -> bool: ...
 
-    __hash__ = None  # type: ignore
+    __hash__: None = None  # type: ignore[assignment]
 
+@final
 class SparsePileup:
     """
     Sparse pileup over selected genomic positions.
@@ -53,22 +54,22 @@ class SparsePileup:
 
     interval: Interval
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         positions: Sequence[int],
         counts: Pileup,
-    ) -> None:
+    ) -> Self:
         """Create a sparse pileup from positions and matching count arrays."""
-        ...
 
     def len(self) -> int: ...
     def is_empty(self) -> bool: ...
     def positions(self) -> list[int]: ...
     def counts(self) -> Pileup: ...
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object, /) -> bool: ...
 
-    __hash__ = None  # type: ignore
+    __hash__: None = None  # type: ignore[assignment]
 
+@final
 class TaskPileup:
     """
     Sparse pileup plus reference bases for the same selected positions.
@@ -78,14 +79,15 @@ class TaskPileup:
 
     interval: Interval
 
-    def __init__(self, pileup: SparsePileup, reference: Sequence[str]) -> None:
+    def __new__(cls, pileup: SparsePileup, reference: Sequence[str]) -> Self:
         """Create a task pileup from a sparse pileup and matching reference bases."""
-        ...
 
     def len(self) -> int: ...
     def is_empty(self) -> bool: ...
     def pileup(self) -> SparsePileup: ...
     def reference(self) -> list[str]: ...
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object, /) -> bool: ...
 
-    __hash__ = None  # type: ignore
+    __hash__: None = None  # type: ignore[assignment]
+
+__all__ = ["Pileup", "SparsePileup", "TaskPileup"]

@@ -14,4 +14,6 @@ def test_per_orientation_new():
 
 
 def test_per_orientation_pickle():
-    assert pickle.loads(pickle.dumps(PerOrientation(1, -12, 0))) == PerOrientation(1, -12, 0)
+    assert pickle.loads(pickle.dumps(PerOrientation(1, -12, 0))) == PerOrientation(
+        1, -12, 0
+    )

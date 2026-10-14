@@ -1,3 +1,3 @@
-from biobit.rs.core.loc.mapping import ChainMap
+from .chain_map import ChainMap as ChainMap
 
 __all__ = ["ChainMap"]

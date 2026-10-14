@@ -1,5 +1,4 @@
-from collections.abc import MutableMapping, Mapping
-from typing import Iterator
+from collections.abc import Iterator, Mapping, MutableMapping
 
 from . import Bits, BitsBuilder
 
@@ -14,6 +13,7 @@ class Forest[K, V](MutableMapping[K, Bits[V]]):
 
     Implements the `MutableMapping` protocol for standard dictionary operations.
     """
+
     _trees: dict[K, Bits[V]]
 
     def __init__(self, trees: Mapping[K, Bits[V] | BitsBuilder[V]] | None = None):

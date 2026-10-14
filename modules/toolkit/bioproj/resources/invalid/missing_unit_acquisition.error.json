@@ -1,0 +1,8 @@
+{
+  "error": "MissingReference",
+  "owner": "Unit",
+  "id": "UNIT_A",
+  "field": "acquisitions",
+  "target": "Acquisition",
+  "target_id": "MISSING"
+}

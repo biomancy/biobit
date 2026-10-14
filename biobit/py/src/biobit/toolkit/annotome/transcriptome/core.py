@@ -1,4 +1,5 @@
-from typing import Protocol, Iterable, Self
+from collections.abc import Iterable
+from typing import Protocol, Self
 
 from attr import define, field
 
@@ -28,7 +29,16 @@ class Entry[Attrs](Protocol):
     attrs: Attrs
 
 
-@define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True, init=False)
+@define(
+    hash=True,
+    slots=True,
+    frozen=True,
+    eq=True,
+    order=True,
+    repr=True,
+    str=True,
+    init=False,
+)
 class Bundle[T: Entry](dict[str, T]):
     def __init__(self, items: Iterable[T]):
         super().__init__()

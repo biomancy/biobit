@@ -1,0 +1,24 @@
+[package]
+name = "biobit-bioproj-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Python bindings for bioproj"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[lib]
+path = "src/bindings/lib.rs"
+
+[dependencies]
+bitcode = { workspace = true }
+biobit-bioproj-rs = { path = "../rs", features = ["bitcode"] }
+biobit-core-rs = { path = "../../../core/rs" }
+biobit-core-py = { path = "../../../core/py" }
+pyo3 = { workspace = true, features = ["multiple-pymethods"] }
+derive_more = { workspace = true }

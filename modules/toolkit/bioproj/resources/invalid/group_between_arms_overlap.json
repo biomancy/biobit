@@ -1,0 +1,35 @@
+{
+  "schema": "0.0.1",
+  "project": {"id": "PROJ1"},
+  "provenance": {
+    "sources": [{"id": "SRC1", "organism": "Homo sapiens"}],
+    "samples": [{"id": "SMP1", "sources": ["SRC1"]}],
+    "libraries": [{"type": "P5P7", "id": "LIB1", "samples": ["SMP1"], "input": {"type": "DNA"}}],
+    "acquisitions": [
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ1", "libraries": ["LIB1"]},
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ2", "libraries": ["LIB1"]},
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ3", "libraries": ["LIB1"]}
+    ]
+  },
+  "data": {
+    "assets": [
+      {"type": "Fastq", "id": "AST1", "location": "AST1.fq.gz"},
+      {"type": "Fastq", "id": "AST2", "location": "AST2.fq.gz"},
+      {"type": "Fastq", "id": "AST3", "location": "AST3.fq.gz"}
+    ],
+    "datasets": [
+      {"type": "Fastq", "id": "DATA1", "acquisition": "ACQ1", "assets": ["AST1"]},
+      {"type": "Fastq", "id": "DATA2", "acquisition": "ACQ2", "assets": ["AST2"]},
+      {"type": "Fastq", "id": "DATA3", "acquisition": "ACQ3", "assets": ["AST3"]}
+    ]
+  },
+  "design": {
+    "units": [
+      {"id": "A", "acquisitions": ["ACQ1"]},
+      {"id": "ALIAS", "acquisitions": ["ACQ1"]},
+      {"id": "B", "acquisitions": ["ACQ2"]},
+      {"id": "C", "acquisitions": ["ACQ3"]}
+    ],
+    "designs": [{"type": "GroupContrast", "id": "DES1", "name": "Control vs treatment groups", "control": ["A"], "treatment": ["ALIAS"]}]
+  }
+}

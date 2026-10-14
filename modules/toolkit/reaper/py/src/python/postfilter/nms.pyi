@@ -1,19 +1,20 @@
-from biobit.core.loc import IntoOrientation, IntoChainInterval
+from typing import Self, final
 
+from biobit.core.loc import IntoChainInterval, IntoOrientation
 
+@final
 class NMS:
-    def __init__(self) -> None: ...
-
+    def __new__(cls) -> Self: ...
     def set_fecutoff(self, fecutoff: float) -> NMS: ...
-
     def set_group_within(self, group_within: int) -> NMS: ...
-
     def set_slopfrac(self, slopfrac: float) -> NMS: ...
-
     def set_sloplim(self, minslop: int, maxslop: int) -> NMS: ...
-
     def set_sensitivity(self, sensitivity: float) -> NMS: ...
-
     def add_regions(
-            self, orientation: IntoOrientation, uniform_baseline: bool, regions: list[IntoChainInterval]
+        self,
+        orientation: IntoOrientation,
+        uniform_baseline: bool,
+        regions: list[IntoChainInterval],
     ) -> NMS: ...
+
+__all__ = ["NMS"]

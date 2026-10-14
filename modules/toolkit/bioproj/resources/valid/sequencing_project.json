@@ -1,0 +1,56 @@
+{
+  "schema": "0.0.1",
+  "project": {"id": "SEQUENCING", "description": "Repeated sequencing of mixed biological material"},
+  "provenance": {
+    "sources": [
+      {"id": "HOST", "organism": "Homo sapiens", "meta": {"cell_line": "HeLa"}},
+      {"id": "VIRUS", "organism": "HSV-1"}
+    ],
+    "samples": [
+      {"id": "MIXED", "sources": ["HOST", "VIRUS"], "meta": {"Confluence": "75%"}, "description": "Infected cells"},
+      {"id": "CONTROL", "sources": ["HOST"], "description": "Uninfected cells"}
+    ],
+    "libraries": [
+      {
+        "type": "P5P7", "id": "RNA", "samples": ["MIXED"],
+        "input": {"type": "RNA", "strandedness": "Reverse"},
+        "meta": {"selection:poly-A": true, "selection:nuclear fraction": true, "kit": "RNA kit"}
+      },
+      {"type": "P5P7", "id": "DNA", "samples": ["MIXED"], "input": {"type": "DNA"}, "meta": {"selection": "Total DNA"}},
+      {"type": "P5P7", "id": "CONTROL_RNA", "samples": ["CONTROL"], "input": {"type": "RNA"}}
+    ],
+    "acquisitions": [
+      {"type": "IlluminaPairedEndSequencing", "id": "RUN1", "libraries": ["RNA"], "meta": {"machine": "Illumina NovaSeq 6000", "reads": "1000", "bases": "150000"}, "description": "First measurement"},
+      {"type": "IlluminaPairedEndSequencing", "id": "RUN2", "libraries": ["RNA"], "description": "Repeated measurement"},
+      {"type": "IlluminaSingleEndSequencing", "id": "RUN3", "libraries": ["RNA"]},
+      {"type": "IlluminaSingleEndSequencing", "id": "RUN_DNA", "libraries": ["DNA"]},
+      {"type": "IlluminaSingleEndSequencing", "id": "RUN_CONTROL", "libraries": ["CONTROL_RNA"]}
+    ]
+  },
+  "data": {
+    "assets": [
+      {"type": "Fastq", "id": "Z_READ1", "location": "run1_R1.fq.gz"},
+      {"type": "Fastq", "id": "A_READ2", "location": "run1_R2.fq.gz"},
+      {"type": "Fastq", "id": "RUN2_R1", "location": "run2_R1.fq.gz"},
+      {"type": "Fastq", "id": "RUN2_R2", "location": "run2_R2.fq.gz"},
+      {"type": "Fastq", "id": "RUN3", "location": "run3.fq.gz"},
+      {"type": "Fastq", "id": "DNA", "location": "dna.fq.gz"},
+      {"type": "Fastq", "id": "CONTROL", "location": "control.fq.gz"}
+    ],
+    "datasets": [
+      {"type": "PairedFastq", "id": "RUN1", "acquisition": "RUN1", "pairs": [["Z_READ1", "A_READ2"]]},
+      {"type": "PairedFastq", "id": "RUN2", "acquisition": "RUN2", "pairs": [["RUN2_R1", "RUN2_R2"]]},
+      {"type": "Fastq", "id": "RUN3", "acquisition": "RUN3", "assets": ["RUN3"]},
+      {"type": "Fastq", "id": "DNA", "acquisition": "RUN_DNA", "assets": ["DNA"]},
+      {"type": "Fastq", "id": "CONTROL", "acquisition": "RUN_CONTROL", "assets": ["CONTROL"]}
+    ]
+  },
+  "design": {
+    "units": [
+      {"id": "EXPERIMENT_RNA", "acquisitions": ["RUN1", "RUN2", "RUN3"], "meta": {"title": "Infected RNA"}, "description": "Combined sequencing of one RNA library"},
+      {"id": "EXPERIMENT_DNA", "acquisitions": ["RUN_DNA"]},
+      {"id": "EXPERIMENT_CONTROL", "acquisitions": ["RUN_CONTROL"]}
+    ],
+    "designs": [{"type": "UnitSet", "id": "ALL", "name": "Joint analysis", "units": ["EXPERIMENT_RNA", "EXPERIMENT_DNA", "EXPERIMENT_CONTROL"]}]
+  }
+}

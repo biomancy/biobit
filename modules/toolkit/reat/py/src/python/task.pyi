@@ -1,8 +1,14 @@
 from collections.abc import Sequence
+from types import GenericAlias
+from typing import Self, final
 
 from biobit.core.loc import Interval, IntoInterval
 
+@final
 class Task:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """
     A set of intervals processed as one batch by REAT workers.
 
@@ -18,14 +24,13 @@ class Task:
     intervals: list[Interval]
     """Sorted non-overlapping half-open intervals of interest within the envelope."""
 
-    def __init__(self, seqid: str, intervals: Sequence[IntoInterval]) -> None:
+    def __new__(cls, seqid: str, intervals: Sequence[IntoInterval]) -> Self:
         """
         Create a task from already sorted, non-overlapping intervals.
 
         Intervals must be non-empty. Adjacent intervals are allowed, but overlapping intervals are
         rejected here; use `from_intervals()` to sort and merge input intervals first.
         """
-        ...
 
     @staticmethod
     def from_intervals(
@@ -38,8 +43,9 @@ class Task:
         Touching intervals, e.g. `[0, 10)` and `[10, 20)`, are merged as well as overlapping
         intervals. Large merged intervals are split into chunks no larger than `max_task_size`.
         """
-        ...
 
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object, /) -> bool: ...
 
-    __hash__ = None  # type: ignore
+    __hash__: None = None  # type: ignore[assignment]
+
+__all__ = ["Task"]

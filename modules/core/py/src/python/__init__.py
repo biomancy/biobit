@@ -1,3 +1,3 @@
-from . import loc, ngs
+from . import loc as loc
 
-__all__ = ["loc", "ngs"]
+__all__ = ["loc"]

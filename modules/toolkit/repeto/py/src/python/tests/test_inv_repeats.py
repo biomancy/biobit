@@ -2,7 +2,6 @@ import pickle
 from itertools import chain
 
 import pytest
-
 from biobit.core.loc import Interval
 from biobit.toolkit.repeto import repeats
 
@@ -24,11 +23,13 @@ def _make_ir(segments):
 @pytest.mark.parametrize(
     ("left", "right"),
     [
-        ((0, 10), (20, 30)), ((-10, -5), (5, 10)), ((0, 100), (100, 200)),
+        ((0, 10), (20, 30)),
+        ((-10, -5), (5, 10)),
+        ((0, 100), (100, 200)),
         pytest.param((10, 20), (15, 25), marks=pytest.mark.xfail),
         pytest.param((15, 25), (10, 20), marks=pytest.mark.xfail),
         pytest.param((5, 10), (-5, 0), marks=pytest.mark.xfail),
-    ]
+    ],
 )
 def test_inv_segment(left, right):
     def dotest(segment, left, right):
@@ -36,7 +37,6 @@ def test_inv_segment(left, right):
         assert segment.left == left and segment.right == right
         assert str(segment) == f"InvSegment {left} <=> {right}"
         assert segment == repeats.InvSegment(left, right)
-        assert segment == segment
         assert pickle.loads(pickle.dumps(segment)) == segment
 
     left = Interval(*left)
@@ -55,20 +55,27 @@ def test_inv_segment(left, right):
 @pytest.mark.parametrize(
     "segments",
     [
-        IRS['single-block'], IRS['two-blocks'], IRS['negative-coords'], IRS['three-blocks'],
-        pytest.param(([(-5, 0), (0, 5)], [(-10, -5), (5, 10)]), marks=pytest.mark.xfail),
+        IRS["single-block"],
+        IRS["two-blocks"],
+        IRS["negative-coords"],
+        IRS["three-blocks"],
+        pytest.param(
+            ([(-5, 0), (0, 5)], [(-10, -5), (5, 10)]), marks=pytest.mark.xfail
+        ),
         pytest.param(([(-5, 0), (0, 5)], [(4, 6), (8, 10)]), marks=pytest.mark.xfail),
         pytest.param(([],), marks=pytest.mark.xfail),
-    ]
+    ],
 )
 def test_inverted_repeat(segments):
     def dotest(repeat, segments):
         assert len(repeat) == sum(len(x) for x in segments)
         assert repeat.brange() == (segments[0].left.start, segments[0].right.end)
-        assert repeat.seqranges() == \
-               sorted([x.left for x in segments] + [x.right for x in segments], key=lambda x: x.start)
+        assert repeat.seqranges() == sorted(
+            [x.left for x in segments] + [x.right for x in segments],
+            key=lambda x: x.start,
+        )
         assert repeat.segments == segments
-        assert repeat == repeat == repeats.InvRepeat(segments)
+        assert repeat == repeats.InvRepeat(segments)
         assert pickle.loads(pickle.dumps(repeat)) == repeat
 
     repeat, segments = _make_ir(segments)
@@ -88,7 +95,7 @@ def test_inverted_repeat(segments):
         (IRS["two-blocks"], 0, 30),
         (IRS["three-blocks"], 0, 100),
         pytest.param(IRS["negative-coords"], -20, 125, marks=[pytest.mark.xfail]),
-    ]
+    ],
 )
 def test_bed12(blocks, start, end):
     repeat, _ = _make_ir(blocks)

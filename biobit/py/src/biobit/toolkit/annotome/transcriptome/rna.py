@@ -1,7 +1,8 @@
 from attr import define, field
 
 from biobit.core.loc import Interval, Strand
-from .core import Location, Bundle, Entry
+
+from .core import Bundle, Entry, Location
 
 
 @define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
@@ -29,5 +30,4 @@ class RNA[Attrs](Entry[Attrs]):
         return self.loc.end if self.loc.strand == Strand.Forward else self.loc.start
 
 
-class RNABundle[Attrs](Bundle[RNA[Attrs]]):
-    ...
+class RNABundle[Attrs](Bundle[RNA[Attrs]]): ...

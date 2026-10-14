@@ -1,0 +1,8 @@
+{
+  "error": "MissingReference",
+  "owner": "Sample",
+  "id": "SMP1",
+  "field": "sources",
+  "target": "Source",
+  "target_id": "MISSING"
+}

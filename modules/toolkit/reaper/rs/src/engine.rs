@@ -22,6 +22,8 @@ use super::worker::Worker;
 use super::workload::Workload;
 
 #[derive(Constructor, Dissolve)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Comparison<Ctg: Contig, Idx: PrimInt, Cnts: Float, Tag, Src> {
     pub tag: Tag,
     pub signal: Vec<Src>,

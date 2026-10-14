@@ -1,0 +1,18 @@
+{
+  "schema": "0.0.1",
+  "project": {"id": "SHARED"},
+  "provenance": {
+    "sources": [{"id": "SHARED", "organism": "Homo sapiens"}],
+    "samples": [{"id": "SHARED", "sources": ["SHARED"]}],
+    "libraries": [{"type": "P5P7", "id": "SHARED", "samples": ["SHARED"], "input": {"type": "DNA"}}],
+    "acquisitions": [{"type": "IlluminaSingleEndSequencing", "id": "SHARED", "libraries": ["SHARED"]}]
+  },
+  "data": {
+    "assets": [{"type": "Fastq", "id": "SHARED", "location": "SHARED.fq.gz"}],
+    "datasets": [{"type": "Fastq", "id": "SHARED", "acquisition": "SHARED", "assets": ["SHARED"]}]
+  },
+  "design": {
+    "units": [{"id": "SHARED", "acquisitions": ["SHARED"]}],
+    "designs": [{"type": "UnitSet", "id": "SHARED", "name": "Joint analysis", "units": ["SHARED"]}]
+  }
+}

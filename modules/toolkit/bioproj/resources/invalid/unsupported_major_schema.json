@@ -1,0 +1,13 @@
+{
+  "schema": "1.0.0",
+  "project": {"id": "PROJ1"},
+  "provenance": false,
+  "data": {
+    "assets": [{"type": "Fastq", "id": "AST1", "location": "AST1.fq.gz"}],
+    "datasets": [{"type": "Fastq", "id": "DATA1", "acquisition": "ACQ1", "assets": ["AST1"]}]
+  },
+  "design": {
+    "units": [{"id": "UNIT_A", "acquisitions": ["ACQ1"]}],
+    "designs": [{"type": "UnitSet", "id": "DES1", "name": "Joint analysis", "units": ["UNIT_A"]}]
+  }
+}

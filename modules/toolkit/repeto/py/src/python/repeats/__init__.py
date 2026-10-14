@@ -1,3 +1,4 @@
-from biobit.rs.toolkit.repeto.repeats import InvSegment, InvRepeat
+from .inv import InvRepeat as InvRepeat
+from .inv import InvSegment as InvSegment
 
-__all__ = ['InvSegment', 'InvRepeat']
+__all__ = ["InvRepeat", "InvSegment"]

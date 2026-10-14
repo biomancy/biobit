@@ -19,8 +19,9 @@ members = [
     "modules/toolkit/countit/py",
     "modules/toolkit/countit/rs",
     "modules/toolkit/countit/benches",
-    # SeqProj
-    "modules/toolkit/seqproj/*",
+    # BioProj
+    "modules/toolkit/bioproj/rs",
+    "modules/toolkit/bioproj/py",
     # Reaper
     "modules/toolkit/reaper/*",
     # Repeto
@@ -32,9 +33,9 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.0.12"
+version = "0.0.13"
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.99.0"
 authors = ["Aleksandr Fedorov"]
 description = "Rust library for bioinformatics"
 readme = "README.md"
@@ -48,35 +49,41 @@ categories = ["science", "algorithms"]
 # Macros
 derive-getters = "0.5.0"
 derive_more = { version = "2.1.1", features = ["full"] }
+kinded = "0.5.1"
 paste = "1.0.15"
-impl-tools = "0.12.0"
+impl-tools = "0.13.0"
 # Traits and type utilities
 num = "0.4.3"
-higher-kinded-types = "0.3.0"
+higher-kinded-types = "0.3.2"
 dyn-clone = "1.0.20"
 by_address = "1.2.1"
 itertools = "0.15.0"
 # Parallelism
 rayon = "1.12.0"
-thread_local = "1.1.9"
+thread_local = "1.1.10"
+lock_api = "0.4.14"
+parking_lot = "0.12.5"
 # Data structures
 anymap3 = "1.1.0"
 rstar = "0.13.0"
-bitvec = "1.0.1"
+bitvec = "1.1.1"
+self_cell = "1.3.0"
 # Algorithms
-memchr = "2.8.2"
+memchr = "2.8.3"
 ahash = "0.8.12"
 # I/O
-noodles = { version = "0.111.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
+noodles = { version = "0.117.0", features = ["bam", "sam", "core", "csi", "bgzf"] }
 substratum-compress = { git = "https://github.com/biomancy/substratum", rev = "5592a2a56abaf8ee767b2a4b673fcb106b6e397c", features = ["all"] }
 # Logging and errors
-eyre = "0.6.12"
-log = "0.4.32"
+eyre = "0.6.14"
+log = "0.4.34"
 # Serialization
 bitcode = "0.6.9"
-serde = { version = "1.0.228", features = ["rc", "serde_derive"] }
+serde = { version = "1.0.229", features = ["rc", "serde_derive"] }
+serde_json = "1.0.154"
 # Bindings
-pyo3 = { version = "0.29.0", features = ["full"] }
+pyo3 = { version = "0.29.3", features = ["full"] }
 #arrow = { version = "56.1.0", features = ["default", "ffi"] }
 # Other
 dhat = "0.3.3"
+toml = "1.1.8"

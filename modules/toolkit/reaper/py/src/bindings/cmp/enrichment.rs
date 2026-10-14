@@ -7,6 +7,8 @@ use pyo3::{PyRefMut, PyResult, pyclass, pymethods};
 
 #[pyclass(from_py_object, eq, name = "Enrichment")]
 #[derive(Clone, Debug, PartialEq, Constructor, Dissolve, From, Into)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyEnrichment {
     rs: Enrichment<f32>,
 }

@@ -9,6 +9,8 @@ use pyo3::types::PyBytes;
 
 #[pyclass(from_py_object, eq, name = "NMS")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyNMS {
     rs: NMS<usize, f32>,
 }

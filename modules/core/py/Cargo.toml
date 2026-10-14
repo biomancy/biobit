@@ -21,3 +21,4 @@ derive_more = { workspace = true }
 derive-getters = { workspace = true }
 bitcode = { workspace = true }
 eyre = { workspace = true }
+self_cell = { workspace = true }

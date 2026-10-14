@@ -1,0 +1,5 @@
+{
+  "error": "DuplicateKey",
+  "collection": "data.datasets",
+  "key": "DATA1"
+}

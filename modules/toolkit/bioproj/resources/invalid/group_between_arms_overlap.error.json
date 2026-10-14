@@ -1,0 +1,7 @@
+{
+  "error": "AcquisitionOverlap",
+  "design": "DES1",
+  "acquisition": "ACQ1",
+  "first_unit": "A",
+  "second_unit": "ALIAS"
+}

@@ -1,7 +1,6 @@
 import pickle
 
 import pytest
-
 from biobit.core.loc import Orientation
 
 

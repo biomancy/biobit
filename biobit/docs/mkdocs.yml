@@ -5,6 +5,7 @@ theme:
 
 nav:
   - Home: index.md
+  - bioproj: bioproj.md
   - Development Notes: notes.md
   - Developer Guide: dev-guide.md
   - Apache Arrow: arrow.md

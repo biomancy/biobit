@@ -1,0 +1,69 @@
+{
+  "schema": "0.0.1",
+  "project": {
+    "id": "ALL_VARIANTS",
+    "description": "All released record variants",
+    "meta": {"author": "Ada", "released": true}
+  },
+  "provenance": {
+    "sources": [{"id": "SRC1", "organism": "Homo sapiens"}, {"id": "SRC_UNKNOWN"}],
+    "samples": [{"id": "SMP_DNA", "sources": ["SRC1", "SRC_UNKNOWN"]}, {"id": "SMP_RNA", "sources": ["SRC1"]}],
+    "libraries": [
+      {"type": "P5P7", "id": "LIB_DNA", "samples": ["SMP_DNA"], "input": {"type": "DNA"}},
+      {
+        "type": "P5P7",
+        "id": "LIB_RNA",
+        "samples": ["SMP_RNA"],
+        "input": {"type": "RNA", "strandedness": "Forward"},
+        "meta": {"selection": "poly-A"}
+      }
+    ],
+    "acquisitions": [
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ_SE_DNA", "libraries": ["LIB_DNA"]},
+      {"type": "IlluminaPairedEndSequencing", "id": "ACQ_PE_DNA", "libraries": ["LIB_DNA"]},
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ_SE_RNA", "libraries": ["LIB_RNA"]},
+      {"type": "IlluminaPairedEndSequencing", "id": "ACQ_PE_RNA", "libraries": ["LIB_RNA"]},
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ_POOL", "libraries": ["LIB_DNA", "LIB_RNA"]}
+    ]
+  },
+  "data": {
+    "assets": [
+      {"type": "Fastq", "id": "DNA", "location": "DNA.fq.gz"},
+      {"type": "Fastq", "id": "RNA", "location": "RNA.fq.gz"},
+      {"type": "Fastq", "id": "DNA_R1", "location": "DNA_R1.fq.gz"},
+      {"type": "Fastq", "id": "DNA_R2", "location": "DNA_R2.fq.gz"},
+      {"type": "Fastq", "id": "RNA_R1", "location": "RNA_R1.fq.gz"},
+      {"type": "Fastq", "id": "RNA_R2", "location": "RNA_R2.fq.gz"},
+      {"type": "Fastq", "id": "POOL", "location": "POOL.fq.gz"}
+    ],
+    "datasets": [
+      {"type": "Fastq", "id": "DATA_SE_DNA", "acquisition": "ACQ_SE_DNA", "assets": ["DNA"]},
+      {"type": "Fastq", "id": "DATA_SE_RNA", "acquisition": "ACQ_SE_RNA", "assets": ["RNA"]},
+      {"type": "PairedFastq", "id": "DATA_PE_DNA", "acquisition": "ACQ_PE_DNA", "pairs": [["DNA_R1", "DNA_R2"]]},
+      {"type": "PairedFastq", "id": "DATA_PE_RNA", "acquisition": "ACQ_PE_RNA", "pairs": [["RNA_R1", "RNA_R2"]]},
+      {"type": "Fastq", "id": "DATA_POOL", "acquisition": "ACQ_POOL", "assets": ["POOL"]}
+    ]
+  },
+  "design": {
+    "units": [
+      {"id": "UNIT_A", "acquisitions": ["ACQ_SE_DNA"]},
+      {"id": "UNIT_ALIAS", "acquisitions": ["ACQ_SE_DNA"]},
+      {"id": "UNIT_B", "acquisitions": ["ACQ_PE_DNA"]},
+      {"id": "UNIT_C", "acquisitions": ["ACQ_SE_RNA"]},
+      {"id": "UNIT_D", "acquisitions": ["ACQ_PE_RNA"]},
+      {
+        "id": "UNIT_MIXED",
+        "acquisitions": ["ACQ_PE_RNA", "ACQ_SE_DNA"],
+        "meta": {"pooled": true},
+        "description": "Mixed read layouts"
+      }
+    ],
+    "designs": [
+      {"type": "UnitContrast", "id": "DES_UNIT", "name": "Control vs treatment", "control": "UNIT_A", "treatment": "UNIT_B"},
+      {"type": "UnitContrast", "id": "DES_REUSE", "name": "Control vs treatment", "control": "UNIT_ALIAS", "treatment": "UNIT_B"},
+      {"type": "GroupContrast", "id": "DES_GROUP", "name": "Control vs treatment groups", "control": ["UNIT_A", "UNIT_C"], "treatment": ["UNIT_B", "UNIT_D"]},
+      {"type": "MatchedPairs", "id": "DES_PAIRS", "name": "Matched measurements", "pairs": [["UNIT_B", "UNIT_A"], ["UNIT_D", "UNIT_C"]]},
+      {"type": "UnitSet", "id": "DES_SET", "name": "Joint analysis", "units": ["UNIT_A", "UNIT_ALIAS", "UNIT_MIXED"]}
+    ]
+  }
+}

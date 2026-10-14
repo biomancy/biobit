@@ -1,7 +1,8 @@
 from .. import repeats as repeats
 
-
-def run(ir: list[repeats.InvRepeat], scores: list[int]) -> tuple[list[repeats.InvRepeat], int]:
+def run(
+    ir: list[repeats.InvRepeat], scores: list[int]
+) -> tuple[list[repeats.InvRepeat], int]:
     """
     Find score-maximal and coherent set of inverted nucleic acid repeats.
 
@@ -26,4 +27,5 @@ def run(ir: list[repeats.InvRepeat], scores: list[int]) -> tuple[list[repeats.In
     :param scores: numerical score for each InvertedRepeat
     :return: Tuple containing an optimal set of inverted repeats and the associated total score
     """
-    ...
+
+__all__ = ["run"]

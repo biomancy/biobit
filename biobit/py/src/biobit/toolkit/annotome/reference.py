@@ -1,11 +1,12 @@
 import heapq
 from collections import Counter
-from collections.abc import Mapping, Iterator, Iterable
+from collections.abc import Iterable, Iterator, Mapping
 from typing import Self
 
 
 class PropertyMap[Key, Value](Mapping[Key, Value]):
     """A proxy view of a specific attribute (column) across the registry."""
+
     __slots__ = ("_key2idx", "_values")
 
     def __init__(self, key2idx: dict[Key, int], values: tuple[Value, ...]):
@@ -28,15 +29,16 @@ class PropertyMap[Key, Value](Mapping[Key, Value]):
 
 class Reference:
     """Data Transfer Object defining a reference sequence."""
-    __slots__ = ("name", "length", "label", "description", "aliases")
+
+    __slots__ = ("aliases", "description", "label", "length", "name")
 
     def __init__(
-            self,
-            name: str,
-            length: int,
-            label: str | None = None,
-            description: str | None = None,
-            aliases: Iterable[str] | None = None
+        self,
+        name: str,
+        length: int,
+        label: str | None = None,
+        description: str | None = None,
+        aliases: Iterable[str] | None = None,
     ):
         if length <= 0:
             raise ValueError(f"Reference '{name}' must have a positive length.")
@@ -50,17 +52,31 @@ class Reference:
             raise ValueError(f"Reference name '{name}' cannot be its own alias.")
 
     def __hash__(self):
-        return hash((self.name, self.length, self.label, self.description, self.aliases))
+        return hash(
+            (self.name, self.length, self.label, self.description, self.aliases)
+        )
 
     def __eq__(self, other):
         if isinstance(other, (Reference, ReferenceProxy)):
-            return (self.name, self.length, self.label, self.description, self.aliases) == \
-                (other.name, other.length, other.label, other.description, other.aliases)
+            return (
+                self.name,
+                self.length,
+                self.label,
+                self.description,
+                self.aliases,
+            ) == (
+                other.name,
+                other.length,
+                other.label,
+                other.description,
+                other.aliases,
+            )
         return NotImplemented
 
 
 class ReferenceProxy:
     """A lightweight, read-only handle to a reference stored in a RefRegistry."""
+
     __slots__ = ("_idx", "_registry")
 
     def __init__(self, idx: int, registry: "RefRegistry"):
@@ -88,17 +104,29 @@ class ReferenceProxy:
         return self._registry._aliases[self._idx]
 
     def __hash__(self):
-        return hash((self.name, self.length, self.label, self.description, self.aliases))
+        return hash(
+            (self.name, self.length, self.label, self.description, self.aliases)
+        )
 
     def __eq__(self, other):
-        if isinstance(other, ReferenceProxy):
-            # Fast path: same index in same registry
-            if self._registry is other._registry:
-                return self._idx == other._idx
+        # Fast path: same index in same registry.
+        if isinstance(other, ReferenceProxy) and self._registry is other._registry:
+            return self._idx == other._idx
 
         if isinstance(other, (Reference, ReferenceProxy)):
-            return (self.name, self.length, self.label, self.description, self.aliases) == \
-                (other.name, other.length, other.label, other.description, other.aliases)
+            return (
+                self.name,
+                self.length,
+                self.label,
+                self.description,
+                self.aliases,
+            ) == (
+                other.name,
+                other.length,
+                other.label,
+                other.description,
+                other.aliases,
+            )
         return False
 
 
@@ -108,7 +136,16 @@ class RefRegistry:
 
     Acts as the canonical coordinate system for an Assembly.
     """
-    __slots__ = ("_index", "_mapping", "_names", "_lengths", "_labels", "_descriptions", "_aliases")
+
+    __slots__ = (
+        "_aliases",
+        "_descriptions",
+        "_index",
+        "_labels",
+        "_lengths",
+        "_mapping",
+        "_names",
+    )
     _index: dict[str, int]
     _mapping: dict[str, int]
     _names: tuple[str, ...]
@@ -143,26 +180,39 @@ class RefRegistry:
             aliases.append(ref.aliases)
 
         RefRegistry._from_buffers(
-            self, index, mapping, tuple(names), tuple(lengths), tuple(labels), tuple(descs), tuple(aliases)
+            self,
+            index,
+            mapping,
+            tuple(names),
+            tuple(lengths),
+            tuple(labels),
+            tuple(descs),
+            tuple(aliases),
         )
 
     @classmethod
     def _from_buffers(
-            cls,
-            self,
-            index: dict[str, int],
-            mapping: dict[str, int],
-            names: tuple[str, ...],
-            lengths: tuple[int, ...],
-            labels: tuple[str, ...],
-            descriptions: tuple[str | None, ...],
-            aliases: tuple[frozenset[str], ...]
+        cls,
+        self,
+        index: dict[str, int],
+        mapping: dict[str, int],
+        names: tuple[str, ...],
+        lengths: tuple[int, ...],
+        labels: tuple[str, ...],
+        descriptions: tuple[str | None, ...],
+        aliases: tuple[frozenset[str], ...],
     ) -> Self:
         """
         Low-level constructor for direct SoA initialization.
         Useful for zero-copy construction from Rust or Arrow buffers.
         """
-        if not (len(names) == len(lengths) == len(labels) == len(descriptions) == len(aliases)):
+        if not (
+            len(names)
+            == len(lengths)
+            == len(labels)
+            == len(descriptions)
+            == len(aliases)
+        ):
             raise ValueError("All attribute buffers must have the same length.")
 
         self._index = index
@@ -192,7 +242,9 @@ class RefRegistry:
         # Check collision between Names and Aliases
         collisions = set(names.keys()) & set(alias_counts.keys())
         if collisions:
-            raise ValueError(f"Ambiguous identifiers (used as both Name and Alias): {list(collisions)[:5]}")
+            raise ValueError(
+                f"Ambiguous identifiers (used as both Name and Alias): {list(collisions)[:5]}"
+            )
 
     def canonical_names(self) -> Mapping[str, str]:
         """Map string identifiers (names/aliases) to canonical names."""
@@ -220,7 +272,9 @@ class RefRegistry:
             raise KeyError(f"Identifier '{identifier}' not found.")
         return ReferenceProxy(idx, self)
 
-    def get(self, identifier: str, default: ReferenceProxy | None = None) -> ReferenceProxy | None:
+    def get(
+        self, identifier: str, default: ReferenceProxy | None = None
+    ) -> ReferenceProxy | None:
         idx = self._index.get(identifier)
         if idx is None:
             return default
@@ -271,7 +325,9 @@ class RefRegistry:
             # If the name was already processed, it means another registry
             # (or the same one) had a duplicate, which is invalid.
             if name in mapping:
-                raise ValueError(f"Duplicate reference name '{name}' detected during merge.")
+                raise ValueError(
+                    f"Duplicate reference name '{name}' detected during merge."
+                )
             registry, refidx = registries[regidx], cursors[regidx]
 
             # Append data for this reference
@@ -282,7 +338,9 @@ class RefRegistry:
             aliases.append(ref_aliases)
             for alias in ref_aliases:
                 if alias in mapping:
-                    raise ValueError(f"Duplicate alias '{alias}' detected during merge.")
+                    raise ValueError(
+                        f"Duplicate alias '{alias}' detected during merge."
+                    )
                 mapping[alias] = len(names)
 
             names.append(name)
@@ -305,7 +363,7 @@ class RefRegistry:
             lengths=tuple(lengths),
             labels=tuple(labels),
             descriptions=tuple(descriptions),
-            aliases=tuple(aliases)
+            aliases=tuple(aliases),
         )
 
     def __iter__(self) -> Iterator[str]:

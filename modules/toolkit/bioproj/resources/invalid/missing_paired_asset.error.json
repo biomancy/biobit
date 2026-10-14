@@ -1,0 +1,8 @@
+{
+  "error": "MissingReference",
+  "owner": "Dataset",
+  "id": "DATA1",
+  "field": "pairs",
+  "target": "Asset",
+  "target_id": "MISSING"
+}

@@ -1,3 +1,9 @@
-from biobit.rs.toolkit.countit.rigid.resolution import AnyOverlap, OverlapWeighted, TopRanked, IntoResolution
+from biobit.rs.toolkit.countit.rigid.resolution import (
+    AnyOverlap,
+    OverlapWeighted,
+    TopRanked,
+)
 
-__all__ = ["AnyOverlap", "OverlapWeighted", "TopRanked", "IntoResolution"]
+type IntoResolution = AnyOverlap | OverlapWeighted | TopRanked
+
+__all__ = ["AnyOverlap", "IntoResolution", "OverlapWeighted", "TopRanked"]

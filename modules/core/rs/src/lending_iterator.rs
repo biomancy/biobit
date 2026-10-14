@@ -24,6 +24,8 @@ pub trait LendingIterator {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Dissolve, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Map<I, Fun, Out> {
     iter: I,
     map: Fun,

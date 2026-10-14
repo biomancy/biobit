@@ -26,3 +26,8 @@ Compressed files are always identical to their uncompressed versions and are the
 ## External resources
 
 None at this time.
+
+## Module resource inventories
+
+* [bioproj](../modules/toolkit/bioproj/resources/README.md): synthetic JSON
+  validation fixtures.

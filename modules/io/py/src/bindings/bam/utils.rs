@@ -4,8 +4,8 @@ use eyre::{Result, eyre};
 use higher_kinded_types::prelude::*;
 use pyo3::Python;
 
+use biobit_bioproj_py::{Layout, MatesOrientation, PyLayout, Strandedness};
 use biobit_core_py::LendingIterator;
-use biobit_core_py::ngs::{MatesOrientation, PyLayout, Strandedness};
 use biobit_core_py::source::{DynSource, Source};
 use biobit_io_rs::bam::SegmentedAlignment;
 use biobit_io_rs::bam::{strdeductor, transform};
@@ -26,8 +26,8 @@ pub fn to_alignment_segments(
 ) -> Result<Box<SegmentedAlignmentSource>> {
     let source = source.0.borrow(py).clone().dissolve();
 
-    let source = match layout {
-        PyLayout::Single { strandedness } => match strandedness.0 {
+    let source = match layout.0 {
+        Layout::Single { strandedness } => match strandedness {
             Strandedness::Forward => source
                 .with_transform(
                     transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::forward),
@@ -53,11 +53,11 @@ pub fn to_alignment_segments(
                 .to_src()
                 .boxed(),
         },
-        PyLayout::Paired {
+        Layout::Paired {
             strandedness,
             orientation,
         } => {
-            if orientation.0 != MatesOrientation::Inward {
+            if orientation != MatesOrientation::Inward {
                 Err(eyre!(
                     "Only inward mates orientation is supported by countit"
                 ))?
@@ -65,7 +65,7 @@ pub fn to_alignment_segments(
 
             let source = source.with_transform(transform::BundleMates::default(), ());
 
-            match strandedness.0 {
+            match strandedness {
                 Strandedness::Forward => source
                     .with_transform(
                         transform::ExtractPairedAlignmentSegments::new(

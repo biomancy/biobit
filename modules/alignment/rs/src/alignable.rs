@@ -59,6 +59,8 @@ impl<T: Copy> Alignable for Vec<T> {
 
 /// A helper struct that reverses the order of an alignable object.
 #[derive(Dissolve, Constructor, Debug, Clone, PartialEq, Eq, Hash)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Reversed<'a, T: Alignable> {
     base: &'a T,
 }

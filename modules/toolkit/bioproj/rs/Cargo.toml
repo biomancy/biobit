@@ -1,0 +1,23 @@
+[package]
+name = "biobit-bioproj-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Immutable released biological-project descriptions"
+documentation = "TODO"
+readme = "README.md"
+homepage = "TODO"
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]
+bitcode = { workspace = true, optional = true }
+derive_more = { workspace = true }
+kinded = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+
+[features]
+bitcode = ["dep:bitcode"]

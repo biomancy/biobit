@@ -1,3 +1,3 @@
-from . import repeats, optimize, predict
+from . import optimize, predict, repeats
 
-__all__ = ['repeats', 'optimize', 'predict']
+__all__ = ["optimize", "predict", "repeats"]

@@ -4,7 +4,7 @@ use eyre::{Result, eyre};
 use pyo3::prelude::*;
 use rayon::ThreadPoolBuilder;
 
-use biobit_core_py::ngs::PyLayout;
+use biobit_bioproj_py::PyLayout;
 use biobit_core_py::parallelism;
 use biobit_io_py::bam::{IntoPyReader, utils::SegmentedAlignmentSource};
 use biobit_reaper_rs::Reaper;
@@ -45,7 +45,7 @@ impl PyReaper {
 #[pymethods]
 impl PyReaper {
     #[new]
-    #[pyo3(signature = (threads = -1))]
+    #[pyo3(signature = (threads = -1), text_signature = "(threads=-1)")]
     pub fn new(threads: isize) -> Result<Self> {
         let pool = ThreadPoolBuilder::new()
             .num_threads(parallelism::available(threads)?)

@@ -239,9 +239,8 @@ impl<Idx: PrimInt> QueryCursor<Idx> {
         }
 
         // Otherwise, we must have an overlap.
-        let segment = unsafe {
-            Interval::new(bits.starts[self.cursor], bits.ends[self.cursor]).unwrap_unchecked()
-        };
+        let segment =
+            unsafe { Interval::new_unchecked(bits.starts[self.cursor], bits.ends[self.cursor]) };
         debug_assert!(segment.intersects(&self.query));
         let result = Some((segment, self.cursor));
         self.cursor += 1;
@@ -298,7 +297,7 @@ impl<Idx: PrimInt, Data> ITree for Bits<Idx, Data> {
             .iter()
             .zip(self.ends.iter())
             // SAFETY: Interval validity (start < end) is ensured by constructor logic.
-            .map(|(x, y)| unsafe { Interval::new(*x, *y).unwrap_unchecked() })
+            .map(|(x, y)| unsafe { Interval::new_unchecked(*x, *y) })
     }
 
     fn records(&self) -> impl Iterator<Item = (Interval<Self::Idx>, &Self::Data)> {

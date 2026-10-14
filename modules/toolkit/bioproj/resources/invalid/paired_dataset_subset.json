@@ -1,0 +1,26 @@
+{
+  "schema": "0.0.1",
+  "project": {"id": "PROJ1"},
+  "provenance": {
+    "sources": [{"id": "SRC1", "organism": "Homo sapiens"}],
+    "samples": [{"id": "SMP1", "sources": ["SRC1"]}],
+    "libraries": [{"type": "P5P7", "id": "LIB1", "samples": ["SMP1"], "input": {"type": "DNA"}}],
+    "acquisitions": [{"type": "IlluminaPairedEndSequencing", "id": "ACQ1", "libraries": ["LIB1"]}]
+  },
+  "data": {
+    "assets": [
+      {"type": "Fastq", "id": "A", "location": "A.fq.gz"},
+      {"type": "Fastq", "id": "B", "location": "B.fq.gz"},
+      {"type": "Fastq", "id": "C", "location": "C.fq.gz"},
+      {"type": "Fastq", "id": "D", "location": "D.fq.gz"}
+    ],
+    "datasets": [
+      {"type": "PairedFastq", "id": "Z_SUBSET", "acquisition": "ACQ1", "pairs": [["A", "B"]]},
+      {"type": "PairedFastq", "id": "A_FULL", "acquisition": "ACQ1", "pairs": [["A", "B"], ["C", "D"]]}
+    ]
+  },
+  "design": {
+    "units": [{"id": "UNIT_A", "acquisitions": ["ACQ1"]}],
+    "designs": [{"type": "UnitSet", "id": "DES1", "name": "Joint analysis", "units": ["UNIT_A"]}]
+  }
+}

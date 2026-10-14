@@ -11,6 +11,8 @@ use bitcode::{Decode, Encode};
 #[derive(
     Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, From, Dissolve, Constructor,
 )]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PerOrientation<T> {
     pub forward: T,
     pub reverse: T,

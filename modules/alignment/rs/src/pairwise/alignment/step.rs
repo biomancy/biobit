@@ -85,6 +85,8 @@ impl<Len: PrimUInt> Step<Len> {
 
 /// A tracked alignment step with known start position (offset) in the sequence coordinates
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, Getters, Dissolve, Constructor, From, Into)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct StepWithOffset<
     Len: PrimUInt + Into<Seq1Idx> + Into<Seq2Idx>,
     Seq1Idx: PrimUInt,

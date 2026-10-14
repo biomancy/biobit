@@ -1,4 +1,5 @@
-from typing import Hashable, Any
+from collections.abc import Hashable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -10,11 +11,11 @@ class MedianOfRatiosNormalization:
     data: pd.DataFrame
     minval: int = 0
 
-    def rename(self, map: dict[Hashable, str]) -> 'MedianOfRatiosNormalization':
+    def rename(self, map: dict[Hashable, str]) -> "MedianOfRatiosNormalization":
         return MedianOfRatiosNormalization(self.data.rename(columns=map))
 
     def _calculate_scaling_factors(self, elements: pd.DataFrame) -> pd.Series:
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             logdata = elements.apply(np.log)
             average = logdata.mean(axis=1)
 
@@ -26,7 +27,9 @@ class MedianOfRatiosNormalization:
         scaling_factors = np.exp(median)
         return scaling_factors
 
-    def scaling_factors(self, samples: dict[Hashable, list[Any]]) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+    def scaling_factors(
+        self, samples: dict[Hashable, list[Any]]
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
         columns = {}
         for sample, cols in samples.items():
             columns[sample] = self.data[cols].sum(axis=1)
@@ -36,6 +39,7 @@ class MedianOfRatiosNormalization:
         df = rawdf[mask].copy()
 
         return rawdf, df, self._calculate_scaling_factors(df)
+
 
 # @define(slots=True, frozen=True)
 # class MedianOfRatiosNormalization:

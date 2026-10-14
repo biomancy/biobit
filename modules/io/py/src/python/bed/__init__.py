@@ -1,5 +1,40 @@
-from biobit.rs.io.bed import Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, Reader, Writer
+from biobit.rs.io.bed import (  # isort: skip
+    Bed3,
+    Bed4,
+    Bed5,
+    Bed6,
+    Bed8,
+    Bed9,
+    Bed12,
+    Reader,
+    Writer,
+    _Bed3Reader as _Bed3Reader,
+    _Bed3Writer as _Bed3Writer,
+    _Bed4Reader as _Bed4Reader,
+    _Bed4Writer as _Bed4Writer,
+    _Bed5Reader as _Bed5Reader,
+    _Bed5Writer as _Bed5Writer,
+    _Bed6Reader as _Bed6Reader,
+    _Bed6Writer as _Bed6Writer,
+    _Bed8Reader as _Bed8Reader,
+    _Bed8Writer as _Bed8Writer,
+    _Bed9Reader as _Bed9Reader,
+    _Bed9Writer as _Bed9Writer,
+    _Bed12Reader as _Bed12Reader,
+    _Bed12Writer as _Bed12Writer,
+)
 
 type AnyBed = Bed3 | Bed4 | Bed5 | Bed6 | Bed8 | Bed9 | Bed12
 
-__all__ = ["Bed3", "Bed4", "Bed5", "Bed6", "Bed8", "Bed9", "Bed12", "AnyBed", "Reader", "Writer"]
+__all__ = [
+    "AnyBed",
+    "Bed3",
+    "Bed4",
+    "Bed5",
+    "Bed6",
+    "Bed8",
+    "Bed9",
+    "Bed12",
+    "Reader",
+    "Writer",
+]
