@@ -1,0 +1,8 @@
+{
+  "error": "MissingReference",
+  "owner": "Library",
+  "id": "LIB1",
+  "field": "samples",
+  "target": "Sample",
+  "target_id": "MISSING"
+}

@@ -3,11 +3,10 @@ import pickle
 from pathlib import Path
 
 import pytest
-
 from biobit.core.loc import Interval, Orientation
-from biobit.core.ngs import Layout, Strandedness
 from biobit.io.fasta import IndexedSources
 from biobit.toolkit import reat
+from biobit.toolkit.bioproj import Layout, Strandedness
 
 RESOURCES = Path(os.environ["BIOBIT_RESOURCES"])
 BAM = RESOURCES / "bam" / "RNA-seq.CHM13v2.21-22.bam"

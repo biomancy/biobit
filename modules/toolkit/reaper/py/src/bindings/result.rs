@@ -18,6 +18,8 @@ use biobit_reaper_rs::{Harvest, HarvestRegion};
 
 #[pyclass(from_py_object, get_all, name = "Peak")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyPeak {
     interval: Py<PyInterval>,
     value: f64,
@@ -40,6 +42,8 @@ impl<Idx: PrimInt + TryInto<i64>, Cnts: Float> From<Peak<Idx, Cnts>> for PyPeak 
 
 #[pyclass(from_py_object, get_all, name = "HarvestRegion")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyHarvestRegion {
     contig: String,
     orientation: PyOrientation,
@@ -104,6 +108,8 @@ where
 
 #[pyclass(from_py_object, get_all, name = "Harvest")]
 #[derive(Clone, Debug, Dissolve, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyHarvest {
     comparison: Py<PyAny>,
     regions: Vec<Py<PyHarvestRegion>>,

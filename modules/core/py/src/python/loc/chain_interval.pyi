@@ -1,14 +1,13 @@
 from collections.abc import Iterator, Sequence
+from typing import Self, TypeAlias, final
 
-from .interval import IntoInterval, Interval
+from .interval import Interval, IntoInterval
 
-
+@final
 class ChainInterval:
-    def __init__(self, links: IntoChainInterval) -> None: ...
-
-    def links(self) -> list[Interval]: ...
-
+    def __new__(cls, source: IntoChainInterval) -> Self: ...
     def __iter__(self) -> Iterator[Interval]: ...
 
+IntoChainInterval: TypeAlias = ChainInterval | Sequence[IntoInterval]
 
-IntoChainInterval = ChainInterval | Sequence[IntoInterval]
+__all__ = ["ChainInterval", "IntoChainInterval"]

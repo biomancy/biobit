@@ -1,0 +1,7 @@
+{
+  "schema": "0.0.1",
+  "project": {"id": "PROJ1"},
+  "provenance": {"sources": [], "samples": [], "libraries": [], "acquisitions": []},
+  "data": {"assets": [], "datasets": []},
+  "design": {"units": [], "designs": []}
+}

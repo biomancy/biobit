@@ -1,7 +1,8 @@
 from attr import define, field
 
 from biobit.core.loc import Strand
-from .core import Location, Bundle, Entry
+
+from .core import Bundle, Entry, Location
 
 
 @define(hash=True, slots=True, frozen=True, eq=True, order=True, repr=True, str=True)
@@ -21,5 +22,4 @@ class Gene[Attrs](Entry[Attrs]):
         return self.loc.end if self.loc.strand == Strand.Forward else self.loc.start
 
 
-class GeneBundle[Attrs](Bundle[Gene[Attrs]]):
-    ...
+class GeneBundle[Attrs](Bundle[Gene[Attrs]]): ...

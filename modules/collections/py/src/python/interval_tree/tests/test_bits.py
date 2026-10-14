@@ -1,8 +1,7 @@
 import pickle
 
 import pytest
-
-from biobit.collections.interval_tree import Hits, BatchHits, Bits, BitsBuilder
+from biobit.collections.interval_tree import BatchHits, Bits, BitsBuilder, Hits
 from biobit.core.loc import Interval
 
 DATA_A = "A"
@@ -24,12 +23,14 @@ def bits() -> Bits[str]:
 
 def test_bits_building(bits: Bits[str]):
     builder: BitsBuilder[str] = Bits.builder()
-    builder.extend([
-        ((10, 20), DATA_A),
-        (Interval(15, 25), DATA_B),
-        ((30, 40), DATA_C),
-        (Interval(50, 60), DATA_D)
-    ])
+    builder.extend(
+        [
+            ((10, 20), DATA_A),
+            (Interval(15, 25), DATA_B),
+            ((30, 40), DATA_C),
+            (Interval(50, 60), DATA_D),
+        ]
+    )
     tree = builder.build()
 
     # Building from the same builder twice should yield empty trees
@@ -40,14 +41,20 @@ def test_bits_building(bits: Bits[str]):
 
     # fixture and the builder should yield the same tree
     assert tree == bits
-    assert tree.records() == bits.records() == [
-        ((10, 20), DATA_A),
-        ((15, 25), DATA_B),
-        ((30, 40), DATA_C),
-        ((50, 60), DATA_D),
-    ]
+    assert (
+        tree.records()
+        == bits.records()
+        == [
+            ((10, 20), DATA_A),
+            ((15, 25), DATA_B),
+            ((30, 40), DATA_C),
+            ((50, 60), DATA_D),
+        ]
+    )
     assert tree.data() == bits.data() == [DATA_A, DATA_B, DATA_C, DATA_D]
-    assert tree.intervals() == bits.intervals() == [(10, 20), (15, 25), (30, 40), (50, 60)]
+    assert (
+        tree.intervals() == bits.intervals() == [(10, 20), (15, 25), (30, 40), (50, 60)]
+    )
 
 
 def test_bits_pickling(bits: Bits[str]):
@@ -101,17 +108,14 @@ def test_bits_batch_intersection(bits: Bits[str]):
 
     # Reuse the buffer
     bhits = bits.batch_intersect_intervals([(10, 100)], into=bhits)
-    assert list(bhits) == [(
-        [(10, 20), (15, 25), (30, 40), (50, 60)],
-        [DATA_A, DATA_B, DATA_C, DATA_D]
-    )]
+    assert list(bhits) == [
+        ([(10, 20), (15, 25), (30, 40), (50, 60)], [DATA_A, DATA_B, DATA_C, DATA_D])
+    ]
 
     # Empty intersection
     empty = bits.batch_intersect_intervals([(0, 5)], into=bhits)
     assert len(empty) == 1
-    assert list(empty) == [
-        ([], [])
-    ]
+    assert list(empty) == [([], [])]
 
     # Empty batch
     assert bits.batch_intersect_intervals([]) == BatchHits()

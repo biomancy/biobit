@@ -1,7 +1,7 @@
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Callable, Self
+from typing import Self
 
 import pandas as pd
 
@@ -13,10 +13,10 @@ from .rna import RNABundle
 
 class Transcriptome[AttrGene, AttrRNA, AttrCDS]:
     def __init__(
-            self,
-            genes: GeneBundle[AttrGene],
-            rnas: RNABundle[AttrRNA],
-            cds: CDSBundle[AttrCDS],
+        self,
+        genes: GeneBundle[AttrGene],
+        rnas: RNABundle[AttrRNA],
+        cds: CDSBundle[AttrCDS],
     ):
         self.genes: GeneBundle[AttrGene] = genes
         self.rnas: RNABundle[AttrRNA] = rnas
@@ -26,12 +26,16 @@ class Transcriptome[AttrGene, AttrRNA, AttrCDS]:
         inferred_parents = defaultdict(set)
         for rna in self.rnas.values():
             if rna.gene not in self.genes:
-                raise ValueError(f"RNA transcript {rna.ind} is associated with unknown gene {rna.gene}")
+                raise ValueError(
+                    f"RNA transcript {rna.ind} is associated with unknown gene {rna.gene}"
+                )
             inferred_parents[rna.gene].add(rna.ind)
 
         for gid, tids in inferred_parents.items():
             if self.genes[gid].transcripts != tids:
-                raise ValueError(f"Gene {gid} has mismatched RNA transcripts: {tids} vs {self.genes[gid].transcripts}")
+                raise ValueError(
+                    f"Gene {gid} has mismatched RNA transcripts: {tids} vs {self.genes[gid].transcripts}"
+                )
 
     @classmethod
     def merge(cls, annotations: Iterable[Self]) -> Self:
@@ -48,24 +52,49 @@ class Transcriptome[AttrGene, AttrRNA, AttrCDS]:
 
 
 def preprocess_gff(
-        path: Path, ignore_sources: set[str], ignore_types: set[str],
-        hook: Callable[
-            [str, Location, dict[str, str]], tuple[str, Location, dict[str, str]] | None
-        ] = lambda x, y, z: (x, y, z),
-        ind_key: Callable[[str, dict[str, str]], str] = lambda _, x: x["ID"]
+    path: Path,
+    ignore_sources: set[str],
+    ignore_types: set[str],
+    hook: Callable[
+        [str, Location, dict[str, str]], tuple[str, Location, dict[str, str]] | None
+    ] = lambda x, y, z: (x, y, z),
+    ind_key: Callable[[str, dict[str, str]], str] = lambda _, x: x["ID"],
 ) -> dict[str, dict[str, list[tuple[Location, str, dict[str, str]]]]]:
     df = pd.read_csv(
-        path, sep='\t', comment="#",
-        names=["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attrs"],
+        path,
+        sep="\t",
+        comment="#",
+        names=[
+            "seqid",
+            "source",
+            "type",
+            "start",
+            "end",
+            "score",
+            "strand",
+            "phase",
+            "attrs",
+        ],
         dtype={
-            "seqid": str, "source": str, "type": str, "start": int, "end": int,
-            "score": str, "strand": str, "phase": str, "attrs": str
-        }
+            "seqid": str,
+            "source": str,
+            "type": str,
+            "start": int,
+            "end": int,
+            "score": str,
+            "strand": str,
+            "phase": str,
+            "attrs": str,
+        },
     ).drop(columns=["score", "phase"])
 
     ind2type: dict[str, str] = {}
-    records: dict[str, dict[str, list[tuple[Location, str, dict[str, str]]]]] = defaultdict(lambda: defaultdict(list))
-    for seqid, source, type, start, end, strand, attributes in df.itertuples(index=False, name=None):
+    records: dict[str, dict[str, list[tuple[Location, str, dict[str, str]]]]] = (
+        defaultdict(lambda: defaultdict(list))
+    )
+    for seqid, source, type, start, end, strand, attributes in df.itertuples(
+        index=False, name=None
+    ):
         if source in ignore_sources or type in ignore_types:
             continue
 

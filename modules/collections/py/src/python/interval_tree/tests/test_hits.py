@@ -1,8 +1,7 @@
 import pickle
 
 import pytest
-
-from biobit.collections.interval_tree import Hits, BatchHits
+from biobit.collections.interval_tree import BatchHits, Hits
 
 
 def test_hits():
@@ -22,7 +21,9 @@ def test_hits():
     assert hits.intervals() == segments and hits.data() == elements
 
     hits.append((0, 10), "c")
-    assert len(hits) == 4 and list(hits) == list(zip(segments, elements)) + [((0, 10), "c")]
+    assert len(hits) == 4 and list(hits) == list(zip(segments, elements)) + [
+        ((0, 10), "c")
+    ]
 
     other = Hits()
     other.extend(zip(segments + [(0, 10)], elements + ["c"]))
@@ -62,10 +63,12 @@ def test_batch_hits():
         bhits.data(1)
 
     # Multiple queries
-    bhits.extend([
-        ([(0, 5), (10, 13)], ["a", "C"]),
-        ([(0, 10), (20, 30)], ["c", "d"]),
-    ])
+    bhits.extend(
+        [
+            ([(0, 5), (10, 13)], ["a", "C"]),
+            ([(0, 10), (20, 30)], ["c", "d"]),
+        ]
+    )
 
     assert len(bhits) == 3
     assert bhits.intervals(0) == [(-10, 10), (5, 10)]
@@ -98,9 +101,7 @@ def test_batch_hits():
         bhits.data(0)
 
     # Errors in append/extend
-    for intervals, data in [
-        ([], ["A"]), ([(0, 10), (1, 2)], []), ([None], [None])
-    ]:
+    for intervals, data in [([], ["A"]), ([(0, 10), (1, 2)], []), ([None], [None])]:
         with pytest.raises(ValueError):
             bhits.append(intervals, data)
         assert len(bhits) == 0
@@ -108,11 +109,7 @@ def test_batch_hits():
         assert bhits == BatchHits() == pickle.loads(pickle.dumps(bhits))
 
     with pytest.raises(ValueError):
-        bhits.extend([
-            ([(0, 10), (1, 2)], ["A"]),
-            ([(3, 4)], []),
-            ([None], [None])
-        ])
+        bhits.extend([([(0, 10), (1, 2)], ["A"]), ([(3, 4)], []), ([None], [None])])
     assert len(bhits) == 0
     assert list(bhits) == []
     assert bhits == BatchHits() == pickle.loads(pickle.dumps(bhits))

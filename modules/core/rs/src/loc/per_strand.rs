@@ -7,6 +7,8 @@ use super::strand::Strand;
 #[derive(
     Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Dissolve, Constructor,
 )]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PerStrand<T> {
     pub forward: T,
     pub reverse: T,

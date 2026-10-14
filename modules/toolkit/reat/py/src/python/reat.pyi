@@ -1,16 +1,17 @@
 from collections.abc import Sequence
-from typing import Self
+from typing import Self, TypeAlias, final
 
-from biobit.core.ngs import Layout
 from biobit.io.bam import IntoReader
 from biobit.io.fasta import IndexedSources
+from biobit.toolkit.bioproj import Layout
 
 from .result import SamplePileup
 from .selection import Mismatches, RequiredOrMismatches, RequiredSites
 from .task import Task
 
-Selector = Mismatches | RequiredSites | RequiredOrMismatches
+Selector: TypeAlias = Mismatches | RequiredSites | RequiredOrMismatches
 
+@final
 class Reat[T]:
     """
     Reference-aware RNA editing pileup runner.
@@ -24,19 +25,18 @@ class Reat[T]:
     - The default selector is `Mismatches()` that returns all sites with at least one mismatch.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         reference: IndexedSources,
         selector: Selector | None = None,
         min_phred: int = 20,
         threads: int = -1,
-    ) -> None:
+    ) -> Self:
         """
         Create a runner over indexed FASTA reference sources.
 
         `min_phred` filters low-quality read bases before counting.
         """
-        ...
 
     def add_sources(
         self, tag: T, sources: Sequence[IntoReader], layout: Layout
@@ -47,7 +47,6 @@ class Reat[T]:
         If `tag` compares equal to an existing tag, the new sources are merged with the existing
         source list. A later `run()` processes all registered sources for that sample.
         """
-        ...
 
     def run(self, tasks: Sequence[Task]) -> list[SamplePileup[T]]:
         """
@@ -56,10 +55,10 @@ class Reat[T]:
         Results are returned in first-registration order for sample tags. Each
         `SamplePileup` groups task pileups by `(seqid, orientation)`.
         """
-        ...
 
     def reset(self) -> Self:
         """Remove all registered tags and sources from this runner."""
-        ...
 
-    __hash__ = None  # type: ignore
+    __hash__: None = None  # type: ignore[assignment]
+
+__all__ = ["Reat", "Selector"]

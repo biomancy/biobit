@@ -1,0 +1,6 @@
+{
+  "error": "DatasetSubset",
+  "acquisition": "ACQ1",
+  "subset": "A_SUBSET",
+  "superset": "Z_FULL"
+}

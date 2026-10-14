@@ -10,7 +10,7 @@ Use `pixi` from the repository root; task definitions are in `pixi.toml`.
 
 - `pixi run ci`: run docs, Rust, and Python CI tasks.
 - `pixi run -e rust rs-ci`: run `cargo fmt --check`, `cargo check`, `cargo clippy`, and Rust tests.
-- `pixi run -e py-3-14t py-ci`: run Ruff, mypy, build the Python extension with `maturin develop`, then run pytest.
+- `pixi run -e py-3-15t py-ci`: run Ruff, mypy, build the Python extension with `maturin develop`, then run pytest.
 - `pixi run -e docs build-docs`: build the MkDocs site into `biobit/docs/site`.
 
 ## Coding Style & Naming Conventions

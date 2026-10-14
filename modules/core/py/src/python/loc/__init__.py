@@ -1,16 +1,29 @@
-from collections.abc import Sequence
-from typing import Literal
-
-from biobit.rs.core.loc import Strand, Orientation, Interval, ChainInterval, PerOrientation, PerStrand
-
-from . import mapping
-
-IntoOrientation = Orientation | Literal["+", "-", "=", 1, -1, 0]
-IntoStrand = Strand | Literal["+", "-", 1, -1]
-IntoInterval = Interval | tuple[int, int]
-IntoChainInterval = ChainInterval | Sequence[IntoInterval]
+from . import mapping as mapping
+from .chain_interval import (
+    ChainInterval as ChainInterval,
+)
+from .chain_interval import (
+    IntoChainInterval as IntoChainInterval,
+)
+from .interval import Interval as Interval
+from .interval import IntoInterval as IntoInterval
+from .orientation import IntoOrientation as IntoOrientation
+from .orientation import Orientation as Orientation
+from .per_orientation import PerOrientation as PerOrientation
+from .per_strand import PerStrand as PerStrand
+from .strand import IntoStrand as IntoStrand
+from .strand import Strand as Strand
 
 __all__ = [
-    "Strand", "Orientation", "Interval", "ChainInterval", "PerOrientation", "PerStrand",
-    "IntoOrientation", "IntoStrand", "IntoInterval", "IntoChainInterval", "mapping",
+    "ChainInterval",
+    "Interval",
+    "IntoChainInterval",
+    "IntoInterval",
+    "IntoOrientation",
+    "IntoStrand",
+    "Orientation",
+    "PerOrientation",
+    "PerStrand",
+    "Strand",
+    "mapping",
 ]

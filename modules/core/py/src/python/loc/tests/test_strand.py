@@ -1,7 +1,6 @@
 import pickle
 
 import pytest
-
 from biobit.core.loc import Strand
 
 
@@ -38,11 +37,11 @@ def test_strand_str():
 
 def test_strand_order():
     assert Strand.Forward > Strand.Reverse
-    assert Strand.Forward > '-'
+    assert Strand.Forward > "-"
     assert Strand.Forward > -1
 
     assert Strand.Reverse < Strand.Forward
-    assert Strand.Reverse < '+'
+    assert Strand.Reverse < "+"
     assert Strand.Reverse < 1
 
 

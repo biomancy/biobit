@@ -74,11 +74,10 @@ impl<Idx: PrimInt> ChainMap<Idx> {
                 let length = self.bwdlinks[x - 1].end().min(interval.end()) - interval.start();
 
                 raw.push(unsafe {
-                    Interval::new(
+                    Interval::new_unchecked(
                         self.fwdlinks[x - 1].start() + offset,
                         self.fwdlinks[x - 1].start() + offset + length,
                     )
-                    .unwrap_unchecked()
                 });
 
                 (x, length)
@@ -92,11 +91,10 @@ impl<Idx: PrimInt> ChainMap<Idx> {
                 self.bwdlinks[cursor].end().min(interval.end()) - self.bwdlinks[cursor].start();
 
             raw.push(unsafe {
-                Interval::new(
+                Interval::new_unchecked(
                     self.fwdlinks[cursor].start(),
                     self.fwdlinks[cursor].start() + length,
                 )
-                .unwrap_unchecked()
             });
 
             cursor += 1;

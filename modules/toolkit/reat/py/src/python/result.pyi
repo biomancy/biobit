@@ -1,7 +1,10 @@
+from typing import final
+
 from biobit.core.loc import Orientation
 
 from .pileup import TaskPileup
 
+@final
 class SamplePileup[T]:
     """
     REAT output for one sample tag.
@@ -15,7 +18,8 @@ class SamplePileup[T]:
 
     def pileups(self) -> dict[tuple[str, Orientation], TaskPileup]:
         """Return task pileups grouped by `(seqid, orientation)`."""
-        ...
 
     def len(self) -> int: ...
     def is_empty(self) -> bool: ...
+
+__all__ = ["SamplePileup"]

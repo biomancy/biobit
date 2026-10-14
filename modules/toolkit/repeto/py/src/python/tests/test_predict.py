@@ -28,11 +28,9 @@ def test_filter():
     assert pickle.loads(pickle.dumps(first)) == first
 
     for flter in first, second:
-        flter \
-            .set_min_score(100) \
-            .set_rois([(0, 10), (0, 100), (110, 120)]) \
-            .set_min_roi_overlap(3, 0) \
-            .set_min_matches(0, 1000)
+        flter.set_min_score(100).set_rois(
+            [(0, 10), (0, 100), (110, 120)]
+        ).set_min_roi_overlap(3, 0).set_min_matches(0, 1000)
 
     assert first == second
     assert pickle.loads(pickle.dumps(first)) == first == second
@@ -47,4 +45,6 @@ def test_predict():
 
     maxima = irs[-1]
     assert maxima[0] == 2
-    assert maxima[1] == repeto.repeats.InvRepeat([repeto.repeats.InvSegment((0, 2), (4, 6))])
+    assert maxima[1] == repeto.repeats.InvRepeat(
+        [repeto.repeats.InvSegment((0, 2), (4, 6))]
+    )

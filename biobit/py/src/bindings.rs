@@ -20,16 +20,16 @@ pub fn rs(py: Python, module: Bound<'_, PyModule>) -> PyResult<()> {
     let name = format!("{name}.toolkit");
     let toolkit = ImportablePyModuleBuilder::new(py, &name)?
         .defaults()?
+        .add_submodule(&biobit_bioproj_py::construct(
+            py,
+            &format!("{name}.bioproj"),
+        )?)?
         .add_submodule(&biobit_countit_py::construct(
             py,
             &format!("{name}.countit"),
         )?)?
         .add_submodule(&biobit_reaper_py::construct(py, &format!("{name}.reaper"))?)?
         .add_submodule(&biobit_reat_py::construct(py, &format!("{name}.reat"))?)?
-        .add_submodule(&biobit_seqproj_py::construct(
-            py,
-            &format!("{name}.seqproj"),
-        )?)?
         .add_submodule(&biobit_repeto_py::construct(py, &format!("{name}.repeto"))?)?
         .finish();
 

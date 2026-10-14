@@ -18,6 +18,8 @@ use std::io;
 use std::sync::atomic::AtomicBool;
 
 #[derive(Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Engine<Ctg: Contig, Idx: PrimInt, Cnts: Float, Elt> {
     thread_pool: Option<ThreadPool>,
     elements: Vec<Elt>,

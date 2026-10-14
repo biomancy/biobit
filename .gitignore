@@ -24,7 +24,8 @@ downloads/
 dist/
 .eggs/
 eggs/
-lib*/
+lib/
+lib64/
 parts/
 sdist/
 var/
@@ -135,6 +136,8 @@ obsolete
 
 # Resources
 resources
+!modules/toolkit/bioproj/resources/
+!modules/toolkit/bioproj/resources/**
 
 # Rust
 target/

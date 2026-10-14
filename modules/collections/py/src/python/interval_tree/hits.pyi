@@ -1,11 +1,16 @@
-from collections.abc import Sequence
-from typing import Any, Iterator, Iterable
+from collections.abc import Iterable, Iterator, Sequence
+from types import GenericAlias
+from typing import Any, Self, final
 
 from biobit.core.loc import Interval, IntoInterval
-from .segments import HitSegments, BatchHitSegments
 
+from .segments import BatchHitSegments, HitSegments
 
+@final
 class Hits[T]:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """
     Stores the results of a single interval tree query.
 
@@ -13,21 +18,18 @@ class Hits[T]:
     that overlap the query region.
     """
 
-    def __init__(self) -> None:
+    def __new__(cls) -> Self:
         """Create a new, empty Hits container."""
-        ...
 
     def append(self, interval: IntoInterval, data: T) -> None:
         """
         Append a single hit (interval and data).
         """
-        ...
 
     def extend(self, items: Iterable[tuple[IntoInterval, T]]) -> None:
         """
         Extend the list of hits from an iterable of (interval, data) pairs.
         """
-        ...
 
     def intervals(self) -> list[Interval]:
         """
@@ -38,7 +40,6 @@ class Hits[T]:
         Returns:
             list[Interval]: A list of interval objects.
         """
-        ...
 
     def data(self) -> list[T]:
         """
@@ -50,12 +51,11 @@ class Hits[T]:
         Returns:
             list[T]: A list of Python objects associated with each hit.
         """
-        ...
 
     def segment(
-            self,
-            query: Sequence[IntoInterval],
-            into: HitSegments[T] | None = None,
+        self,
+        query: Sequence[IntoInterval],
+        into: HitSegments[T] | None = None,
     ) -> HitSegments[T]:
         """
         Calculates segmentation based on these hits and the provided query intervals.
@@ -78,11 +78,9 @@ class Hits[T]:
             ValueError: If query intervals are invalid or if hits/data counts mismatch internally
                         (propagated from Rust). # Added Raises
         """
-        ...
 
     def clear(self) -> None:
         """Clear the stored hits, removing all intervals and data."""
-        ...
 
     def __len__(self) -> int:
         """
@@ -91,7 +89,6 @@ class Hits[T]:
         Returns:
             int: The total number of hits.
         """
-        ...
 
     def __iter__(self) -> Iterator[tuple[Interval, T]]:
         """
@@ -100,19 +97,20 @@ class Hits[T]:
         Yields:
             tuple[Interval, T]: A tuple containing the interval and its associated data object.
         """
-        ...
 
-
+@final
 class BatchHits[T]:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """
     Stores the results of multiple interval tree queries (a batch).
 
     Results for individual queries are accessible via methods like `intervals` and `data`.
     """
 
-    def __init__(self) -> None:
+    def __new__(cls) -> Self:
         """Create a new, empty BatchHits container."""
-        ...
 
     def intervals(self, i: int) -> list[Interval]:
         """
@@ -129,7 +127,6 @@ class BatchHits[T]:
         Raises:
             IndexError: If the query index `i` is out of bounds.
         """
-        ...
 
     def data(self, i: int) -> list[T]:
         """
@@ -147,24 +144,23 @@ class BatchHits[T]:
         Raises:
             IndexError: If the query index `i` is out of bounds.
         """
-        ...
 
     def append(self, intervals: Iterable[IntoInterval], data: Iterable[T]) -> None:
         """
         Append results for a single new query to the end of the batch.
         """
-        ...
 
-    def extend(self, queries: Iterable[tuple[Iterable[IntoInterval], Iterable[T]]]) -> None:
+    def extend(
+        self, queries: Iterable[tuple[Iterable[IntoInterval], Iterable[T]]]
+    ) -> None:
         """
         Extend the batch with results from multiple queries provided via an iterable.
         """
-        ...
 
     def segment(
-            self,
-            query: Sequence[Sequence[IntoInterval]],
-            into: BatchHitSegments[T] | None = None,
+        self,
+        query: Sequence[Sequence[IntoInterval]],
+        into: BatchHitSegments[T] | None = None,
     ) -> BatchHitSegments[T]:
         """
         Calculates segmentation for each query in the batch.
@@ -185,11 +181,9 @@ class BatchHits[T]:
             BatchHitSegments[T]: The batch segmentation results. This will be the
                                   `into` object if provided, otherwise a new object.
         """
-        ...
 
     def clear(self) -> None:
         """Clear stored hits for all queries."""
-        ...
 
     def __len__(self) -> int:
         """
@@ -198,7 +192,6 @@ class BatchHits[T]:
         Returns:
             int: The number of queries processed.
         """
-        ...
 
     def __iter__(self) -> Iterator[tuple[list[Interval], list[T]]]:
         """
@@ -208,10 +201,9 @@ class BatchHits[T]:
             tuple[list[Interval], list[T]]:
                 A tuple containing the list of intervals and the list of data for each query.
         """
-        ...
 
-    def __eq__(self, other: object) -> bool: ...
-
+    def __eq__(self, other: object, /) -> bool: ...
     def __getstate__(self) -> Any: ...
-
     def __setstate__(self, state: Any) -> None: ...
+
+__all__ = ["BatchHits", "Hits"]

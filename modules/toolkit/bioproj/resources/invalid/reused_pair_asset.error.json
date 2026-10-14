@@ -1,0 +1,5 @@
+{
+  "error": "InvalidValue",
+  "field": "PairedFastq::pairs",
+  "reason": "FASTQ Asset 'AST_R1' appears more than once"
+}

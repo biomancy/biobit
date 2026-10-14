@@ -10,6 +10,8 @@ use pyo3::{PyRefMut, PyResult, pyclass, pymethods};
 
 #[pyclass(from_py_object, eq, name = "RNAPileup")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyRNAPileup {
     rs: RNAPileup<usize, f32>,
 }

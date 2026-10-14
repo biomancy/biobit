@@ -10,14 +10,14 @@ from .selection import RequiredSites as RequiredSites
 from .task import Task as Task
 
 __all__ = [
-    "Reat",
-    "Task",
-    "Pileup",
-    "SparsePileup",
-    "TaskPileup",
-    "SamplePileup",
     "Mismatches",
-    "RequiredSites",
+    "Pileup",
+    "Reat",
     "RequiredOrMismatches",
+    "RequiredSites",
+    "SamplePileup",
+    "SparsePileup",
+    "Task",
+    "TaskPileup",
     "selection",
 ]

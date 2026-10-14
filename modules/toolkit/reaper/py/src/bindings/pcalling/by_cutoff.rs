@@ -10,6 +10,8 @@ use pyo3::{Bound, PyRefMut, pyclass, pymethods};
 
 #[pyclass(from_py_object, eq, name = "ByCutoff")]
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct PyByCutoff {
     rs: ByCutoff<usize, f32>,
 }

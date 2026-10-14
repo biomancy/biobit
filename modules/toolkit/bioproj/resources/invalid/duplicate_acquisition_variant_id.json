@@ -1,0 +1,21 @@
+{
+  "schema": "0.0.1",
+  "project": {"id": "PROJ1"},
+  "provenance": {
+    "sources": [{"id": "SRC1", "organism": "Homo sapiens"}],
+    "samples": [{"id": "SMP1", "sources": ["SRC1"]}],
+    "libraries": [{"type": "P5P7", "id": "LIB1", "samples": ["SMP1"], "input": {"type": "DNA"}}],
+    "acquisitions": [
+      {"type": "IlluminaSingleEndSequencing", "id": "ACQ1", "libraries": ["LIB1"]},
+      {"type": "IlluminaPairedEndSequencing", "id": "ACQ1", "libraries": ["LIB1"]}
+    ]
+  },
+  "data": {
+    "assets": [{"type": "Fastq", "id": "AST1", "location": "AST1.fq.gz"}],
+    "datasets": [{"type": "Fastq", "id": "DATA1", "acquisition": "ACQ1", "assets": ["AST1"]}]
+  },
+  "design": {
+    "units": [{"id": "UNIT_A", "acquisitions": ["ACQ1"]}],
+    "designs": [{"type": "UnitSet", "id": "DES1", "name": "Joint analysis", "units": ["UNIT_A"]}]
+  }
+}

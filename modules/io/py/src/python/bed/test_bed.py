@@ -2,12 +2,11 @@ import os
 from pathlib import Path
 
 import pytest
-
-from biobit.core.loc import IntoInterval, IntoOrientation, Orientation, Interval
+from biobit.core.loc import Interval, IntoInterval, IntoOrientation, Orientation
 from biobit.io.bed import Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, Reader, Writer
 from biobit.test_utils import ensure_pickable
 
-RESOURCES = Path(os.environ['BIOBIT_RESOURCES']) / "bed"
+RESOURCES = Path(os.environ["BIOBIT_RESOURCES"]) / "bed"
 
 
 def _bed3(obj, seqid: str, interval: IntoInterval | None):
@@ -25,13 +24,13 @@ def _bed3(obj, seqid: str, interval: IntoInterval | None):
     assert (obj.seqid, obj.interval) == ("seqid.new", prev)
 
     # Only non-whitespace strings with less than 255 characters are allowed
-    for seqid in [" ", "seqid A", "\t", "Seq\nA", "A" * 256]:
-        with pytest.raises(Exception):
-            obj.seqid = seqid
+    for invalid_seqid in [" ", "seqid A", "\t", "Seq\nA", "A" * 256]:
+        with pytest.raises(RuntimeError):
+            obj.seqid = invalid_seqid
 
     # Only non-negative intervals are allowed
     for interval in [(-1, 10), (-10, 0), (-2, -1)]:
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             obj.interval = interval
 
 
@@ -46,9 +45,9 @@ def _bed4(obj, seqid: str, interval: IntoInterval | None, name: str):
     assert (obj.name, obj.seqid) == ("super-name-new", "_A_")
 
     # Only [\x20-\x7e]{1,255} characters are allowed for the name
-    for name in ["", "A" * 256]:
-        with pytest.raises(Exception):
-            obj.name = name
+    for invalid_name in ["", "A" * 256]:
+        with pytest.raises(RuntimeError):
+            obj.name = invalid_name
 
 
 def _bed5(obj, seqid: str, interval: IntoInterval | None, name: str, score: int):
@@ -62,12 +61,19 @@ def _bed5(obj, seqid: str, interval: IntoInterval | None, name: str, score: int)
     assert (obj.score, obj.name) == (1000, "bed5?name")
 
     # Scores must be in the range [0, 1000]
-    for score in [-1, 1001]:
-        with pytest.raises(Exception):
-            obj.score = score
+    for invalid_score, error in [(-1, OverflowError), (1001, RuntimeError)]:
+        with pytest.raises(error):
+            obj.score = invalid_score
 
 
-def _bed6(obj, seqid: str, interval: IntoInterval | None, name: str, score: int, orientation: IntoOrientation):
+def _bed6(
+    obj,
+    seqid: str,
+    interval: IntoInterval | None,
+    name: str,
+    score: int,
+    orientation: IntoOrientation,
+):
     _bed5(obj, seqid, interval, name, score)
 
     assert obj.orientation == orientation
@@ -78,13 +84,20 @@ def _bed6(obj, seqid: str, interval: IntoInterval | None, name: str, score: int,
     assert (obj.orientation, obj.score) == (Orientation.Reverse, 123)
 
     # Only "+", "-", and "=" are allowed for the orientation
-    for orientation in ["", "++", "--", "."]:
-        with pytest.raises(Exception):
-            obj.orientation = orientation
+    for invalid_orientation in ["", "++", "--", "."]:
+        with pytest.raises(ValueError):
+            obj.orientation = invalid_orientation
 
 
-def _bed8(obj, seqid: str, _: IntoInterval | None, name: str, score: int, orientation: IntoOrientation,
-          thick: IntoInterval | None):
+def _bed8(
+    obj,
+    seqid: str,
+    _: IntoInterval | None,
+    name: str,
+    score: int,
+    orientation: IntoOrientation,
+    thick: IntoInterval | None,
+):
     _bed6(obj, seqid, None, name, score, orientation)
 
     if thick:
@@ -94,23 +107,31 @@ def _bed8(obj, seqid: str, _: IntoInterval | None, name: str, score: int, orient
         assert (obj.interval, obj.thick) == ((100, 200), (105, 150))
 
         # But changing either of them to break the invariant should raise an exception
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             obj.interval = (100, 110)
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             obj.thick = (90, 150)
 
     # Thick intervals must be inside the main interval
     start, end = obj.interval.start, obj.interval.end
-    for thick in [(start - 1, end), (start, end + 1), (start - 1, end + 1)]:
-        with pytest.raises(Exception):
-            obj.thick = thick
+    for invalid_thick in [(start - 1, end), (start, end + 1), (start - 1, end + 1)]:
+        with pytest.raises(RuntimeError):
+            obj.thick = invalid_thick
 
     obj.thick = obj.interval
 
 
-def _bed9(obj, seqid: str, interval: IntoInterval | None, name: str, score: int, orientation: IntoOrientation,
-          thick: IntoInterval | None, rgb: tuple[int, int, int]):
+def _bed9(
+    obj,
+    seqid: str,
+    interval: IntoInterval | None,
+    name: str,
+    score: int,
+    orientation: IntoOrientation,
+    thick: IntoInterval | None,
+    rgb: tuple[int, int, int],
+):
     _bed8(obj, seqid, interval, name, score, orientation, thick)
 
     assert obj.rgb == rgb
@@ -121,13 +142,29 @@ def _bed9(obj, seqid: str, interval: IntoInterval | None, name: str, score: int,
     assert (obj.rgb, obj.name) == ((0, 255, 0), "RGB rules")
 
     # RGB values must be in the range [0, 255]
-    for rgb in [(-1, 0, 0), (0, -1, 0), (0, 0, -1), (256, 0, 0), (255, 256, 0), (0, 0, 256)]:
-        with pytest.raises(Exception):
-            obj.rgb = rgb
+    for invalid_rgb in [
+        (-1, 0, 0),
+        (0, -1, 0),
+        (0, 0, -1),
+        (256, 0, 0),
+        (255, 256, 0),
+        (0, 0, 256),
+    ]:
+        with pytest.raises(OverflowError):
+            obj.rgb = invalid_rgb
 
 
-def _bed12(obj, seqid: str, _interval: IntoInterval, name: str, score: int, orientation: IntoOrientation,
-           _thick: IntoInterval, rgb: tuple[int, int, int], blocks: list[IntoInterval]):
+def _bed12(
+    obj,
+    seqid: str,
+    _interval: IntoInterval,
+    name: str,
+    score: int,
+    orientation: IntoOrientation,
+    _thick: IntoInterval,
+    rgb: tuple[int, int, int],
+    blocks: list[IntoInterval],
+):
     assert obj.blocks == blocks
 
     # Drop blocks to avoid invariant violation when modifying the interval or thick
@@ -135,11 +172,9 @@ def _bed12(obj, seqid: str, _interval: IntoInterval, name: str, score: int, orie
 
     # Blocks must be non-overlapping, sorted, and start/end on the main interval boundaries
     # Note: blocks are always in local coordinates
-    for blocks in [
-        [(0, 100)], [(0, 5), (99, 100)], [(x, x + 1) for x in range(100)]
-    ]:
-        obj.set(interval=(1, 101), thick=(5, 100), blocks=blocks)
-        assert (obj.interval, obj.thick, obj.blocks) == ((1, 101), (5, 100), blocks)
+    for new_blocks in [[(0, 100)], [(0, 5), (99, 100)], [(x, x + 1) for x in range(100)]]:
+        obj.set(interval=(1, 101), thick=(5, 100), blocks=new_blocks)
+        assert (obj.interval, obj.thick, obj.blocks) == ((1, 101), (5, 100), new_blocks)
 
 
 def test_bed_records():
@@ -169,22 +204,52 @@ def test_bed_records():
 def test_bed_reader():
     expected = [
         Bed12(
-            "12", (100171448, 100171534), "1064+]", 0, "+",
-            (100171448, 100171534), (0, 0, 0), [(0, 86)]
+            "12",
+            (100171448, 100171534),
+            "1064+]",
+            0,
+            "+",
+            (100171448, 100171534),
+            (0, 0, 0),
+            [(0, 86)],
         ),
         Bed12(
-            "13", (31643773, 31646400), "204+]", 13, "=",
-            (31643773, 31646400), (0, 0, 255), [(0, 250), (2185, 2627)]
+            "13",
+            (31643773, 31646400),
+            "204+]",
+            13,
+            "=",
+            (31643773, 31646400),
+            (0, 0, 255),
+            [(0, 250), (2185, 2627)],
         ),
         Bed12(
-            "17", (38362989, 38379729), "668+]", 98, "=",
-            (38362989, 38379729), (0, 0, 0), [
-                (0, 166), (1894, 1981), (3152, 3398), (10024, 10141), (12682, 12807), (13258, 13375), (15678, 16740)
-            ]
+            "17",
+            (38362989, 38379729),
+            "668+]",
+            98,
+            "=",
+            (38362989, 38379729),
+            (0, 0, 0),
+            [
+                (0, 166),
+                (1894, 1981),
+                (3152, 3398),
+                (10024, 10141),
+                (12682, 12807),
+                (13258, 13375),
+                (15678, 16740),
+            ],
         ),
         Bed12(
-            "6", (137457714, 137460096), "129 -]", 1000, "-",
-            (137457714, 137460096), (0, 255, 0), [(0, 2382)]
+            "6",
+            (137457714, 137460096),
+            "129 -]",
+            1000,
+            "-",
+            (137457714, 137460096),
+            (0, 255, 0),
+            [(0, 2382)],
         ),
     ]
 
@@ -219,7 +284,7 @@ def test_bed_writer(path, tmp_path: Path):
         for record in allrecords:
             writer.write_record(record)
     # Check that the file is closed
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         writer.flush()
 
     assert Reader.bed12(saveto).read_to_end() == allrecords

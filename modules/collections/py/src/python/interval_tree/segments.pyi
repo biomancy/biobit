@@ -1,9 +1,14 @@
-from typing import Iterator, Any
+from collections.abc import Iterator
+from types import GenericAlias
+from typing import Any, Self, final
 
 from biobit.core.loc import Interval
 
-
+@final
 class HitSegments[T]:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """
     Represents the segmentation of query intervals based on overlapping hits.
 
@@ -12,9 +17,8 @@ class HitSegments[T]:
     overlap that specific segment.
     """
 
-    def __init__(self) -> None:
+    def __new__(cls) -> Self:
         """Create a new, empty HitSegments container."""
-        ...
 
     def segments(self) -> list[Interval]:
         """
@@ -25,7 +29,6 @@ class HitSegments[T]:
         Returns:
             list[Interval]: The list of segments. Note: Creates a copy.
         """
-        ...
 
     def data(self) -> list[frozenset[T]]:
         """
@@ -36,11 +39,9 @@ class HitSegments[T]:
             list[frozenset[T]]: List of frozensets. Note: Creates a copy of the list structure.
                                   The elements within the frozensets are the original Python objects.
         """
-        ...
 
     def clear(self) -> None:
         """Clear the stored segments and associated data sets."""
-        ...
 
     def __len__(self) -> int:
         """
@@ -49,7 +50,6 @@ class HitSegments[T]:
         Returns:
             int: The number of segments.
         """
-        ...
 
     def __iter__(self) -> Iterator[tuple[Interval, frozenset[T]]]:
         """
@@ -59,16 +59,16 @@ class HitSegments[T]:
             tuple[Interval, frozenset[T]]: A tuple containing the segment interval
                                                and the frozenset of data objects overlapping it.
         """
-        ...
 
-    def __eq__(self, other: object) -> bool: ...
-
+    def __eq__(self, other: object, /) -> bool: ...
     def __getstate__(self) -> Any: ...
-
     def __setstate__(self, state: Any) -> None: ...
 
-
+@final
 class BatchHitSegments[T]:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """
     Stores the results of segmenting multiple query intervals based on overlapping hits.
 
@@ -76,9 +76,8 @@ class BatchHitSegments[T]:
     for multiple queries processed in a batch.
     """
 
-    def __init__(self) -> None:
+    def __new__(cls) -> Self:
         """Create a new, empty BatchHitSegments container."""
-        ...
 
     def segments(self, i: int) -> list[Interval]:
         """
@@ -93,7 +92,6 @@ class BatchHitSegments[T]:
         Raises:
             IndexError: If the query index `i` is out of bounds.
         """
-        ...
 
     def data(self, i: int) -> list[frozenset[T]]:
         """
@@ -108,11 +106,9 @@ class BatchHitSegments[T]:
         Raises:
             IndexError: If the query index `i` is out of bounds.
         """
-        ...
 
     def clear(self) -> None:
         """Clear stored segments for all queries."""
-        ...
 
     def __len__(self) -> int:
         """
@@ -121,7 +117,6 @@ class BatchHitSegments[T]:
         Returns:
             int: The number of queries processed.
         """
-        ...
 
     def __iter__(self) -> Iterator[tuple[list[Interval], list[frozenset[T]]]]:
         """
@@ -132,10 +127,9 @@ class BatchHitSegments[T]:
                 A tuple containing the list of segments and the list of data frozensets
                 for one query.
         """
-        ...
 
-    def __eq__(self, other: object) -> bool: ...
-
+    def __eq__(self, other: object, /) -> bool: ...
     def __getstate__(self) -> Any: ...
-
     def __setstate__(self, state: Any) -> None: ...
+
+__all__ = ["BatchHitSegments", "HitSegments"]

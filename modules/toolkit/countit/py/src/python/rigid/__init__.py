@@ -1,5 +1,4 @@
-from . import resolution
-
-from biobit.rs.toolkit.countit.rigid import Engine
+from . import resolution as resolution
+from .engine import Engine as Engine
 
 __all__ = ["Engine", "resolution"]

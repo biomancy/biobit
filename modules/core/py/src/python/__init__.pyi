@@ -1,3 +1,3 @@
-from biobit.core import loc
+from . import loc as loc
 
 __all__ = ["loc"]

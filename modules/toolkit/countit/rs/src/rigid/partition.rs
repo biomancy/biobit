@@ -9,6 +9,8 @@ use log;
 // Partition is not 'per orientation' because BAM files are indexed only by contig and position
 // Contig + Orientation indexing will be the only supported indexing scheme in the future
 #[derive(Debug, Dissolve, Constructor, Getters)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Partition<Ctg, Idx: PrimInt> {
     // Coordinates of the partition
     contig: Ctg,

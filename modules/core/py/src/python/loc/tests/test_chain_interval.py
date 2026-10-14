@@ -1,7 +1,6 @@
 import pickle
 
 import pytest
-
 from biobit.core.loc import ChainInterval, Interval
 
 
@@ -19,7 +18,7 @@ def test_interval_chain_new():
 
     # Touching/Overlapping/Unsorted intervals are not allowed
     for load in [(0, 10), (10, 20)], [(0, 10), (5, 15)], [(0, 10), (20, 30), (15, 25)]:
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             ChainInterval(load)
 
     # Single interval is allowed

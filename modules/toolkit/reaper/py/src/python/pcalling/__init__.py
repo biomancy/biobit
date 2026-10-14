@@ -1,3 +1,3 @@
-from biobit.rs.toolkit.reaper.pcalling import ByCutoff
+from .by_cutoff import ByCutoff as ByCutoff
 
 __all__ = ["ByCutoff"]

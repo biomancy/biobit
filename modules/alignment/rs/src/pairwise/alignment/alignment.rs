@@ -12,6 +12,8 @@ use super::utils;
 
 /// A genomic alignment between two sequences.
 #[derive(Clone, Eq, PartialEq, Debug, Getters, Constructor, Dissolve, From, Into)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Alignment<Score, StepLen, Seq1Idx, Seq2Idx>
 where
     Score: Num,

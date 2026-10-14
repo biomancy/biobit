@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Self, TypeAlias, final
 
-
+@final
 class Reader:
     filename: str
     inflags: int
@@ -8,12 +9,18 @@ class Reader:
     minmapq: int
     batch_size: int
 
-    def __init__(self, filename: str | Path, inflags: int = 0, exflags: int = 516, minmapq: int = 0,
-                 batch_size: int = 1024) -> None: ...
+    def __new__(
+        cls,
+        filename: str | Path,
+        inflags: int = 0,
+        exflags: int = 516,
+        minmapq: int = 0,
+        batch_size: int = 1024,
+    ) -> Self: ...
+    def __eq__(self, other: object, /) -> bool: ...
 
-    def __eq__(self, other: object) -> bool: ...
+    __hash__: None = None  # type: ignore[assignment]
 
-    __hash__ = None  # type: ignore
+IntoReader: TypeAlias = Reader | str
 
-
-IntoReader = Reader | str
+__all__ = ["IntoReader", "Reader"]

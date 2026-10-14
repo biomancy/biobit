@@ -1,3 +1,3 @@
-from biobit.rs.toolkit.countit import PartitionMetrics, Counts, ResolutionOutcome
+from biobit.rs.toolkit.countit import Counts, PartitionMetrics, ResolutionOutcome
 
-__all__ = ["PartitionMetrics", "Counts", "ResolutionOutcome"]
+__all__ = ["Counts", "PartitionMetrics", "ResolutionOutcome"]

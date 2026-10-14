@@ -1,8 +1,12 @@
 import pickle
 
 import pytest
-
-from biobit.collections.interval_tree import Hits, HitSegments, BatchHitSegments, BatchHits
+from biobit.collections.interval_tree import (
+    BatchHits,
+    BatchHitSegments,
+    Hits,
+    HitSegments,
+)
 
 
 def test_hit_segments():
@@ -16,14 +20,26 @@ def test_hit_segments():
 
     # Some hits
     hits = Hits()
-    hits.extend([
-        ((10, 20), "A"), ((20, 30), "B"), ((25, 35), "C"), ((0, 15), "A"),
-    ])
+    hits.extend(
+        [
+            ((10, 20), "A"),
+            ((20, 30), "B"),
+            ((25, 35), "C"),
+            ((0, 15), "A"),
+        ]
+    )
 
     query = [(0, 100), (150, 200)]
     expected = [
         [(0, 20), (20, 25), (25, 30), (30, 35), (35, 100), (150, 200)],
-        [frozenset({"A"}), frozenset({"B"}), frozenset({"B", "C"}), frozenset({"C"}), frozenset({}), frozenset()],
+        [
+            frozenset({"A"}),
+            frozenset({"B"}),
+            frozenset({"B", "C"}),
+            frozenset({"C"}),
+            frozenset({}),
+            frozenset(),
+        ],
     ]
 
     # Segment by creating a new HitSegments object on the fly
@@ -74,18 +90,19 @@ def test_batch_hit_segments():
     bhits.append([(50, 60), (55, 65)], ["C", "D"])
     bhits.append([], [])
 
-    queries = [
-        [(20, 45)],
-        [(50, 57), (58, 60), (70, 100)],
-        [(70, 80), (90, 91)]
-    ]
+    queries = [[(20, 45)], [(50, 57), (58, 60), (70, 100)], [(70, 80), (90, 91)]]
 
     # Expected results
     exp_q0_intervals = [(20, 30), (30, 40), (40, 45)]
     exp_q0_data_sets = [frozenset({"A", "B"}), frozenset({"B"}), frozenset()]
 
     exp_q1_intervals = [(50, 55), (55, 57), (58, 60), (70, 100)]
-    exp_q1_data_sets = [frozenset({"C"}), frozenset({"C", "D"}), frozenset({"C", "D"}), frozenset()]
+    exp_q1_data_sets = [
+        frozenset({"C"}),
+        frozenset({"C", "D"}),
+        frozenset({"C", "D"}),
+        frozenset(),
+    ]
 
     exp_q2_intervals = [(70, 80), (90, 91)]
     exp_q2_data_sets = [frozenset(), frozenset()]

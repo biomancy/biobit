@@ -1,5 +1,17 @@
-from biobit.rs.collections.interval_tree import Bits, BitsBuilder, Hits, BatchHits, HitSegments, BatchHitSegments
+from .bits import Bits as Bits
+from .bits import BitsBuilder as BitsBuilder
+from .forest import Forest as Forest
+from .hits import BatchHits as BatchHits
+from .hits import Hits as Hits
+from .segments import BatchHitSegments as BatchHitSegments
+from .segments import HitSegments as HitSegments
 
-from .forest import Forest
-
-__all__ = ["Bits", "BitsBuilder", "Hits", "BatchHits", "HitSegments", "BatchHitSegments", "Forest"]
+__all__ = [
+    "BatchHitSegments",
+    "BatchHits",
+    "Bits",
+    "BitsBuilder",
+    "Forest",
+    "HitSegments",
+    "Hits",
+]

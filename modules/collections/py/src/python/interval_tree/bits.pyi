@@ -1,17 +1,22 @@
-from typing import Any, Iterable
+from collections.abc import Iterable
+from types import GenericAlias
+from typing import Any, Self, final
 
 from biobit.core.loc import Interval, IntoInterval
-from . import Hits, BatchHits
 
+from . import BatchHits, Hits
 
+@final
 class BitsBuilder[T]:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """A builder for constructing Bits interval trees."""
 
-    def __init__(self) -> None:
+    def __new__(cls) -> Self:
         """Create a new builder instance."""
-        ...
 
-    def add(self, interval: IntoInterval, data: T) -> "BitsBuilder":
+    def add(self, interval: IntoInterval, data: T) -> BitsBuilder:
         """
         Add an interval and its corresponding Python object data.
 
@@ -22,9 +27,8 @@ class BitsBuilder[T]:
         Returns:
             Itself, for chaining.
         """
-        ...
 
-    def extend(self, data: Iterable[tuple[IntoInterval, T]]) -> "BitsBuilder":
+    def extend(self, data: Iterable[tuple[IntoInterval, T]]) -> BitsBuilder:
         """
         Extend the builder from an iterable of (interval, data) pairs.
 
@@ -35,19 +39,20 @@ class BitsBuilder[T]:
         Returns:
             Itself, for chaining.
         """
-        ...
 
-    def build(self) -> "Bits":
+    def build(self) -> Bits:
         """
         Build the final Bits interval tree.
 
         Returns:
             The constructed interval tree.
         """
-        ...
 
-
+@final
 class Bits[T]:
+    @classmethod
+    def __class_getitem__(cls, args: object) -> GenericAlias: ...
+
     """
     An interval tree implementation using the BITS algorithm.
 
@@ -62,27 +67,25 @@ class Bits[T]:
         """
         Create a new builder for constructing a Bits interval tree.
         """
-        ...
 
     def data(self) -> list[T]:
         """
         Get the list of data objects stored in the tree.
         """
-        ...
 
     def intervals(self) -> list[Interval]:
         """
         Get the list of intervals stored in the tree.
         """
-        ...
 
     def records(self) -> list[tuple[Interval, T]]:
         """
         Get the list of (interval, data) records stored in the tree.
         """
-        ...
 
-    def intersect_interval(self, interval: IntoInterval, into: Hits[Any] | None = None) -> Hits[T]:
+    def intersect_interval(
+        self, interval: IntoInterval, into: Hits[Any] | None = None
+    ) -> Hits[T]:
         """
         Find entries overlapping the query interval.
 
@@ -94,10 +97,9 @@ class Bits[T]:
         Returns:
             The Hits object containing the results.
         """
-        ...
 
     def batch_intersect_intervals(
-            self, intervals: list[IntoInterval], into: BatchHits[Any] | None = None
+        self, intervals: list[IntoInterval], into: BatchHits[Any] | None = None
     ) -> BatchHits[T]:
         """
         Find entries overlapping each query interval in a batch.
@@ -112,6 +114,7 @@ class Bits[T]:
         Returns:
             The BatchHits object containing the results.
         """
-        ...
 
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object, /) -> bool: ...
+
+__all__ = ["Bits", "BitsBuilder"]

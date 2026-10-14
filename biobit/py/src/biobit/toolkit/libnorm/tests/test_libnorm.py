@@ -1,12 +1,18 @@
 import numpy as np
 import pandas as pd
-
 from biobit.toolkit.libnorm.median_of_ratios import MedianOfRatiosNormalization
 
 
 def test_median_of_ratios():
     raw = {
-        "Region": ["Region 1", "Region 2", "Region 3", "Region 4", "Region 5", "Region 6"],
+        "Region": [
+            "Region 1",
+            "Region 2",
+            "Region 3",
+            "Region 4",
+            "Region 5",
+            "Region 6",
+        ],
         "Sample 1": [0, 50, 7, 2, 58, 0],
         "Sample 2": [2, 52, 9, 1, 76, 1],
         "Sample 3": [3, 86, 12, 4, 57, 0],
@@ -18,12 +24,21 @@ def test_median_of_ratios():
     }
     data = pd.DataFrame(raw).set_index("Region").astype(np.float32)
 
-    _, _, scaling = MedianOfRatiosNormalization(data).scaling_factors({x: [x] for x in data.columns})
+    _, _, scaling = MedianOfRatiosNormalization(data).scaling_factors(
+        {x: [x] for x in data.columns}
+    )
 
     normalized = data.div(scaling, axis=1)
 
     raw = {
-        "Region": ["Region 1", "Region 2", "Region 3", "Region 4", "Region 5", "Region 6"],
+        "Region": [
+            "Region 1",
+            "Region 2",
+            "Region 3",
+            "Region 4",
+            "Region 5",
+            "Region 6",
+        ],
         "Sample 1": [0.000000, 68.551338, 9.597187, 2.742054, 79.519554, 0.000000],
         "Sample 2": [2.429501, 63.167027, 10.932755, 1.214751, 92.321037, 1.214751],
         "Sample 3": [2.454096, 70.350739, 9.816382, 3.272127, 46.627815, 0.000000],

@@ -18,6 +18,7 @@ path = "src/bindings/lib.rs"
 pyo3 = { workspace = true }
 biobit-io-rs = { path = "../rs", features = ["bitcode"] }
 biobit-core-py = { path = "../../core/py" }
+biobit-bioproj-py = { path = "../../toolkit/bioproj/py" }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
 higher-kinded-types = { workspace = true }

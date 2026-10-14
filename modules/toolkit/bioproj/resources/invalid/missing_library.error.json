@@ -1,0 +1,8 @@
+{
+  "error": "MissingReference",
+  "owner": "Acquisition",
+  "id": "ACQ1",
+  "field": "libraries",
+  "target": "Library",
+  "target_id": "MISSING"
+}

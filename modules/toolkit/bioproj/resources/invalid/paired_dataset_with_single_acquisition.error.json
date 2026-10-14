@@ -1,0 +1,6 @@
+{
+  "error": "KindMismatch",
+  "id": "ACQ1",
+  "expected": "IlluminaPairedEndSequencing",
+  "actual": "IlluminaSingleEndSequencing"
+}

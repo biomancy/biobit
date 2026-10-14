@@ -1,4 +1,4 @@
-use biobit_core_py::ngs::{MatesOrientation, PyLayout, Strandedness};
+use biobit_bioproj_py::{Layout, MatesOrientation, PyLayout, Strandedness};
 use biobit_core_py::parallelism;
 use biobit_core_rs::LendingIterator;
 use biobit_core_rs::source::{DynSource, Source};
@@ -52,7 +52,12 @@ impl PyReat {
 #[pymethods]
 impl PyReat {
     #[new]
-    #[pyo3(signature = (reference, selector = None, min_phred = 20, threads = -1))]
+    // PyO3 0.29 renders `threads=-1` as `threads=...` in generated text signatures.
+    // Override it so inspect.signature() and stubtest see the actual default.
+    #[pyo3(
+        signature = (reference, selector = None, min_phred = 20, threads = -1),
+        text_signature = "(reference, selector=None, min_phred=20, threads=-1)"
+    )]
     pub fn new(
         reference: Py<PyIndexedSources>,
         selector: Option<IntoPySelector>,
@@ -116,8 +121,8 @@ fn to_oriented_records(
 ) -> Result<Box<OrientedRecordSource>> {
     let source = source.0.borrow(py).clone().dissolve();
 
-    match layout {
-        PyLayout::Single { strandedness } => match strandedness.0 {
+    match layout.0 {
+        Layout::Single { strandedness } => match strandedness {
             Strandedness::Forward => Ok(source
                 .with_transform(
                     transform::BundleByOrientation::new(strdeductor::deduce::se::forward),
@@ -143,16 +148,16 @@ fn to_oriented_records(
                 .to_src()
                 .boxed()),
         },
-        PyLayout::Paired {
+        Layout::Paired {
             strandedness,
             orientation,
         } => {
-            if orientation.0 != MatesOrientation::Inward {
+            if orientation != MatesOrientation::Inward {
                 return Err(eyre!(
                     "Only inward mates orientation is supported by REAT paired layouts"
                 ));
             }
-            match strandedness.0 {
+            match strandedness {
                 Strandedness::Forward => Ok(source
                     .with_transform(
                         transform::BundleByOrientation::new(strdeductor::deduce::pe::forward),

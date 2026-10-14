@@ -20,11 +20,11 @@ def test_fasta_record():
     # Check that the id and seq are validated
     for id in ["", "id\n"]:
         for seq in ["seq_1", "", "seq123"]:
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 record.id = id
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 record.seq = seq
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 Record(id, seq)
     assert (record.id, record.seq) == ("new_id", "newseq")
 
@@ -86,7 +86,7 @@ def test_indexed_fasta_reader(path):
             assert reader.fetch(id, (start, end)) == seq[start:end]
 
         for start, end in [(10, 2_000), (-1, 1), (10, len(seq) + 1)]:
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 reader.fetch(id, (start, end))
 
 
@@ -114,7 +114,7 @@ def test_indexed_sources_open(path):
 def test_indexed_sources_delay_reader_validation():
     source = IndexedSources(RESOURCES / "missing.fa")
 
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         source.open()
 
 
@@ -142,7 +142,7 @@ def test_fasta_writer(path, tmp_path: Path):
     saveto.unlink()
 
     # Check that the file is closed
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         writer.flush()
 
     with Writer(saveto, line_width=120) as writer:

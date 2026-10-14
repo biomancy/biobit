@@ -1,7 +1,6 @@
 import pickle
 
 import pytest
-
 from biobit.core.loc import Interval
 
 
@@ -11,7 +10,7 @@ def test_interval_new():
     assert segment.start == 0
     assert segment.end == 10
 
-    with pytest.raises(Exception):
+    with pytest.raises(AttributeError):
         segment.start = 13
 
     with pytest.raises(AttributeError):
@@ -143,9 +142,8 @@ def test_overlap():
     result = Interval.overlap(left, right)
     result, expected = sorted(result), sorted(expected)
     assert result == expected
-    
+
     assert Interval.overlaps(left, right)
-    
 
 
 def test_pickle_interval():

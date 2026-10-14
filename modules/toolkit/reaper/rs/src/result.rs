@@ -12,6 +12,8 @@ use bitcode::{Decode, Encode};
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
     // Region coordinates
     contig: Ctg,
@@ -33,6 +35,8 @@ pub struct HarvestRegion<Ctg: Contig, Idx: PrimInt, Cnts: Float> {
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Debug, Default, Constructor, Dissolve, Getters)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Harvest<Ctg: Contig, Idx: PrimInt, Cnts: Float, Tag> {
     comparison: Tag,
     regions: Vec<HarvestRegion<Ctg, Idx, Cnts>>,

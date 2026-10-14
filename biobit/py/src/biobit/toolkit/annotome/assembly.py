@@ -1,8 +1,9 @@
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from types import MappingProxyType
-from typing import Iterable, Self, Iterator
+from typing import Self
 
 from biobit.toolkit.annotome.annotation.annotation import Annotation
+
 from .reference import RefRegistry
 
 
@@ -10,6 +11,7 @@ class AnnotationMap(Mapping[str, Annotation]):
     """
     A dict-like, read-only view of annotations with strict typing capabilities.
     """
+
     __slots__ = ("_store",)
     _store: Mapping[str, Annotation]
 
@@ -48,7 +50,13 @@ class AnnotationMap(Mapping[str, Annotation]):
 class Assembly:
     """A formal container for a genomic assembly and its annotation."""
 
-    def __init__(self, name: str, organisms: Iterable[str], refrg: RefRegistry, annotations: Mapping[str, Annotation]):
+    def __init__(
+        self,
+        name: str,
+        organisms: Iterable[str],
+        refrg: RefRegistry,
+        annotations: Mapping[str, Annotation],
+    ):
         self._name: str = name
         self._organisms: frozenset[str] = frozenset(organisms)
         self._refrg: RefRegistry = refrg
@@ -84,7 +92,9 @@ class Assembly:
         """
         items = tuple(items)
         if not items:
-            raise ValueError("Assembly.merge called with an empty collection of assemblies")
+            raise ValueError(
+                "Assembly.merge called with an empty collection of assemblies"
+            )
 
         # Merge organisms description.
         # Here we allow repeated organism as one might be interested in studying a metagenome of an E. coli culture.
@@ -101,7 +111,9 @@ class Assembly:
         for it in items:
             allkeys.update(it._annotations.keys())
 
-        grouped: dict[str, list[tuple[RefRegistry, Annotation | None]]] = {key: [] for key in allkeys}
+        grouped: dict[str, list[tuple[RefRegistry, Annotation | None]]] = {
+            key: [] for key in allkeys
+        }
         for it in items:
             for key in allkeys:
                 if key in it._annotations:
@@ -116,7 +128,7 @@ class Assembly:
             if len(types) > 1:
                 raise TypeError(
                     f"Cannot merge heterogeneous annotations for key '{key}': "
-                    f"{set(t.__name__ for t in types)}"
+                    f"{{t.__name__ for t in types}}"
                 )
 
             # Annotations can't be all None, as at least one assembly must have the annotation

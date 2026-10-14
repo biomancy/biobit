@@ -1,0 +1,31 @@
+# mypy 2.4 does not unwrap PEP 695 TypeAliasType objects.
+# tests/test_stubs.py compares aliases with independently maintained .pyi targets.
+# IntoEncoding/IntoDecoding have a single inline definition in protocols.py.
+biobit.io.bed.AnyBed
+biobit.io.protocols.IntoDecoding
+biobit.io.protocols.IntoEncoding
+biobit.toolkit.countit.rigid.resolution.IntoResolution
+
+# PEP 695 generic classes expose __type_params__; mypy does not synthesize it.
+biobit\..*\.__type_params__
+
+# mypy's attrs plugin models generated metadata differently from attrs 26.1:
+# static attribute descriptors (_AT and the mangled *AttrsAttributes types),
+# runtime metadata (__attrs_*), __replace__, and __slots__' weakref entry.
+# Restrict these exceptions to the affected attrs classes and generated fields.
+biobit\.toolkit\.annotome\.transcriptome\.cds\.CDS\.(?:_AT|__biobit_toolkit_annotome_transcriptome_cds_CDS_AttrsAttributes__|__attrs_(?:props|types_resolved|own_setattr)__|__replace__|__slots__)
+biobit\.toolkit\.annotome\.transcriptome\.core\.Bundle\.(?:_AT|__biobit_toolkit_annotome_transcriptome_core_Bundle_AttrsAttributes__|__attrs_(?:props|types_resolved|own_setattr)__|__replace__|__slots__)
+biobit\.toolkit\.annotome\.transcriptome\.core\.Location\.(?:_AT|__biobit_toolkit_annotome_transcriptome_core_Location_AttrsAttributes__|__attrs_(?:props|types_resolved|own_setattr)__|__replace__|__slots__)
+biobit\.toolkit\.annotome\.transcriptome\.gene\.Gene\.(?:_AT|__biobit_toolkit_annotome_transcriptome_gene_Gene_AttrsAttributes__|__attrs_(?:props|types_resolved|own_setattr)__|__replace__|__slots__)
+biobit\.toolkit\.annotome\.transcriptome\.rna\.RNA\.(?:_AT|__biobit_toolkit_annotome_transcriptome_rna_RNA_AttrsAttributes__|__attrs_(?:props|types_resolved|own_setattr)__|__replace__|__slots__)
+biobit\.toolkit\.libnorm\.median_of_ratios\.MedianOfRatiosNormalization\.(?:_AT|__biobit_toolkit_libnorm_median_of_ratios_MedianOfRatiosNormalization_AttrsAttributes__|__attrs_(?:props|types_resolved|own_setattr)__|__replace__|__slots__)
+
+# For attrs classes with order=False, mypy incorrectly models inherited object
+# comparisons as keyword-capable Python methods instead of positional slots.
+biobit\.toolkit\.libnorm\.median_of_ratios\.MedianOfRatiosNormalization\.__(?:lt|le|gt|ge)__
+
+# The native implementation module is checked through the public Python API.
+biobit.rs
+
+# Test helpers are outside the distributed public API.
+biobit\.(?:.*\.)?test_[^.]+(?:\..*)?

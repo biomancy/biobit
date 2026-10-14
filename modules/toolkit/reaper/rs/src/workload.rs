@@ -10,6 +10,8 @@ use crate::pcalling::ByCutoff;
 use crate::postfilter::NMS;
 
 #[derive(Clone, PartialEq, Debug, Dissolve, Constructor)]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Config<Idx: PrimInt, Cnts: Float> {
     pub model: RNAPileup<Idx, Cnts>,
     pub cmp: Enrichment<Cnts>,

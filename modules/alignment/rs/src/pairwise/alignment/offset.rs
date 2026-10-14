@@ -20,6 +20,8 @@ use biobit_core_rs::num::PrimUInt;
     From,
     Into,
 )]
+// derive_more::Constructor generates explicit field names.
+#[allow(clippy::redundant_field_names)]
 pub struct Offset<Seq1Idx: PrimUInt, Seq2Idx: PrimUInt> {
     pub seq1: Seq1Idx,
     pub seq2: Seq2Idx,
