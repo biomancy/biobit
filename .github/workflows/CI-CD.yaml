@@ -112,8 +112,9 @@ jobs:
               if: github.event_name == 'release'
               uses: actions/upload-artifact@v4
               with:
-                  name: linux-${{ matrix.target }}-wheels
-                  path: ${{ env.PYTHON_PACKAGE_PATH }}/dist
+                  name: linux-${{ matrix.target }}-${{ matrix.python }}-wheels
+                  path: ${{ env.PYTHON_PACKAGE_PATH }}/dist/*.whl
+                  if-no-files-found: error
 
     pypi-release:
         name: Release PyPI package
