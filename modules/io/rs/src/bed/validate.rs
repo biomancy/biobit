@@ -4,17 +4,19 @@ use eyre::{Result, ensure};
 pub fn seqid(s: &str) -> Result<()> {
     ensure!(!s.is_empty(), "BED seqid can't be empty");
     ensure!(
+        !s.starts_with('#'),
+        "BED seqid can't start with '#', which introduces a comment"
+    );
+    ensure!(
         s.len() <= 255,
         "BED seqid can't be longer than 255 characters"
     );
 
-    for c in s.chars() {
-        ensure!(
-            !c.is_ascii_whitespace(),
-            "BED seqid can only contain non-whitespace ASCII characters, got: {}",
-            s
-        );
-    }
+    ensure!(
+        s.bytes().all(|c| c.is_ascii_graphic()),
+        "BED seqid can only contain non-whitespace printable ASCII characters, got: {:?}",
+        s
+    );
 
     Ok(())
 }
@@ -30,12 +32,10 @@ pub fn name(s: &str) -> Result<()> {
         "BED name can't be longer than 255 characters"
     );
 
-    for c in s.chars() {
-        ensure!(
-            matches!(c, '\x20'..='\x7e'),
-            "BED name can only contain printable ASCII characters"
-        );
-    }
+    ensure!(
+        s.bytes().all(|c| matches!(c, b' '..=b'~')),
+        "BED name can only contain printable ASCII characters"
+    );
 
     Ok(())
 }

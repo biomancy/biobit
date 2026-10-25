@@ -1,7 +1,7 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from types import TracebackType
-from typing import Self, final, type_check_only
+from typing import ClassVar, Self, final, type_check_only
 
 from biobit.core.loc import Interval, IntoInterval, IntoOrientation, Orientation
 from biobit.io.protocols import IntoDecoding, IntoEncoding, ReadRecord, WriteRecord
@@ -12,8 +12,8 @@ type AnyBed = Bed3 | Bed4 | Bed5 | Bed6 | Bed8 | Bed9 | Bed12
 class Bed3:
     seqid: str
 
-    Reader: type[_Bed3Reader]
-    Writer: type[_Bed3Writer]
+    Reader: ClassVar[type[_Bed3Reader]]
+    Writer: ClassVar[type[_Bed3Writer]]
 
     def __new__(cls, seqid: str, interval: IntoInterval) -> Self: ...
     @staticmethod
@@ -21,16 +21,18 @@ class Bed3:
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
-    def set(self, seqid: str | None = None, interval: IntoInterval | None = None): ...
+    def interval(self, interval: IntoInterval) -> None: ...
+    def set(
+        self, seqid: str | None = None, interval: IntoInterval | None = None
+    ) -> None: ...
 
 @final
 class Bed4:
     seqid: str
     name: str
 
-    Reader: type[_Bed4Reader]
-    Writer: type[_Bed4Writer]
+    Reader: ClassVar[type[_Bed4Reader]]
+    Writer: ClassVar[type[_Bed4Writer]]
 
     def __new__(cls, seqid: str, interval: IntoInterval, name: str) -> Self: ...
     @staticmethod
@@ -38,13 +40,13 @@ class Bed4:
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
+    def interval(self, interval: IntoInterval) -> None: ...
     def set(
         self,
         seqid: str | None = None,
         interval: IntoInterval | None = None,
         name: str | None = None,
-    ): ...
+    ) -> None: ...
 
 @final
 class Bed5:
@@ -52,8 +54,8 @@ class Bed5:
     name: str
     score: int
 
-    Reader: type[_Bed5Reader]
-    Writer: type[_Bed5Writer]
+    Reader: ClassVar[type[_Bed5Reader]]
+    Writer: ClassVar[type[_Bed5Writer]]
 
     def __new__(
         cls, seqid: str, interval: IntoInterval, name: str, score: int
@@ -63,14 +65,14 @@ class Bed5:
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
+    def interval(self, interval: IntoInterval) -> None: ...
     def set(
         self,
         seqid: str | None = None,
         interval: IntoInterval | None = None,
         name: str | None = None,
         score: int | None = None,
-    ): ...
+    ) -> None: ...
 
 @final
 class Bed6:
@@ -78,8 +80,8 @@ class Bed6:
     name: str
     score: int
 
-    Reader: type[_Bed6Reader]
-    Writer: type[_Bed6Writer]
+    Reader: ClassVar[type[_Bed6Reader]]
+    Writer: ClassVar[type[_Bed6Writer]]
 
     def __new__(
         cls,
@@ -94,11 +96,11 @@ class Bed6:
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
+    def interval(self, interval: IntoInterval) -> None: ...
     @property
     def orientation(self) -> Orientation: ...
     @orientation.setter
-    def orientation(self, orientation: IntoOrientation): ...
+    def orientation(self, orientation: IntoOrientation) -> None: ...
     def set(
         self,
         seqid: str | None = None,
@@ -106,7 +108,7 @@ class Bed6:
         name: str | None = None,
         score: int | None = None,
         orientation: IntoOrientation | None = None,
-    ): ...
+    ) -> None: ...
 
 @final
 class Bed8:
@@ -114,8 +116,8 @@ class Bed8:
     name: str
     score: int
 
-    Reader: type[_Bed8Reader]
-    Writer: type[_Bed8Writer]
+    Reader: ClassVar[type[_Bed8Reader]]
+    Writer: ClassVar[type[_Bed8Writer]]
 
     def __new__(
         cls,
@@ -131,15 +133,15 @@ class Bed8:
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
+    def interval(self, interval: IntoInterval) -> None: ...
     @property
     def orientation(self) -> Orientation: ...
     @orientation.setter
-    def orientation(self, orientation: IntoOrientation): ...
+    def orientation(self, orientation: IntoOrientation) -> None: ...
     @property
     def thick(self) -> Interval: ...
     @thick.setter
-    def thick(self, thick: IntoInterval): ...
+    def thick(self, thick: IntoInterval) -> None: ...
     def set(
         self,
         seqid: str | None = None,
@@ -148,7 +150,7 @@ class Bed8:
         score: int | None = None,
         orientation: IntoOrientation | None = None,
         thick: IntoInterval | None = None,
-    ): ...
+    ) -> None: ...
 
 @final
 class Bed9:
@@ -157,8 +159,8 @@ class Bed9:
     score: int
     rgb: tuple[int, int, int]
 
-    Reader: type[_Bed9Reader]
-    Writer: type[_Bed9Writer]
+    Reader: ClassVar[type[_Bed9Reader]]
+    Writer: ClassVar[type[_Bed9Writer]]
 
     def __new__(
         cls,
@@ -175,15 +177,15 @@ class Bed9:
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
+    def interval(self, interval: IntoInterval) -> None: ...
     @property
     def orientation(self) -> Orientation: ...
     @orientation.setter
-    def orientation(self, orientation: IntoOrientation): ...
+    def orientation(self, orientation: IntoOrientation) -> None: ...
     @property
     def thick(self) -> Interval: ...
     @thick.setter
-    def thick(self, thick: IntoInterval): ...
+    def thick(self, thick: IntoInterval) -> None: ...
     def set(
         self,
         seqid: str | None = None,
@@ -193,7 +195,7 @@ class Bed9:
         orientation: IntoOrientation | None = None,
         thick: IntoInterval | None = None,
         rgb: tuple[int, int, int] | None = None,
-    ): ...
+    ) -> None: ...
 
 @final
 class Bed12:
@@ -202,8 +204,8 @@ class Bed12:
     score: int
     rgb: tuple[int, int, int]
 
-    Reader: type[_Bed12Reader]
-    Writer: type[_Bed12Writer]
+    Reader: ClassVar[type[_Bed12Reader]]
+    Writer: ClassVar[type[_Bed12Writer]]
 
     def __new__(
         cls,
@@ -214,26 +216,26 @@ class Bed12:
         orientation: IntoOrientation,
         thick: IntoInterval,
         rgb: tuple[int, int, int],
-        blocks: list[IntoInterval],
+        blocks: Sequence[IntoInterval],
     ) -> Self: ...
     @staticmethod
     def default() -> Bed12: ...
     @property
     def interval(self) -> Interval: ...
     @interval.setter
-    def interval(self, interval: IntoInterval): ...
+    def interval(self, interval: IntoInterval) -> None: ...
     @property
     def orientation(self) -> Orientation: ...
     @orientation.setter
-    def orientation(self, orientation: IntoOrientation): ...
+    def orientation(self, orientation: IntoOrientation) -> None: ...
     @property
     def thick(self) -> Interval: ...
     @thick.setter
-    def thick(self, thick: IntoInterval): ...
+    def thick(self, thick: IntoInterval) -> None: ...
     @property
     def blocks(self) -> list[Interval]: ...
     @blocks.setter
-    def blocks(self, blocks: list[IntoInterval]): ...
+    def blocks(self, blocks: Sequence[IntoInterval]) -> None: ...
     def set(
         self,
         seqid: str | None = None,
@@ -243,8 +245,8 @@ class Bed12:
         orientation: IntoOrientation | None = None,
         thick: IntoInterval | None = None,
         rgb: tuple[int, int, int] | None = None,
-        blocks: list[IntoInterval] | None = None,
-    ): ...
+        blocks: Sequence[IntoInterval] | None = None,
+    ) -> None: ...
 
 # Shared structural contracts for the concrete Rust stream classes.
 @type_check_only

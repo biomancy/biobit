@@ -133,7 +133,7 @@ macro_rules! impl_bed_writer {
                 let rs = slf.rs.as_mut().ok_or_eyre("Writing to a closed writer")?;
                 for record in records.bind(py).try_iter()? {
                     let record = record?;
-                    let record = record.extract::<$PyBed>().map_err(PyErr::from)?;
+                    let record = record.extract::<PyRef<'_, $PyBed>>().map_err(PyErr::from)?;
                     rs.write_record(&record.rs)?;
                 }
                 Ok(slf)
@@ -148,7 +148,8 @@ macro_rules! impl_bed_writer {
             }
 
             pub fn close(mut slf: PyRefMut<Self>) -> Result<()> {
-                let rs = slf.rs.take().ok_or_eyre("Writing to a closed writer")?;
+                let mut rs = slf.rs.take().ok_or_eyre("Writing to a closed writer")?;
+                rs.flush()?;
                 drop(rs);
                 Ok(())
             }
