@@ -18,7 +18,6 @@ pub trait RecordMutOp {
 /// A single FASTA record with the following guarantees:
 /// - The ID is non-empty and is represented by an arbitrary UTF-8 string.
 /// - The ID can't contain any newline characters (CR or LF).
-/// - The ID should end with LF or CR-LF.
 /// - The sequence must be non-empty and contain only ASCII alphabetic characters.
 ///
 /// There are no guarantees on the biological meaningfulness of the stored sequence. For example,

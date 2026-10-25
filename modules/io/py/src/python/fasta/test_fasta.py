@@ -128,10 +128,10 @@ def test_indexed_sources_multireader():
     assert reader.fetch("chrM", (2830, 2849)) == "CAAAGGCCCCAACGTTGTA"
 
 
-@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
-def test_fasta_writer(path, tmp_path: Path):
-    path = RESOURCES / path
-    saveto = tmp_path / "output.fa"
+@pytest.mark.parametrize("extension", ["fa", "fa.gz", "fa.bgz"])
+def test_fasta_writer(extension, tmp_path: Path):
+    path = RESOURCES / "indexed.fa"
+    saveto = tmp_path / f"output.{extension}"
 
     allrecords = Reader(path).read_to_end()
 

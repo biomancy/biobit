@@ -53,7 +53,9 @@ impl PyWriter {
         let rs = slf.rs.as_mut().ok_or_eyre("Writing to a closed writer")?;
         for record in records.bind(py).try_iter()? {
             let record = record?;
-            let record = record.extract::<PyRecord>().map_err(PyErr::from)?;
+            let record = record
+                .extract::<PyRef<'_, PyRecord>>()
+                .map_err(PyErr::from)?;
             rs.write_record(&record.rs)?;
         }
         Ok(slf)
@@ -68,7 +70,8 @@ impl PyWriter {
     }
 
     pub fn close(mut slf: PyRefMut<Self>) -> Result<()> {
-        let rs = slf.rs.take().ok_or_eyre("Writing to a closed writer")?;
+        let mut rs = slf.rs.take().ok_or_eyre("Writing to a closed writer")?;
+        rs.flush()?;
         drop(rs);
         Ok(())
     }
