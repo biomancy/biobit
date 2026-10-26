@@ -51,6 +51,24 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .add_class::<PyBed9Writer>()?
         .add_class::<PyBed12Writer>()?
         .finish();
+    // Type alias for any BED record
+    module.add(
+        "AnyBed",
+        py.get_type::<PyBed3>()
+            .bitor(py.get_type::<PyBed4>())?
+            .bitor(py.get_type::<PyBed5>())?
+            .bitor(py.get_type::<PyBed6>())?
+            .bitor(py.get_type::<PyBed8>())?
+            .bitor(py.get_type::<PyBed9>())?
+            .bitor(py.get_type::<PyBed12>())?,
+    )?;
+
+    module.add(
+        "__all__",
+        [
+            "AnyBed", "Bed3", "Bed4", "Bed5", "Bed6", "Bed8", "Bed9", "Bed12", "Reader", "Writer",
+        ],
+    )?;
 
     Ok(module)
 }

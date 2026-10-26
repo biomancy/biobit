@@ -2,13 +2,13 @@ use super::{record::Record, validate};
 use crate::traits::ReadRecord;
 use derive_getters::Dissolve;
 use eyre::{Result, ensure};
-use memchr;
 use std::io::BufRead;
 use std::path::Path;
 use substratum_compress::{Decoder, adapter::BoxedSync, decode::DecodeReadIntoBufRead};
 
 /// A strict FASTA reader that can read a single record at a time. Ignores:
 /// - Carriage return characters at the end of all lines (to support Windows line endings)
+/// - Empty sequence lines
 ///
 /// Returns an error if there are:
 /// - Errors while reading from the underlying reader
@@ -21,8 +21,7 @@ pub struct Reader<R> {
 }
 
 impl Reader<()> {
-    /// Create a new FASTA reader from the given file path.
-    /// The compression is automatically detected based on the file extension and the internal file signature.
+    /// Create a new FASTA reader from the given file path and the supplied decoding configuration.
     pub fn from_path(
         path: impl AsRef<Path>,
         decode: &Decoder,
@@ -58,10 +57,11 @@ impl<R: BufRead> Reader<R> {
         );
         self.reader.consume(1);
 
-        // SAFETY: The ID and sequence are checked for validity before being written to the buffer
+        // Reuse the record's allocations; both fields are validated on a successful read.
+        // On error, the buffer is left unspecified as documented by read_record.
         let (id, seq) = unsafe { record.fields() };
 
-        // Read and validated the ID line
+        // Read and validate the ID line
         id.clear();
         let read = self.reader.read_line(id)?;
         ensure!(read > 0, "Unexpected EOF after '>'");
@@ -86,41 +86,20 @@ impl<R: BufRead> Reader<R> {
                 break;
             }
 
-            // If the buffer starts with '>', then it is the start of the next record
+            // Each iteration starts at a logical line boundary.
             if buffer[0] == b'>' {
                 break;
             }
 
-            // Find the end of the line if it exists
-            let (line, consume) = match memchr::memchr(b'\n', buffer) {
-                Some(pos) => {
-                    let line = &buffer[..pos];
-                    // Remove the trailing '\r' if needed
-                    if line.last().map(|x| *x == b'\r').unwrap_or(false) {
-                        (&line[..pos - 1], pos + 1)
-                    } else {
-                        (line, pos + 1)
-                    }
+            // Append a complete line directly, even when CRLF spans buffer refills.
+            let start = seq.len();
+            self.reader.read_until(b'\n', seq)?;
+            if seq[start..].ends_with(b"\n") {
+                seq.pop();
+                if seq.len() > start && seq.ends_with(b"\r") {
+                    seq.pop();
                 }
-                None => (buffer, buffer.len()),
-            };
-
-            // Empty lines are ignored for simplicity of the implementation.
-            // Otherwise, we would need to keep track of the previous buffer terminator to
-            // distinguish between buffers that by chance split the line just before the "\n"
-            // and those that are actually empty.
-            // ensure!(
-            //     !line.is_empty(),
-            //     "Empty line was found for the sequence with id {}",
-            //     id
-            // );
-            debug_assert!(!line.contains(&b'>'));
-
-            // Append the line to the sequence
-            seq.extend_from_slice(line);
-
-            // Consume the processed bytes
-            self.reader.consume(consume);
+            }
         }
         validate::seq(seq)?;
 
@@ -132,9 +111,9 @@ impl<R: BufRead> ReadRecord for Reader<R> {
     type Record = Record;
 
     /// Parse the next FASTA record into the given [Record] buffer.
-    /// Returns None if there are no more records to read.
+    /// Returns false if there are no more records to read.
     ///
-    /// The read is successful only if the function returns `Ok(Some())`.
+    /// The read is successful only if the function returns `Ok(true)`.
     /// Otherwise, the buffer is left in an unspecified state, but can be reused for the next read.
     fn read_record(&mut self, buf: &mut Self::Record) -> Result<bool> {
         self.read_parts(buf)
@@ -185,12 +164,12 @@ mod tests {
     use super::*;
     use eyre::Report;
     use std::fs::File;
-    use std::io::Read;
+    use std::io::BufReader;
     use std::path::PathBuf;
 
-    fn test_read_record(content: impl Read, expected: &[(&str, &str)]) -> Result<()> {
+    fn test_read_record(content: impl BufRead, expected: &[(&str, &str)]) -> Result<()> {
         // Record-by-record reading
-        let mut reader = Reader::new(std::io::BufReader::new(content))?;
+        let mut reader = Reader::new(content)?;
         let mut record = Record::default();
         for (id, seq) in expected {
             assert!(reader.read_record(&mut record)?);
@@ -201,9 +180,9 @@ mod tests {
         Ok(())
     }
 
-    fn test_read_to_end(content: impl Read, expected: &[(&str, &str)]) -> Result<()> {
+    fn test_read_to_end(content: impl BufRead, expected: &[(&str, &str)]) -> Result<()> {
         // Read all records at once
-        let mut reader = Reader::new(std::io::BufReader::new(content))?;
+        let mut reader = Reader::new(content)?;
         let mut records = Vec::new();
         reader.read_to_end(&mut records)?;
         assert_eq!(records.len(), expected.len());
@@ -232,24 +211,32 @@ mod tests {
             ">id\nACGT\nA \n",
             ">id\nACGT\n>ID\n",
             ">id\nACGT\n>ID\nACGT ",
+            ">id\nAC>next\nGT\n",
+            ">id\nAC\r",
+            ">id\nAC\r\r\n\n",
         ] {
-            // Per record
-            let result = Reader::new(std::io::Cursor::new(content)).and_then(|mut x| {
-                let mut record = Record::default();
-                while x.read_record(&mut record)? {}
-                Ok::<(), Report>(())
-            });
+            for capacity in 1..=content.len() + 1 {
+                // Vary buffer boundaries, including immediately before an interior '>'.
+                let input = || BufReader::with_capacity(capacity, content.as_bytes());
+                let result = Reader::new(input()).and_then(|mut reader| {
+                    let mut record = Record::default();
+                    while reader.read_record(&mut record)? {}
+                    Ok::<(), Report>(())
+                });
+                assert!(
+                    result.is_err(),
+                    "Content: {content:?}, capacity: {capacity}"
+                );
 
-            assert!(result.is_err(), "Content: {:?}", content);
-
-            // All records
-            let result = Reader::new(std::io::Cursor::new(content)).and_then(|mut x| {
-                let mut records = Vec::new();
-                x.read_to_end(&mut records)?;
-                Ok::<(), Report>(())
-            });
-
-            assert!(result.is_err(), "Content: {:?}", content);
+                let result = Reader::new(input()).and_then(|mut reader| {
+                    reader.read_to_end(&mut Vec::new())?;
+                    Ok::<(), Report>(())
+                });
+                assert!(
+                    result.is_err(),
+                    "Content: {content:?}, capacity: {capacity}"
+                );
+            }
         }
     }
 
@@ -257,7 +244,9 @@ mod tests {
     fn test_valid_fasta() {
         for (content, records) in [
             (">id\nACGT\n", vec![("id", "ACGT")]),
+            (">id\nACGT", vec![("id", "ACGT")]),
             (">id\n\nACGT\n\n", vec![("id", "ACGT")]),
+            (">id💉\r\n\r\nAC\r\nGT\n", vec![("id💉", "ACGT")]),
             (
                 ">id\nACGT\n>id2\nACGT\n",
                 vec![("id", "ACGT"), ("id2", "ACGT")],
@@ -271,8 +260,12 @@ mod tests {
                 vec![("ID", "ACGTAGTTTA"), ("id2", "AC")],
             ),
         ] {
-            assert!(test_read_record(content.as_bytes(), &records).is_ok());
-            assert!(test_read_to_end(content.as_bytes(), &records).is_ok());
+            for capacity in 1..=content.len() + 1 {
+                // Exercise split UTF-8 characters, CRLF pairs, and record boundaries.
+                let input = || BufReader::with_capacity(capacity, content.as_bytes());
+                test_read_record(input(), &records).unwrap();
+                test_read_to_end(input(), &records).unwrap();
+            }
         }
     }
 

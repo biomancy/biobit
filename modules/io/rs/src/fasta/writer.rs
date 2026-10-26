@@ -2,7 +2,7 @@ use super::record::Record;
 use crate::traits::WriteRecord;
 use derive_getters::Dissolve;
 use eyre::Result;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::num::NonZeroUsize;
 use std::path::Path;
 use substratum_compress::{Encoder, adapter::BoxedSync, encode::Encode};
@@ -20,13 +20,15 @@ impl<W> Writer<W> {
 }
 
 impl Writer<()> {
+    /// Opens buffered FASTA output using the supplied encoding configuration.
+    /// Call `flush` before dropping the writer to report pending write errors.
     pub fn from_path(
         path: impl AsRef<Path>,
         encoder: &Encoder,
         line_width: NonZeroUsize,
     ) -> Result<Box<dyn WriteRecord<Record = Record> + Send + Sync + 'static>> {
         let file = encoder.encode(std::fs::File::create(path.as_ref())?, BoxedSync)?;
-        let writer = Box::new(Writer::new(file, line_width));
+        let writer = Box::new(Writer::new(BufWriter::new(file), line_width));
         Ok(writer)
     }
 }
@@ -83,9 +85,10 @@ mod tests {
             Reader::new(Cursor::new(&expected))?.read_to_end(&mut records)?;
 
             let mut produced = Vec::new();
-            let mut writer = Writer::new(Cursor::new(&mut produced), line_width);
+            let mut writer = Writer::new(BufWriter::new(Cursor::new(&mut produced)), line_width);
             writer.write_records(&records)?;
             writer.flush()?;
+            drop(writer);
 
             assert_eq!(String::from_utf8(produced)?, String::from_utf8(expected)?);
         }

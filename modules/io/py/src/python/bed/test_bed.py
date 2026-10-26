@@ -24,7 +24,17 @@ def _bed3(obj, seqid: str, interval: IntoInterval | None):
     assert (obj.seqid, obj.interval) == ("seqid.new", prev)
 
     # Only non-whitespace strings with less than 255 characters are allowed
-    for invalid_seqid in [" ", "seqid A", "\t", "Seq\nA", "A" * 256]:
+    for invalid_seqid in [
+        " ",
+        "seqid A",
+        "\t",
+        "Seq\nA",
+        "A" * 256,
+        "chr\0",
+        "chr\x7f",
+        "chré",
+        "#chr1",
+    ]:
         with pytest.raises(RuntimeError):
             obj.seqid = invalid_seqid
 
@@ -172,7 +182,11 @@ def _bed12(
 
     # Blocks must be non-overlapping, sorted, and start/end on the main interval boundaries
     # Note: blocks are always in local coordinates
-    for new_blocks in [[(0, 100)], [(0, 5), (99, 100)], [(x, x + 1) for x in range(100)]]:
+    for new_blocks in [
+        [(0, 100)],
+        [(0, 5), (99, 100)],
+        [(x, x + 1) for x in range(100)],
+    ]:
         obj.set(interval=(1, 101), thick=(5, 100), blocks=new_blocks)
         assert (obj.interval, obj.thick, obj.blocks) == ((1, 101), (5, 100), new_blocks)
 
@@ -274,9 +288,10 @@ def test_bed_reader():
 
 
 @pytest.mark.parametrize("path", ["example.bed", "example.bed.gz"])
-def test_bed_writer(path, tmp_path: Path):
+@pytest.mark.parametrize("extension", ["bed", "bed.gz", "bed.bgz"])
+def test_bed_writer(path, extension, tmp_path: Path):
     path = RESOURCES / path
-    saveto = tmp_path / "output.bed"
+    saveto = tmp_path / f"output.{extension}"
 
     allrecords = Reader.bed12(path).read_to_end()
 
@@ -291,5 +306,18 @@ def test_bed_writer(path, tmp_path: Path):
     saveto.unlink()
 
     with Bed12.Writer(saveto) as writer:
-        writer.write_records(allrecords)
+        writer.write_records(record for record in allrecords)
     assert Bed12.Reader(saveto).read_to_end() == allrecords
+
+
+@pytest.mark.parametrize("compression", [None, "infer", "gz", "bgz"])
+def test_bed_compression_override(compression, tmp_path: Path):
+    path = tmp_path / "output.bed.gz"
+    record = Bed3("chr1", (0, 10))
+    with Writer.bed3(path, compression=compression) as writer:
+        writer.write_record(record)
+    if compression is None:
+        assert path.read_bytes() == b"chr1\t0\t10\n"
+    else:
+        assert path.read_bytes().startswith(b"\x1f\x8b")
+    assert Bed3.Reader(path, compression=compression).read_to_end() == [record]

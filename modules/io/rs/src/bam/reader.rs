@@ -5,11 +5,10 @@ use std::path::PathBuf;
 
 use derive_getters::{Dissolve, Getters};
 use derive_more::Constructor;
-use eyre::Result;
+use eyre::{Result, ensure, eyre};
 use higher_kinded_types::prelude::*;
+use noodles::core::Position;
 use noodles::core::region::Interval;
-use noodles::core::{Position, Region};
-use noodles::csi::BinningIndex;
 use noodles::{bam, bgzf, sam};
 
 use biobit_core_rs::source::{AnyMap, Core, Source};
@@ -17,6 +16,7 @@ use biobit_core_rs::source::{AnyMap, Core, Source};
 use super::indexed_reader::IndexedReader;
 use super::query::{Cache, Query};
 
+/// An indexed BAM source queried with 0-based, half-open coordinates.
 #[derive(Dissolve, Getters, Constructor)]
 // derive_more::Constructor generates explicit field names.
 #[allow(clippy::redundant_field_names)]
@@ -46,10 +46,14 @@ impl Clone for Reader {
     fn clone(&self) -> Self {
         Self {
             filename: self.filename.clone(),
-            inner: IndexedReader::new(&self.filename).expect(
-                "Failed to open a BAM file; \
-                Note: the file had been opened before at least once without any errors.",
-            ),
+            // Each clone needs its own file cursor, but the immutable index is shared.
+            inner: IndexedReader {
+                inner: bam::io::Reader::new(
+                    File::open(&self.filename)
+                        .expect("Failed to reopen a previously opened BAM file"),
+                ),
+                index: self.inner.index.clone(),
+            },
             header: self.header.clone(),
             cache: None,
             batch_size: self.batch_size,
@@ -95,22 +99,24 @@ impl Source for Reader {
         &'borrow mut self,
         args: <<Self as Core>::Args as ForLt>::Of<'args>,
     ) -> Result<<Self::Iter as ForLt>::Of<'borrow>> {
-        let region = Region::new(
-            args.0.clone(),
-            Interval::from(
-                Position::try_from(args.1 + 1).unwrap()..=Position::try_from(args.2).unwrap(),
-            ),
+        ensure!(
+            args.1 < args.2,
+            "BAM query requires start < end, got [{}, {})",
+            args.1,
+            args.2
         );
-
+        ensure!(
+            self.batch_size > 0,
+            "BAM batch size must be greater than zero"
+        );
+        let interval =
+            Interval::from(Position::try_from(args.1 + 1)?..=Position::try_from(args.2)?);
         let reference_sequence_id = self
             .header
             .reference_sequences()
-            .get_index_of(region.name())
-            .expect("Invalid reference sequence name");
-        let chunks = self
-            .inner
-            .index
-            .query(reference_sequence_id, region.interval())?;
+            .get_index_of(args.0.as_bytes())
+            .ok_or_else(|| eyre!("Unknown BAM reference sequence: {}", args.0))?;
+        let chunks = self.inner.index.query(reference_sequence_id, interval)?;
 
         let cache = self.cache.get_or_insert_with(Cache::default);
 
@@ -118,7 +124,7 @@ impl Source for Reader {
             self.inner.inner.get_mut(),
             chunks,
             reference_sequence_id,
-            region.interval(),
+            interval,
             cache,
             self.batch_size,
             self.inflags,

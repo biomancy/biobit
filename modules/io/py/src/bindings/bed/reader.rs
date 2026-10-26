@@ -1,12 +1,12 @@
 use super::record::{PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9, PyBed12};
+use crate::compression::compression_format;
 use biobit_io_rs::ReadRecord;
-use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, EXTENSIONS};
+use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12};
 use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::path::PathBuf;
-use substratum_compress::Decoder;
 
 pub use biobit_io_rs::bed::Reader;
 
@@ -16,43 +16,43 @@ pub struct PyReader {}
 #[pymethods]
 impl PyReader {
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed3(path: PathBuf, compression: Option<&str>) -> Result<PyBed3Reader> {
         PyBed3Reader::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed4(path: PathBuf, compression: Option<&str>) -> Result<PyBed4Reader> {
         PyBed4Reader::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed5(path: PathBuf, compression: Option<&str>) -> Result<PyBed5Reader> {
         PyBed5Reader::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed6(path: PathBuf, compression: Option<&str>) -> Result<PyBed6Reader> {
         PyBed6Reader::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed8(path: PathBuf, compression: Option<&str>) -> Result<PyBed8Reader> {
         PyBed8Reader::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed9(path: PathBuf, compression: Option<&str>) -> Result<PyBed9Reader> {
         PyBed9Reader::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed12(path: PathBuf, compression: Option<&str>) -> Result<PyBed12Reader> {
         PyBed12Reader::new(path, compression)
     }
@@ -70,12 +70,9 @@ macro_rules! impl_bed_reader {
         #[pymethods]
         impl $Reader {
             #[new]
-            #[pyo3(signature = (path, compression=None))]
+            #[pyo3(signature = (path, compression="infer"))]
             pub fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
-                let config = match compression {
-                    None => Decoder::from_path(&path, EXTENSIONS),
-                    Some(x) => Decoder::from_extension(x, EXTENSIONS),
-                }?;
+                let config = compression_format(&path, compression)?.decoder();
                 let rs = Reader::from_path::<$Bed>(&path, &config)?;
                 Ok(Self { path, rs })
             }

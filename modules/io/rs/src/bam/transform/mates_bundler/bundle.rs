@@ -4,21 +4,18 @@ use std::io;
 use ahash::HashSet;
 use derive_getters::Dissolve;
 use noodles::bam::Record;
-use noodles::sam::alignment::record::data::field::{Tag, Value};
+use noodles::sam::alignment::record::data::field::Tag;
 
 #[derive(Debug, Clone, Dissolve)]
 struct CachedRecord {
     record: Record,
-    hit_index: i8,
+    hit_index: u32,
 }
 
 impl Hash for CachedRecord {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hit_index.hash(state);
-        match self.record.name() {
-            Some(name) => name.hash(state),
-            None => 0.hash(state),
-        }
+        self.record.name().hash(state);
     }
 }
 
@@ -30,39 +27,34 @@ impl PartialEq for CachedRecord {
 
 impl Eq for CachedRecord {}
 
-impl TryInto<CachedRecord> for Record {
+impl TryFrom<Record> for CachedRecord {
     type Error = io::Error;
 
-    fn try_into(self) -> Result<CachedRecord, Self::Error> {
-        let hit_index = {
-            let data = self.data();
-            let tag = data.get(&Tag::HIT_INDEX);
-            let hit_index = match tag {
-                Some(Ok(tag)) => tag,
-                Some(Err(e)) => return Err(e),
-                None => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "No HIT_INDEX tag",
-                    ));
-                }
-            };
-            match hit_index {
-                Value::Int8(tag) => tag,
-                Value::UInt8(tag) => tag as i8,
-                _ => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "HIT_INDEX tag must be an int8 or uint8",
-                    ));
-                }
-            }
-        };
+    fn try_from(record: Record) -> Result<Self, Self::Error> {
+        let flags = record.flags();
+        if record.name().is_none()
+            || !flags.is_segmented()
+            || flags.is_first_segment() == flags.is_last_segment()
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Mate bundling requires a read name and exactly one of the first/last segment flags",
+            ));
+        }
+        let hit_index = record
+            .data()
+            .get(&Tag::HIT_INDEX)
+            .transpose()?
+            .and_then(|value| value.as_int())
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "BAM HI hit index must be present and be a non-negative integer",
+                )
+            })?;
 
-        Ok(CachedRecord {
-            record: self,
-            hit_index,
-        })
+        Ok(Self { record, hit_index })
     }
 }
 
@@ -82,7 +74,6 @@ impl Bundler {
         let is_lmate = record.flags().is_first_segment();
 
         // Try to look up the mate in the cache
-        // let rname = record.name().map(|x| x.to_owned());
         let record: CachedRecord = record.try_into()?;
         let entry = if is_lmate {
             self.rmate.take(&record)
@@ -106,14 +97,12 @@ impl Bundler {
             self.rmate.insert(record)
         };
 
-        // If the record is already in the cache, log an error
         if !inserted {
-            log::error!(
-                "Double insert in the cache detected, check that read names and HIT_INDEX tags are unique"
-            );
-            // println!("{:?}", rname);
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Duplicate BAM mate: read names and HI hit indices must identify a unique pair",
+            ));
         }
-        debug_assert!(inserted);
 
         Ok(None)
     }

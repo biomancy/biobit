@@ -103,12 +103,24 @@ def test_indexed_fasta_multireader():
 
 @pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
 def test_indexed_sources_open(path):
-    source = IndexedSources(RESOURCES / path)
-    first = source.open()
-    second = source.open()
+    path = RESOURCES / path
+    for paths in (
+        path,
+        str(path),
+        [path],
+        (path,),
+        iter([path]),
+        {path},
+        frozenset([path]),
+    ):
+        source = IndexedSources(paths)
+        first = source.open()
+        second = source.open()
 
-    assert first.fetch("sp|O95786|RIGI_HUMAN", (0, 24)) == "MTTEQRRSLQAFQDYIRKTLDPTY"
-    assert second.fetch("sp|Q9Y572|RIPK3_HUMAN", (510, 518)) == "GWYNHSGK"
+        assert (
+            first.fetch("sp|O95786|RIGI_HUMAN", (0, 24)) == "MTTEQRRSLQAFQDYIRKTLDPTY"
+        )
+        assert second.fetch("sp|Q9Y572|RIPK3_HUMAN", (510, 518)) == "GWYNHSGK"
 
 
 def test_indexed_sources_delay_reader_validation():
@@ -128,23 +140,45 @@ def test_indexed_sources_multireader():
     assert reader.fetch("chrM", (2830, 2849)) == "CAAAGGCCCCAACGTTGTA"
 
 
-@pytest.mark.parametrize("path", ["indexed.fa", "indexed.fa.bgz"])
-def test_fasta_writer(path, tmp_path: Path):
-    path = RESOURCES / path
-    saveto = tmp_path / "output.fa"
+@pytest.mark.parametrize(
+    "extension,compression",
+    [
+        ("fa", "infer"),
+        ("fa.gz", "infer"),
+        ("fa.bgz", "infer"),
+        ("data", "infer"),
+        ("fa.gz", None),
+        ("fa", "gz"),
+        ("fa", "bgz"),
+    ],
+)
+def test_fasta_writer(extension, compression, tmp_path: Path):
+    path = RESOURCES / "indexed.fa"
+    saveto = tmp_path / f"output.{extension}"
 
     allrecords = Reader(path).read_to_end()
 
-    with Writer(saveto, line_width=60) as writer:
+    with Writer(saveto, line_width=60, compression=compression) as writer:
         for record in allrecords:
             writer.write_record(record)
-    assert Reader(saveto).read_to_end() == allrecords
+    if compression is None:
+        assert saveto.read_bytes().startswith(b">")
+    elif compression in ("gz", "bgz"):
+        assert saveto.read_bytes().startswith(b"\x1f\x8b")
+    assert Reader(saveto, compression=compression).read_to_end() == allrecords
     saveto.unlink()
 
     # Check that the file is closed
     with pytest.raises(RuntimeError):
         writer.flush()
 
-    with Writer(saveto, line_width=120) as writer:
+    with Writer(saveto, line_width=120, compression=compression) as writer:
         writer.write_records(allrecords)
-    assert Reader(saveto).read_to_end() == allrecords
+    assert Reader(saveto, compression=compression).read_to_end() == allrecords
+
+
+def test_unsupported_compression(tmp_path: Path):
+    for compression in ("raw", "none", "gzip", "bgzip", "bgzf", "invalid"):
+        for stream in (Reader, Writer):
+            with pytest.raises(ValueError, match="unsupported compression"):
+                stream(tmp_path / "output.fa", compression=compression)

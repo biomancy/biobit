@@ -175,7 +175,10 @@ fn regression() -> Result<()> {
 
     let output = get_resource_path("regression-tests/expected.csv.gz")?;
     // Uncomment to regenerate the "ground truth" for the regression test.
-    // let mut writer = biobit_io_rs::compression::encode::infer_from_path(&output)?.boxed();
+    // use std::io::Write;
+    // use substratum_compress::encode::{Encode, Encoder};
+    // let mut writer =
+    //     Encoder::from_path(&output, &["csv", "tsv"])?.encode(File::create(&output)?, BoxedSync)?;
     // writeln!(writer, "element,PE-reads,SE-reads")?;
     // for (i, element) in pe.elements.iter().enumerate() {
     //     writeln!(
@@ -184,6 +187,8 @@ fn regression() -> Result<()> {
     //         element, pe.counts[i], se.counts[i]
     //     )?;
     // }
+    // writer.flush()?;
+    // drop(writer);
 
     // Check the results against the expected output
     let compression = Decoder::from_path(&output, &["csv", "tsv"]).unwrap();

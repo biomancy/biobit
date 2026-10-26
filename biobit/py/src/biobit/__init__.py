@@ -3,7 +3,7 @@ from importlib import import_module as _import_module
 from importlib.machinery import ModuleSpec as _ModuleSpec
 from types import ModuleType as _ModuleType
 
-from . import collections, core, io, toolkit
+from . import collections, core, toolkit
 
 
 def _masquerade_native_imports(module: _ModuleType, public_name: str) -> None:
@@ -32,6 +32,10 @@ def _masquerade_native_imports(module: _ModuleType, public_name: str) -> None:
         if isinstance(child, _ModuleType):
             _masquerade_native_imports(child, f"{public_name}.{export}")
 
+
+# The I/O initializer retains its Python protocols and registers native streams.
+# Import it after defining the helper it uses to expose the native package tree.
+io = _import_module(f"{__name__}.io")
 
 # Other toolkit modules still contain Python implementations. Register only the
 # bioproj subtree so their normal package search paths remain available.

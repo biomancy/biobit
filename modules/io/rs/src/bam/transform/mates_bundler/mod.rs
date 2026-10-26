@@ -22,6 +22,8 @@ impl Cache {
     }
 }
 
+/// Pairs first/last segments by read name and HI within the supplied record stream.
+/// Unmatched records are discarded at EOF; this transform cannot fetch missing mates.
 #[derive(Debug, Clone)]
 pub struct BundleMates {
     cache: Option<Cache>,
@@ -37,10 +39,11 @@ impl Default for BundleMates {
 impl BundleMates {
     pub const DEFAULT_BATCH_SIZE: usize = 1024;
 
+    /// Sets the target number of pairs per batch, with a minimum of one.
     pub fn new(batch_size: usize) -> Self {
         Self {
             cache: None,
-            batch_size,
+            batch_size: batch_size.max(1),
         }
     }
 }
@@ -77,7 +80,7 @@ where
     }
 
     fn with_batch_size(&mut self, batch_size: usize) {
-        self.batch_size = batch_size;
+        self.batch_size = batch_size.max(1);
     }
 
     #[allow(clippy::needless_lifetimes)]
@@ -109,7 +112,11 @@ where
 {
     fn read(&mut self) -> io::Result<usize> {
         self.cache.batch.clear();
-        while let Some(batch) = self.iterator.next() {
+        loop {
+            let Some(batch) = self.iterator.next() else {
+                self.cache.bundler.clear();
+                break;
+            };
             let batch = batch?;
             for record in batch.drain(..) {
                 match self.cache.bundler.push(record)? {

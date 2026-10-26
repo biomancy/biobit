@@ -22,6 +22,17 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .add_class::<PyWriter>()?
         .finish();
     module.add("DEFAULT_LINE_WIDTH", DEFAULT_LINE_WIDTH)?;
+    module.add(
+        "__all__",
+        [
+            "DEFAULT_LINE_WIDTH",
+            "IndexedReader",
+            "IndexedSources",
+            "Reader",
+            "Record",
+            "Writer",
+        ],
+    )?;
 
     Ok(module)
 }

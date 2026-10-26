@@ -7,7 +7,7 @@ use biobit_core_rs::loc::{IntervalOp, Orientation};
 use eyre::Result;
 use itertools::Itertools;
 use std::fs::File;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use substratum_compress::{Encoder, adapter::BoxedSync, encode::Encode};
 
@@ -17,16 +17,19 @@ pub struct Writer<W, Bed> {
 }
 
 impl Writer<(), ()> {
+    /// Opens a buffered BED writer with the supplied compression configuration.
+    /// Flush before dropping the writer to report pending write errors.
     pub fn from_path<Bed>(
         path: impl AsRef<Path>,
         compression: &Encoder,
     ) -> Result<Box<dyn WriteRecord<Record = Bed> + Send + Sync + 'static>>
     where
         Bed: Send + Sync + 'static,
-        Writer<Box<dyn Write + Send + Sync>, Bed>: WriteRecord<Record = Bed>,
+        Writer<BufWriter<Box<dyn Write + Send + Sync>>, Bed>: WriteRecord<Record = Bed>,
     {
-        let boxed = compression.encode(File::create(path.as_ref())?, BoxedSync)?;
-        let slf = Box::new(Writer::new(boxed));
+        let boxed: BufWriter<Box<dyn Write + Send + Sync>> =
+            BufWriter::new(compression.encode(File::create(path.as_ref())?, BoxedSync)?);
+        let slf: Box<Writer<_, Bed>> = Box::new(Writer::new(boxed));
         Ok(slf)
     }
 }
@@ -98,14 +101,8 @@ impl_write_record!(
     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{},{},{}",
     // Bed12
     [record.blocks().len()],
-    [Itertools::join(
-        &mut record.blocks().iter().map(|x| x.len()),
-        ","
-    )],
-    [Itertools::join(
-        &mut record.blocks().iter().map(|x| x.start()),
-        ","
-    )],
+    [record.blocks().iter().map(|x| x.len()).format(",")],
+    [record.blocks().iter().map(|x| x.start()).format(",")],
     Bed12,
     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{},{},{}\t{}\t{}\t{}",
 );

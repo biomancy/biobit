@@ -1,9 +1,7 @@
 # mypy 2.4 does not unwrap PEP 695 TypeAliasType objects.
 # tests/test_stubs.py compares aliases with independently maintained .pyi targets.
-# IntoEncoding/IntoDecoding have a single inline definition in protocols.py.
-biobit.io.bed.AnyBed
-biobit.io.protocols.IntoDecoding
-biobit.io.protocols.IntoEncoding
+# Compression has a single inline definition in protocols.py.
+biobit.io.protocols.Compression
 biobit.toolkit.countit.rigid.resolution.IntoResolution
 
 # PEP 695 generic classes expose __type_params__; mypy does not synthesize it.

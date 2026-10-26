@@ -1,4 +1,4 @@
-use eyre::{Result, ensure, eyre};
+use eyre::{Context, Result, eyre};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -42,26 +42,23 @@ impl IndexedSources {
         let mut parsed: Vec<(Box<dyn IndexedRead>, _)> = Vec::with_capacity(self.sources.len());
 
         for (fasta, compression) in &self.sources {
-            let mut path = fasta.clone();
-            let file = File::open(&path)?;
-
-            let fname = path
-                .file_name()
-                .and_then(|x| x.to_str())
-                .unwrap_or_default()
-                .to_string();
-            path.set_file_name(format!("{fname}.fai"));
-            ensure!(path.exists(), "fai index does not exist: {:?}", path);
-            let fai = BufReader::new(File::open(&path)?);
+            let file = File::open(fasta)
+                .wrap_err_with(|| format!("Failed to open FASTA file: {}", fasta.display()))?;
+            let path = fasta.with_added_extension("fai");
+            let fai = BufReader::new(
+                File::open(&path)
+                    .wrap_err_with(|| format!("Failed to open FASTA index: {}", path.display()))?,
+            );
 
             match compression {
                 Decoder::Identity(_) => {
                     parsed.push((Box::new(file), fai));
                 }
                 Decoder::Bgzf(_) => {
-                    path.set_file_name(format!("{fname}.gzi"));
-                    ensure!(path.exists(), "gzi index does not exist: {:?}", path);
-                    let gzi = noodles::bgzf::gzi::fs::read(&path)?;
+                    let path = fasta.with_added_extension("gzi");
+                    let gzi = noodles::bgzf::gzi::fs::read(&path).wrap_err_with(|| {
+                        format!("Failed to read BGZF index: {}", path.display())
+                    })?;
 
                     let reader = Box::new(noodles::bgzf::io::indexed_reader::IndexedReader::new(
                         file, gzi,

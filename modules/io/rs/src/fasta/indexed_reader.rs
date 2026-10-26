@@ -6,6 +6,8 @@ use impl_tools::autoimpl;
 use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek};
 
+const READ_CHUNK_SIZE: usize = 512 * 1024; // 512 KB chunks for sequential reads
+
 /// An indexed FASTA reader that can fetch sequences by reference sequence ID and interval.
 #[autoimpl(for<T: trait + ?Sized> Box<T>)]
 pub trait IndexedReaderMutOp {
@@ -117,8 +119,8 @@ impl<R: Read + Seek> IndexedReader<R> {
                     .parse::<u64>()
                     .wrap_err_with(err)?;
                 ensure!(
-                    _bytes_per_line > _bases_per_line,
-                    "Bytes per line must be greater than bases per line, line: {}",
+                    _bytes_per_line >= _bases_per_line,
+                    "Bytes per line must be at least bases per line, line: {}",
                     buffer
                 );
                 bytes_per_line.push(_bytes_per_line);
@@ -147,7 +149,7 @@ impl<R: Read + Seek> IndexedReader<R> {
     }
 
     #[inline(always)]
-    fn sanitize<Iv, Idx>(&mut self, seqid: &str, interval: &Iv) -> Result<(usize, u64, u64)>
+    fn sanitize<Iv, Idx>(&self, seqid: &str, interval: &Iv) -> Result<(usize, u64, u64)>
     where
         Iv: IntervalOp<Idx = Idx>,
         Idx: PrimInt,
@@ -169,6 +171,7 @@ impl<R: Read + Seek> IndexedReader<R> {
             .ok_or_else(|| eyre!("Invalid end coordinate: {:?}", interval.end()))?;
 
         // Validate the coordinates
+        ensure!(start < end, "Invalid interval for {seqid}: {start}..{end}");
         let length = self.lengths[*index];
         ensure!(
             start < length,
@@ -188,63 +191,8 @@ impl<R: Read + Seek> IndexedReader<R> {
         Ok((*index, start, end))
     }
 
-    #[inline(always)]
-    #[allow(clippy::too_many_arguments)]
-    fn fetch(
-        reader: &mut R,
-        offset: u64,
-        start: u64,
-        end: u64,
-        bytes_per_line: u64,
-        bases_per_line: u64,
-        endline_bytes: u64,
-        buffer: &mut Vec<u8>,
-    ) -> Result<()> {
-        // Calculate start and end lines in the FASTA file
-        let start_line = start / bases_per_line;
-        let end_line = end / bases_per_line;
-
-        // Prepare the buffer
-        buffer.clear();
-
-        let length = (end - start) as usize;
-        if buffer.capacity() < length {
-            buffer.try_reserve(length - buffer.capacity())?;
-        }
-
-        // Seek to the start of the sequence
-        let start_byte = offset + start_line * bytes_per_line + start % bases_per_line;
-        reader.seek(std::io::SeekFrom::Start(start_byte))?;
-
-        // Special case – the sequence is contained in a single line
-        if start_line == end_line {
-            reader.by_ref().take(length as u64).read_to_end(buffer)?;
-            return Ok(());
-        }
-
-        // Read the first line, which might be incomplete
-        let mut sink = std::io::sink();
-        {
-            let to_read = bases_per_line * (start_line + 1) - start;
-            reader.take(to_read).read_to_end(buffer)?;
-            std::io::copy(&mut reader.take(endline_bytes), &mut sink)?;
-        }
-
-        // Read the middle lines
-        for _ in start_line + 1..end_line {
-            reader.by_ref().take(bases_per_line).read_to_end(buffer)?;
-            std::io::copy(&mut reader.take(endline_bytes), &mut sink)?;
-        }
-
-        // Read the last line, which might be incomplete
-        reader
-            .take(end - end_line * bases_per_line)
-            .read_to_end(buffer)?;
-
-        Ok(())
-    }
-
-    /// Fetch the sequence for the given reference sequence ID and interval.
+    /// Fetch the sequence for the given reference sequence ID and zero-based,
+    /// half-open interval, replacing the contents of `buffer`.
     pub fn fetch_interval<Iv, Idx>(
         &mut self,
         seqid: &str,
@@ -264,16 +212,82 @@ impl<R: Read + Seek> IndexedReader<R> {
         let bytes_per_line = self.bytes_per_line[index];
         let endline_bytes = bytes_per_line - bases_per_line;
 
-        Self::fetch(
-            reader,
-            offset,
-            start,
-            end,
-            bytes_per_line,
-            bases_per_line,
-            endline_bytes,
-            buffer,
-        )?;
+        let first_line = start / bases_per_line;
+        let last_line = (end - 1) / bases_per_line;
+        let length = usize::try_from(end - start)?;
+
+        // Include only line endings between requested bases, never the one after
+        // the final base. This also supports files without a final newline.
+        let raw_length = (last_line - first_line)
+            .checked_mul(endline_bytes)
+            .and_then(|gaps| (end - start).checked_add(gaps))
+            .and_then(|bytes| usize::try_from(bytes).ok())
+            .ok_or_else(|| {
+                eyre!(
+                    "FASTA read buffer size overflow. This should not normally happen and likely indicates a logical bug."
+                )
+            })?;
+
+        let start_byte = first_line
+            .checked_mul(bytes_per_line)
+            .and_then(|bytes| offset.checked_add(bytes))
+            .and_then(|position| position.checked_add(start % bases_per_line))
+            .ok_or_else(|| eyre!("FASTA byte offset overflow for {seqid}; check the .fai index"))?;
+
+        buffer.clear();
+        buffer.try_reserve(length)?;
+        reader.seek(std::io::SeekFrom::Start(start_byte))?;
+
+        // Read into the space still needed for the final sequence, then compact
+        // only the new chunk. Near the end, shrink reads to the remaining capacity
+        // to avoid growing the allocation just to accommodate temporary line endings.
+        let mut remaining = raw_length;
+        let mut line_position = start % bases_per_line;
+        while remaining > 0 {
+            // 1. Read into the buffer, up to the remaining capacity or the chunk size.
+            let chunk_start = buffer.len();
+            let chunk_length = remaining
+                .min(READ_CHUNK_SIZE)
+                .min(buffer.capacity() - chunk_start);
+            let read = reader
+                .by_ref()
+                .take(chunk_length as u64)
+                .read_to_end(buffer)?;
+            if read != chunk_length {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "truncated FASTA sequence",
+                )
+                .into());
+            }
+
+            // 2. Compact the chunk in the buffer, one line at a time.
+            let chunk_end = buffer.len();
+            let mut source = chunk_start;
+            let mut destination = chunk_start;
+            while source < chunk_end {
+                let count = bases_per_line
+                    .saturating_sub(line_position)
+                    .min((chunk_end - source) as u64) as usize;
+                if source != destination {
+                    buffer.copy_within(source..source + count, destination);
+                }
+                source += count;
+                destination += count;
+                line_position += count as u64;
+
+                // A chunk may stop anywhere, including between CR and LF.
+                let skip = (bytes_per_line - line_position).min((chunk_end - source) as u64);
+                source += skip as usize;
+                line_position += skip;
+                if line_position == bytes_per_line {
+                    line_position = 0;
+                }
+            }
+            buffer.truncate(destination);
+            remaining -= chunk_length;
+        }
+        debug_assert_eq!(buffer.len(), length);
 
         Ok(())
     }
@@ -312,8 +326,77 @@ impl<R: Read + Seek> IndexedReaderMutOp for IndexedReader<R> {
 mod tests {
     use super::*;
     use crate::fasta::IndexedSources;
+    use std::io::{Cursor, ErrorKind};
     use std::path::PathBuf;
     use substratum_compress::Decoder;
+
+    #[test]
+    fn fetches_intervals_across_line_endings() -> Result<()> {
+        for (fasta, sequence, line_bases, line_width) in [
+            (">id\nACGT\nTGCA\nACGT\n", "ACGTTGCAACGT", 4, 5),
+            (">id\nACGT\nTGCA\nACGT", "ACGTTGCAACGT", 4, 5),
+            (">id\nACGT\r\nTGCA\r\nACGT\r\n", "ACGTTGCAACGT", 4, 6),
+            (">id\nACGT\r\nTGCA\r\nACGT", "ACGTTGCAACGT", 4, 6),
+            (">id\nACGT\nTGCA\nAC\n", "ACGTTGCAAC", 4, 5),
+            (">id\nACGT\nTGCA\nAC", "ACGTTGCAAC", 4, 5),
+            (">id\nACGT\r\nTGCA\r\nAC\r\n", "ACGTTGCAAC", 4, 6),
+            (">id\nACGT\r\nTGCA\r\nAC", "ACGTTGCAAC", 4, 6),
+            (">id\nA\nC\nG\nT", "ACGT", 1, 2),
+            (">id\nA\r\nC\r\nG\r\nT", "ACGT", 1, 3),
+            (">id\nACGT", "ACGT", 4, 4),
+            (">id\nACGT", "ACGT", 4, 5),
+        ] {
+            let sequence = sequence.as_bytes();
+            let index = format!("id\t{}\t4\t{line_bases}\t{line_width}\n", sequence.len());
+            let mut reader = IndexedReader::new(vec![(Cursor::new(fasta), Cursor::new(index))])?;
+            // Reuse a buffer while the requested interval length grows and shrinks.
+            let mut buffer = vec![b'X'; 8];
+            for start in 0..sequence.len() {
+                for end in start + 1..=sequence.len() {
+                    let interval = Interval::new(start as u64, end as u64)?;
+                    reader.fetch_interval("id", &interval, &mut buffer)?;
+                    assert_eq!(buffer, sequence[start..end]);
+                }
+            }
+            reader.fetch_full_seq("id", &mut buffer)?;
+            assert_eq!(buffer, sequence);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn truncated_sequences_return_unexpected_eof() -> Result<()> {
+        for (fasta, end) in [
+            (">id\nAC", 3),              // In a single line.
+            (">id\nAC", 12),             // In the first line.
+            (">id\nACGT\nTG", 12),       // In a middle line.
+            (">id\nACGT\nTGCA\nAC", 12), // In the last line.
+            (">id\nACGT", 12),           // Before a line ending.
+            (">id\n", 12),               // Before any bases.
+        ] {
+            let mut reader =
+                IndexedReader::new(vec![(Cursor::new(fasta), Cursor::new("id\t12\t4\t4\t5\n"))])?;
+            let error = reader
+                .fetch_interval("id", &Interval::new(0, end)?, &mut Vec::new())
+                .unwrap_err();
+            assert_eq!(
+                error.downcast_ref::<std::io::Error>().unwrap().kind(),
+                ErrorKind::UnexpectedEof,
+                "FASTA: {fasta:?}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_line_widths_are_rejected() {
+        for (bases, bytes) in [(0, 5), (4, 0), (4, 3)] {
+            let index = format!("id\t4\t4\t{bases}\t{bytes}\n");
+            assert!(
+                IndexedReader::new(vec![(Cursor::new(">id\nACGT\n"), Cursor::new(index))]).is_err()
+            );
+        }
+    }
 
     #[test]
     fn test_indexed_fa() -> Result<()> {

@@ -30,4 +30,4 @@ itertools = { workspace = true }
 substratum-compress = { workspace = true }
 
 [features]
-bitcode = ["dep:bitcode"]
+bitcode = ["dep:bitcode", "biobit-core-rs/bitcode"]

@@ -85,7 +85,7 @@ define_bed_struct!(
     Bed8,
     (rgb: (u8, u8, u8) = (0, 0, 0); validate::rgb(&rgb)),
     Bed9,
-    (blocks: Vec<Interval<u64>> = Vec::new(); validate::blocks(&interval, &blocks)),
+    (blocks: Vec<Interval<u64>> = vec![Interval::default()]; validate::blocks(&interval, &blocks)),
     Bed12,
 );
 
@@ -502,7 +502,7 @@ mod tests {
         ];
 
         for cmb in iproduct!(
-            vec!["1", "chr", &("A".repeat(255))],
+            vec!["1", "chr", "chr#1", &("A".repeat(255))],
             vec![Interval::new(0, 100)?, Interval::new(1, 101)?],
             vec!["B", "name", &("B".repeat(255)), " "],
             vec![0, 500, 1000],
@@ -586,7 +586,16 @@ mod tests {
         )?;
 
         // Incorrect seqid
-        for seqid in ["", &"A".repeat(256), " A"] {
+        for seqid in [
+            "",
+            &"A".repeat(256),
+            " A",
+            "chr\0",
+            "chr\x01",
+            "chr\x7f",
+            "chré",
+            "#chr1",
+        ] {
             assert!(template.set_seqid(seqid.to_string()).is_err());
         }
 

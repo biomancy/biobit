@@ -1,4 +1,5 @@
-use biobit_core_py::loc::{IntervalOp, IntoPyInterval};
+use biobit_core_py::loc::IntoPyInterval;
+use biobit_core_py::utils::collections::Iterable;
 pub use biobit_io_rs::fasta::{EXTENSIONS, IndexedReaderMutOp, IndexedSources};
 use derive_more::Into;
 use eyre::{ContextCompat, Result};
@@ -18,21 +19,22 @@ pub struct PyIndexedSources {
 impl PyIndexedSources {
     #[new]
     fn new(path: Bound<PyAny>) -> Result<Self> {
-        let mut paths = Vec::new();
-        if let Ok(path) = path.extract::<PathBuf>() {
-            paths.push(path);
+        let paths = if let Ok(path) = path.extract::<PathBuf>() {
+            vec![path]
         } else {
-            paths = path.extract::<Vec<PathBuf>>()?;
-        }
+            path.extract::<Iterable<PathBuf>>()?.into_iter().collect()
+        };
 
-        let decoders = paths
-            .iter()
-            .map(|x| Decoder::from_path(x, EXTENSIONS))
+        let sources = paths
+            .into_iter()
+            .map(|path| {
+                let decoder = Decoder::from_path(&path, EXTENSIONS)?;
+                Ok((path, decoder))
+            })
             .collect::<Result<Vec<_>, io::Error>>()?;
-        let indexed: Vec<_> = paths.iter().zip(decoders).collect();
 
         Ok(Self {
-            rs: IndexedSources::from_paths(&indexed),
+            rs: IndexedSources::new(sources),
         })
     }
 
@@ -59,7 +61,7 @@ impl PyIndexedReader {
         let interval = Python::attach(|py| interval.0.borrow(py).rs.cast::<u64>())
             .wrap_err("Failed to cast interval to u64")?;
 
-        let mut buffer = Vec::with_capacity(interval.len() as usize);
+        let mut buffer = Vec::new();
         self.rs.fetch(seqid, interval, &mut buffer)?;
         Ok(String::from_utf8(buffer)?)
     }
