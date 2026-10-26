@@ -4,7 +4,7 @@ from types import TracebackType
 from typing import ClassVar, Self, final, type_check_only
 
 from biobit.core.loc import Interval, IntoInterval, IntoOrientation, Orientation
-from biobit.io.protocols import IntoDecoding, IntoEncoding, ReadRecord, WriteRecord
+from biobit.io.protocols import Compression, ReadRecord, WriteRecord
 
 type AnyBed = Bed3 | Bed4 | Bed5 | Bed6 | Bed8 | Bed9 | Bed12
 
@@ -252,7 +252,7 @@ class Bed12:
 @type_check_only
 class _Reader[T](ReadRecord[T]):
     def __new__(
-        cls, path: str | Path, compression: IntoDecoding | None = None
+        cls, path: str | Path, compression: Compression = "infer"
     ) -> Self: ...
     def read_record(self, into: T | None = None) -> T | None: ...
     def read_to_end(self) -> list[T]: ...
@@ -263,7 +263,7 @@ class _Reader[T](ReadRecord[T]):
 @type_check_only
 class _Writer[T](WriteRecord[T]):
     def __new__(
-        cls, path: str | Path, compression: IntoEncoding | None = None
+        cls, path: str | Path, compression: Compression = "infer"
     ) -> Self: ...
     def write_record(self, record: T) -> Self: ...
     def write_records(self, records: Iterable[T]) -> Self: ...
@@ -325,31 +325,31 @@ class Reader:
     """Factories for the concrete BED stream types."""
     @staticmethod
     def bed3(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed3Reader: ...
     @staticmethod
     def bed4(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed4Reader: ...
     @staticmethod
     def bed5(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed5Reader: ...
     @staticmethod
     def bed6(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed6Reader: ...
     @staticmethod
     def bed8(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed8Reader: ...
     @staticmethod
     def bed9(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed9Reader: ...
     @staticmethod
     def bed12(
-        path: str | Path, compression: IntoDecoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed12Reader: ...
 
 @final
@@ -357,31 +357,31 @@ class Writer:
     """Factories for the concrete BED stream types."""
     @staticmethod
     def bed3(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed3Writer: ...
     @staticmethod
     def bed4(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed4Writer: ...
     @staticmethod
     def bed5(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed5Writer: ...
     @staticmethod
     def bed6(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed6Writer: ...
     @staticmethod
     def bed8(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed8Writer: ...
     @staticmethod
     def bed9(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed9Writer: ...
     @staticmethod
     def bed12(
-        path: str | Path, compression: IntoEncoding | None = None
+        path: str | Path, compression: Compression = "infer"
     ) -> _Bed12Writer: ...
 
 __all__ = [

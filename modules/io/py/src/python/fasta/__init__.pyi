@@ -4,7 +4,9 @@ from types import TracebackType
 from typing import Self, final
 
 from biobit.core.loc import IntoInterval
-from biobit.io.protocols import IntoDecoding, IntoEncoding, ReadRecord, WriteRecord
+from biobit.io.protocols import Compression, ReadRecord, WriteRecord
+
+DEFAULT_LINE_WIDTH: int
 
 @final
 class Record:
@@ -16,7 +18,7 @@ class Record:
 @final
 class Reader(ReadRecord[Record]):
     def __new__(
-        cls, path: str | Path, compression: IntoDecoding | None = None
+        cls, path: str | Path, compression: Compression = "infer"
     ) -> Self: ...
     def read_record(self, into: Record | None = None) -> Record | None: ...
     def read_to_end(self) -> list[Record]: ...
@@ -46,7 +48,7 @@ class Writer(WriteRecord[Record]):
         cls,
         path: str | Path,
         line_width: int | None = None,
-        compression: IntoEncoding | None = None,
+        compression: Compression = "infer",
     ) -> Self: ...
     def write_record(self, record: Record) -> Self: ...
     def write_records(self, records: Iterable[Record]) -> Self: ...
@@ -60,4 +62,11 @@ class Writer(WriteRecord[Record]):
         exc_tb: TracebackType | None,
     ): ...
 
-__all__ = ["IndexedReader", "IndexedSources", "Reader", "Record", "Writer"]
+__all__ = [
+    "DEFAULT_LINE_WIDTH",
+    "IndexedReader",
+    "IndexedSources",
+    "Reader",
+    "Record",
+    "Writer",
+]

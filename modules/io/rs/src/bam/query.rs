@@ -12,7 +12,6 @@ use biobit_core_rs::LendingIterator;
 
 #[derive(From, Into, Default)]
 pub struct Cache {
-    buffer: bam::Record,
     batch: Vec<bam::Record>,
 }
 
@@ -65,35 +64,43 @@ where
             return Ok(false);
         }
 
-        match (
-            record.reference_sequence_id().transpose()?,
-            record.alignment_start().transpose()?,
-            record.alignment_end().transpose()?,
-        ) {
-            (Some(id), Some(start), Some(end)) => {
+        // Check the reference and start before walking CIGAR to calculate the end.
+        if record.reference_sequence_id().transpose()? != Some(self.reference_sequence_id) {
+            return Ok(false);
+        }
+        let Some(start) = record.alignment_start().transpose()? else {
+            return Ok(false);
+        };
+        if self.interval.end().is_some_and(|end| start > end) {
+            return Ok(false);
+        }
+
+        // Earlier starts may still overlap the query, so their end must be checked.
+        match record.alignment_end().transpose()? {
+            Some(end) => {
                 let interval = Interval::from(start..=end);
-                Ok(id == self.reference_sequence_id && self.interval.intersects(interval))
+                Ok(self.interval.intersects(interval))
             }
-            _ => Ok(false),
+            None => Ok(false),
         }
     }
 
     fn read(&mut self) -> io::Result<usize> {
-        self.cache.batch.clear();
-
-        while self.cache.batch.len() < self.batch_size {
-            // Try to read a record into the cache, if it fails, break the loop
-            if self.reader.read_record(&mut self.cache.buffer)? == 0 {
+        let mut count = 0;
+        while count < self.batch_size {
+            // Reuse record allocations when consumers borrow rather than drain a batch.
+            if count == self.cache.batch.len() {
+                self.cache.batch.push(bam::Record::default());
+            }
+            if self.reader.read_record(&mut self.cache.batch[count])? == 0 {
                 break;
             }
-
-            // Check if the record intersects with the target region => move to the next record
-            if self.is_record_ok(&self.cache.buffer)? {
-                let record = std::mem::take(&mut self.cache.buffer);
-                self.cache.batch.push(record);
+            if self.is_record_ok(&self.cache.batch[count])? {
+                count += 1;
             }
         }
-        Ok(self.cache.batch.len())
+        self.cache.batch.truncate(count);
+        Ok(count)
     }
 }
 

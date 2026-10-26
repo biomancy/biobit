@@ -2,8 +2,8 @@ from collections.abc import Iterable, Iterator
 from types import TracebackType
 from typing import Literal, Protocol, Self
 
-type IntoEncoding = Literal["gz", "gzip", "bgz", "bgzip", "bgzf", "raw", "none"]
-type IntoDecoding = Literal["gz", "gzip", "bgz", "bgzip", "bgzf", "raw", "none"]
+# "infer" uses the filename suffix; None explicitly selects an uncompressed stream.
+type Compression = Literal["infer", "gz", "bgz"] | None
 
 
 class ReadRecord[T](Protocol):

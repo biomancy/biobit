@@ -7,6 +7,8 @@ pub mod bam;
 pub mod bed;
 pub mod fasta;
 
+mod compression;
+
 pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {
     let module = ImportablePyModuleBuilder::new(py, name)?
         .defaults()?
@@ -14,6 +16,7 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .add_submodule(&fasta::construct(py, &format!("{name}.fasta"))?)?
         .add_submodule(&bed::construct(py, &format!("{name}.bed"))?)?
         .finish();
+    module.add("__all__", ["bam", "bed", "fasta"])?;
 
     Ok(module)
 }

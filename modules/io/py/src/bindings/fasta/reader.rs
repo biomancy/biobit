@@ -1,11 +1,11 @@
 use super::record::PyRecord;
-use biobit_io_rs::{ReadRecord, fasta::EXTENSIONS, fasta::Record};
+use crate::compression::compression_format;
+use biobit_io_rs::{ReadRecord, fasta::Record};
 use derive_more::Into;
 use eyre::Result;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::path::PathBuf;
-use substratum_compress::Decoder;
 
 pub use biobit_io_rs::fasta::Reader;
 
@@ -19,12 +19,9 @@ pub struct PyReader {
 #[pymethods]
 impl PyReader {
     #[new]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
-        let config = match compression {
-            None => Decoder::from_path(&path, EXTENSIONS),
-            Some(x) => Decoder::from_extension(x, EXTENSIONS),
-        }?;
+        let config = compression_format(&path, compression)?.decoder();
         let rs = Reader::from_path(path.clone(), &config)?;
         Ok(Self { path, rs })
     }

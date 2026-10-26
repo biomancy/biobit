@@ -1,13 +1,13 @@
 use super::record::{PyBed3, PyBed4, PyBed5, PyBed6, PyBed8, PyBed9, PyBed12};
+use crate::compression::compression_format;
 use biobit_io_rs::WriteRecord;
 pub use biobit_io_rs::bed::Writer;
-use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12, EXTENSIONS};
+use biobit_io_rs::bed::{Bed3, Bed4, Bed5, Bed6, Bed8, Bed9, Bed12};
 use derive_more::Into;
 use eyre::OptionExt;
 use eyre::Result;
 use pyo3::prelude::*;
 use std::path::PathBuf;
-use substratum_compress::Encoder;
 
 #[pyclass(name = "Writer")]
 pub struct PyWriter {}
@@ -15,80 +15,45 @@ pub struct PyWriter {}
 #[pymethods]
 impl PyWriter {
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed3(path: PathBuf, compression: Option<&str>) -> Result<PyBed3Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed3>(&path, &config)?);
-        Ok(PyBed3Writer { path, rs })
+        PyBed3Writer::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed4(path: PathBuf, compression: Option<&str>) -> Result<PyBed4Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed4>(&path, &config)?);
-        Ok(PyBed4Writer { path, rs })
+        PyBed4Writer::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed5(path: PathBuf, compression: Option<&str>) -> Result<PyBed5Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed5>(&path, &config)?);
-        Ok(PyBed5Writer { path, rs })
+        PyBed5Writer::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed6(path: PathBuf, compression: Option<&str>) -> Result<PyBed6Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed6>(&path, &config)?);
-        Ok(PyBed6Writer { path, rs })
+        PyBed6Writer::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed8(path: PathBuf, compression: Option<&str>) -> Result<PyBed8Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed8>(&path, &config)?);
-        Ok(PyBed8Writer { path, rs })
+        PyBed8Writer::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed9(path: PathBuf, compression: Option<&str>) -> Result<PyBed9Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed9>(&path, &config)?);
-        Ok(PyBed9Writer { path, rs })
+        PyBed9Writer::new(path, compression)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (path, compression=None))]
+    #[pyo3(signature = (path, compression="infer"))]
     fn bed12(path: PathBuf, compression: Option<&str>) -> Result<PyBed12Writer> {
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
-        let rs = Some(Writer::from_path::<Bed12>(&path, &config)?);
-        Ok(PyBed12Writer { path, rs })
+        PyBed12Writer::new(path, compression)
     }
 }
 
@@ -104,12 +69,9 @@ macro_rules! impl_bed_writer {
         #[pymethods]
         impl $Writer {
             #[new]
-            #[pyo3(signature = (path, compression=None))]
+            #[pyo3(signature = (path, compression="infer"))]
             pub fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
-                let config = match compression {
-                    None => Encoder::from_path(&path, EXTENSIONS),
-                    Some(x) => Encoder::from_extension(x, EXTENSIONS),
-                }?;
+                let config = compression_format(&path, compression)?.encoder();
                 let rs = Some(Writer::from_path::<$Bed>(path.clone(), &config)?);
                 Ok(Self { path, rs })
             }

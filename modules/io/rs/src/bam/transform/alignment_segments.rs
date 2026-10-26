@@ -1,15 +1,14 @@
 use std::io;
 
 use derive_getters::Dissolve;
-use dyn_clone::DynClone;
 use higher_kinded_types::prelude::*;
 use noodles::bam::record::Record;
 use noodles::sam::alignment::record::cigar::Op;
 use noodles::sam::alignment::record::cigar::op::Kind;
-use noodles::sam::alignment::record::data::field::{Tag, Value};
+use noodles::sam::alignment::record::data::field::Tag;
 
 use biobit_core_rs::LendingIterator;
-use biobit_core_rs::loc::{Interval, Orientation};
+use biobit_core_rs::loc::{Interval, IntervalOp, Orientation};
 use biobit_core_rs::num::PrimInt;
 use biobit_core_rs::source::{AnyMap, Transform};
 
@@ -19,7 +18,7 @@ use crate::bam::{alignment_segments::AlignmentSegments, strdeductor::StrDeductor
 pub struct SegmentedAlignment<Idx: PrimInt> {
     pub intervals: AlignmentSegments<Idx>,
     pub orientation: Vec<Orientation>,
-    pub total_hits: Vec<i8>,
+    pub total_hits: Vec<u32>,
 }
 
 impl<Idx: PrimInt> SegmentedAlignment<Idx> {
@@ -29,7 +28,7 @@ impl<Idx: PrimInt> SegmentedAlignment<Idx> {
         self.total_hits.clear();
     }
 
-    pub fn push(&mut self, segments: &[Interval<Idx>], orientation: Orientation, total_hits: i8) {
+    pub fn push(&mut self, segments: &[Interval<Idx>], orientation: Orientation, total_hits: u32) {
         if segments.is_empty() {
             return;
         }
@@ -39,7 +38,7 @@ impl<Idx: PrimInt> SegmentedAlignment<Idx> {
         self.total_hits.push(total_hits);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&[Interval<Idx>], Orientation, i8)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&[Interval<Idx>], Orientation, u32)> {
         self.intervals
             .iter()
             .zip(&self.orientation)
@@ -63,32 +62,61 @@ pub struct Cache {
 }
 
 impl Cache {
+    fn append_record(&mut self, record: &Record) -> io::Result<()> {
+        let start = record.alignment_start().transpose()?.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "BAM alignment has no start position",
+            )
+        })?;
+        // Noodles exposes 1-based positions, while our intervals are 0-based.
+        self.append_cigar(start.get() - 1, record.cigar().iter())?;
+        Ok(())
+    }
+
     fn append_cigar(
         &mut self,
         mut start: usize,
         cigar: impl Iterator<Item = io::Result<Op>>,
     ) -> io::Result<&mut Self> {
-        self.segments.clear();
-
         for cigar in cigar {
             let cigar = cigar?;
             let len = cigar.len();
 
             match cigar.kind() {
                 Kind::Match | Kind::SequenceMatch | Kind::SequenceMismatch => {
-                    let interval = Interval::new(start, start + len).map_err(|_| {
+                    let end = start.checked_add(len).ok_or_else(|| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "CIGAR reference position overflow",
+                        )
+                    })?;
+                    let interval = Interval::new(start, end).map_err(|_| {
                         io::Error::new(
                             io::ErrorKind::InvalidData,
                             format!("Invalid CIGAR operation {:?}", cigar),
                         )
                     })?;
 
-                    self.segments.push(interval);
-                    start += len;
+                    if let Some(last) = self.segments.last_mut()
+                        && last.end() == start
+                    {
+                        *last = last
+                            .union(&interval)
+                            .expect("adjacent intervals have a union");
+                    } else {
+                        self.segments.push(interval);
+                    }
+                    start = end;
                 }
+                // Deletions and skips consume reference bases without aligning read bases.
                 Kind::Deletion | Kind::Skip => {
-                    // Deletion or skip don't produce an 'aligned' segment in the read
-                    start += len;
+                    start = start.checked_add(len).ok_or_else(|| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "CIGAR reference position overflow",
+                        )
+                    })?;
                 }
                 Kind::Insertion | Kind::SoftClip | Kind::HardClip | Kind::Pad => {}
             }
@@ -97,6 +125,8 @@ impl Cache {
     }
 }
 
+/// Extracts aligned read bases as 0-based, half-open reference intervals.
+/// Unmapped records are ignored; mapped records require a positive NH tag.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub struct ExtractAlignmentSegments<D: StrDeductor> {
     batch_size: usize,
@@ -185,42 +215,40 @@ pub struct AlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
 
 impl<InIter, D> LendingIterator for AlnSegmentsIterator<'_, InIter, D>
 where
-    D: StrDeductor + Clone,
+    D: StrDeductor,
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<Record>>)>,
 {
     type Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 
     fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
-        match self.iterator.next()? {
-            Ok(records) => {
-                self.cache.batch.clear();
-
-                for record in records {
-                    let orientation = self.deductor.deduce(record);
-
-                    // Reconstruct the alignment segments from the record
-                    let start = record.alignment_start()?.ok()?.get();
-                    self.cache.segments.clear();
-                    self.cache.append_cigar(start, record.cigar().iter()).ok()?;
-
-                    let total_hits = extract_aln_hit_count(record).unwrap();
-                    self.cache
-                        .batch
-                        .push(&self.cache.segments, orientation, total_hits);
+        self.iterator.next().map(|records| {
+            let records = records?;
+            self.cache.batch.clear();
+            for record in records {
+                if record.flags().is_unmapped() {
+                    continue;
                 }
-                Some(Ok(&mut self.cache.batch))
+                self.cache.segments.clear();
+                self.cache.append_record(record)?;
+                let total_hits = extract_aln_hit_count(record)?;
+                self.cache.batch.push(
+                    &self.cache.segments,
+                    self.deductor.deduce(record),
+                    total_hits,
+                );
             }
-            Err(e) => Some(Err(e)),
-        }
+            Ok(&mut self.cache.batch)
+        })
     }
 }
 
+/// Unions aligned bases from both mates on the same reference, counting overlaps once.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub struct ExtractPairedAlignmentSegments<D: StrDeductor> {
     inner: ExtractAlignmentSegments<D>,
 }
 
-impl<D: StrDeductor + DynClone> ExtractPairedAlignmentSegments<D> {
+impl<D: StrDeductor> ExtractPairedAlignmentSegments<D> {
     pub fn new(deductor: D) -> Self {
         Self {
             inner: ExtractAlignmentSegments::new(deductor),
@@ -280,79 +308,82 @@ pub struct PairedAlnSegmentsIterator<'borrow, InIter, D: StrDeductor> {
 
 impl<InIter, D> LendingIterator for PairedAlnSegmentsIterator<'_, InIter, D>
 where
-    D: StrDeductor + Clone,
+    D: StrDeductor,
     InIter: LendingIterator<Item = For!(<'iter> = io::Result<&'iter mut Vec<(Record, Record)>>)>,
 {
     type Item = For!(<'iter> = io::Result<&'iter mut SegmentedAlignment<usize>>);
 
     fn next(&mut self) -> Option<<Self::Item as ForLt>::Of<'_>> {
-        match self.iterator.next()? {
-            Ok(records) => {
-                self.cache.batch.clear();
-
-                for (lmate, rmate) in records {
-                    // Predict the orientation
-                    let lorientation = self.deductor.deduce(lmate);
-                    let rorientation = self.deductor.deduce(rmate);
-
-                    if lorientation != rorientation {
-                        return Some(Err(io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!(
-                                "Inconsistent orientation predicted for: {:?} and {:?} ({} vs {})",
-                                lmate, rmate, lorientation, rorientation
-                            ),
-                        )));
-                    }
-
-                    // Reconstruct the alignment segments from the record
-                    self.cache.segments.clear();
-                    self.cache
-                        .append_cigar(
-                            lmate.alignment_start()?.ok()?.get() - 1,
-                            lmate.cigar().iter(),
-                        )
-                        .ok()?
-                        .append_cigar(
-                            rmate.alignment_start()?.ok()?.get() - 1,
-                            rmate.cigar().iter(),
-                        )
-                        .ok()?;
-                    self.cache.segments = Interval::merge(&mut self.cache.segments);
-
-                    let lhits = extract_aln_hit_count(lmate).unwrap();
-                    debug_assert!(lhits > 0);
-                    debug_assert!(lhits == extract_aln_hit_count(rmate).unwrap());
-
-                    self.cache
-                        .batch
-                        .push(&self.cache.segments, lorientation, lhits);
+        self.iterator.next().map(|records| {
+            let records = records?;
+            self.cache.batch.clear();
+            for (lmate, rmate) in records {
+                let reference = lmate.reference_sequence_id().transpose()?;
+                if lmate.flags().is_unmapped()
+                    || rmate.flags().is_unmapped()
+                    || reference.is_none()
+                    || reference != rmate.reference_sequence_id().transpose()?
+                {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "Paired alignment segments require two mapped mates on the same reference",
+                    ));
                 }
-                Some(Ok(&mut self.cache.batch))
+                let lorientation = self.deductor.deduce(lmate);
+                let rorientation = self.deductor.deduce(rmate);
+                if lorientation != rorientation {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "Inconsistent orientation for BAM mates {:?}: {} vs {}",
+                            lmate.name(),
+                            lorientation,
+                            rorientation
+                        ),
+                    ));
+                }
+                let hits = extract_aln_hit_count(lmate)?;
+                if hits != extract_aln_hit_count(rmate)? {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "BAM mates have different NH alignment hit counts",
+                    ));
+                }
+
+                self.cache.segments.clear();
+                self.cache.append_record(lmate)?;
+                self.cache.append_record(rmate)?;
+                // Union the mates in place, retaining the scratch buffer between pairs.
+                self.cache.segments.sort_unstable();
+                self.cache.segments.dedup_by(|next, previous| {
+                    if let Some(union) = previous.union(next) {
+                        *previous = union;
+                        true
+                    } else {
+                        false
+                    }
+                });
+                self.cache
+                    .batch
+                    .push(&self.cache.segments, lorientation, hits);
             }
-            Err(e) => Some(Err(e)),
-        }
+            Ok(&mut self.cache.batch)
+        })
     }
 }
 
-pub fn extract_aln_hit_count(record: &Record) -> io::Result<i8> {
-    let data = record.data();
-    let total_hits = match data.get(&Tag::ALIGNMENT_HIT_COUNT) {
-        Some(Ok(tag)) => tag,
-        Some(Err(e)) => return Err(e),
-        None => {
-            return Err(io::Error::new(
+pub fn extract_aln_hit_count(record: &Record) -> io::Result<u32> {
+    record
+        .data()
+        .get(&Tag::ALIGNMENT_HIT_COUNT)
+        .transpose()?
+        .and_then(|value| value.as_int())
+        .and_then(|value| u32::try_from(value).ok())
+        .filter(|&value| value > 0)
+        .ok_or_else(|| {
+            io::Error::new(
                 io::ErrorKind::InvalidData,
-                "No TOTAL_HIT_COUNT tag",
-            ));
-        }
-    };
-    match total_hits {
-        Value::Int8(tag) => Ok(tag),
-        Value::UInt8(tag) => Ok(tag as i8),
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "TOTAL_HIT_COUNT tag must be an int8 or uint8",
-        )),
-    }
+                "BAM NH alignment hit count must be present and be a positive integer",
+            )
+        })
 }

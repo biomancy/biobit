@@ -9,14 +9,12 @@ RESOURCES = Path(os.environ["BIOBIT_RESOURCES"]) / "bam"
 
 
 def test_bam_reader():
-    file = RESOURCES / "G1+THP-1_EMCV_no-RNase_3.markdup.sorted.bam"
-    if not file.exists():
-        return
+    file = RESOURCES / "RNA-seq.CHM13v2.21-22.bam"
 
     for fname in file, str(file), file.as_posix():
         reader = Reader(fname)
         assert reader is not None
-        assert reader.filename == str(file)
+        assert reader.filename == file
         assert reader.inflags == 0
         assert reader.exflags == 516
         assert reader.minmapq == 0
@@ -24,7 +22,7 @@ def test_bam_reader():
 
     reader = Reader(file, 2, 24, 255, 32)
     assert reader is not None
-    assert reader.filename == str(file)
+    assert reader.filename == file
     assert reader.inflags == 2
     assert reader.exflags == 24
     assert reader.minmapq == 255

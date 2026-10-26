@@ -75,15 +75,19 @@ mod tests {
         assert_eq!(segments.len(), 3);
 
         let mut iter = segments.iter();
-        for (ind, elements) in [vec![0..10, 20..30], vec![5..12, 200..300], vec![0..1]]
-            .iter()
-            .enumerate()
+        for (ind, elements) in [
+            &[0..10, 20..30][..],
+            &[5..12, 200..300][..],
+            std::slice::from_ref(&(0..1)),
+        ]
+        .iter()
+        .enumerate()
         {
             let alnblocks = iter.next().unwrap();
-            assert_eq!(elements, alnblocks);
+            assert_eq!(*elements, alnblocks);
 
             let alnblocks = segments.at(ind);
-            assert_eq!(elements, alnblocks);
+            assert_eq!(*elements, alnblocks);
         }
         assert_eq!(iter.next(), None);
     }

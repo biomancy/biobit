@@ -48,27 +48,25 @@ impl ReaderBuilder {
     }
 
     pub fn build(self) -> io::Result<Reader> {
-        let mut reader = IndexedReader::new(&self.filename)?;
-        let header = reader
-            .inner
-            .read_header()
-            .expect("Failed to read a BAM header");
-
         let batch_size = self.batch_size.unwrap_or(Self::DEFAULT_BATCH_SIZE);
+        if batch_size == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "BAM batch size must be greater than zero",
+            ));
+        }
+
+        // Clones reopen this path, potentially after the working directory changes.
+        let filename = std::path::absolute(self.filename)?;
+        let mut reader = IndexedReader::new(&filename)?;
+        let header = reader.inner.read_header()?;
 
         let inflags = self.inflags.unwrap_or(0);
         let exflags = self.exflags.unwrap_or(2564);
         let minmapq = self.minmapq.unwrap_or(0);
 
         Ok(Reader::new(
-            self.filename,
-            reader,
-            header,
-            None,
-            batch_size,
-            inflags,
-            exflags,
-            minmapq,
+            filename, reader, header, None, batch_size, inflags, exflags, minmapq,
         ))
     }
 }

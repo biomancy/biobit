@@ -308,3 +308,16 @@ def test_bed_writer(path, extension, tmp_path: Path):
     with Bed12.Writer(saveto) as writer:
         writer.write_records(record for record in allrecords)
     assert Bed12.Reader(saveto).read_to_end() == allrecords
+
+
+@pytest.mark.parametrize("compression", [None, "infer", "gz", "bgz"])
+def test_bed_compression_override(compression, tmp_path: Path):
+    path = tmp_path / "output.bed.gz"
+    record = Bed3("chr1", (0, 10))
+    with Writer.bed3(path, compression=compression) as writer:
+        writer.write_record(record)
+    if compression is None:
+        assert path.read_bytes() == b"chr1\t0\t10\n"
+    else:
+        assert path.read_bytes().startswith(b"\x1f\x8b")
+    assert Bed3.Reader(path, compression=compression).read_to_end() == [record]

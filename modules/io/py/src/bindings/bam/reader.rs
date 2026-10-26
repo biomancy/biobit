@@ -18,7 +18,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
             obj.cast::<PyReader>()?.into_bound().unbind()
         } else if obj.is_instance_of::<PyString>() {
             let filename = obj.extract::<PathBuf>()?;
-            let reader: PyReader = ReaderBuilder::new(filename).build()?.into();
+            let reader = PyReader::new(filename, 0, 516, 0, 1024)?;
             Py::new(obj.py(), reader)?
         } else {
             return Err(PyValueError::new_err(format!("Unknown reader: {:?}", obj)));

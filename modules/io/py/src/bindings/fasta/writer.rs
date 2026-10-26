@@ -1,13 +1,13 @@
-pub use biobit_io_rs::fasta::{DEFAULT_LINE_WIDTH, EXTENSIONS, Record, Writer};
+pub use biobit_io_rs::fasta::{DEFAULT_LINE_WIDTH, Record, Writer};
 use std::num::NonZeroUsize;
 
 use super::record::PyRecord;
+use crate::compression::compression_format;
 use biobit_io_rs::WriteRecord;
 use derive_more::Into;
 use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
 use std::path::PathBuf;
-use substratum_compress::Encoder;
 
 #[pyclass(name = "Writer")]
 #[derive(Into)]
@@ -19,17 +19,14 @@ pub struct PyWriter {
 #[pymethods]
 impl PyWriter {
     #[new]
-    #[pyo3(signature = (path, line_width = None, compression = None))]
+    #[pyo3(signature = (path, line_width = None, compression = "infer"))]
     pub fn new(
         path: PathBuf,
         line_width: Option<NonZeroUsize>,
         compression: Option<&str>,
     ) -> Result<Self> {
         let line_width = line_width.unwrap_or(DEFAULT_LINE_WIDTH);
-        let config = match compression {
-            None => Encoder::from_path(&path, EXTENSIONS),
-            Some(x) => Encoder::from_extension(x, EXTENSIONS),
-        }?;
+        let config = compression_format(&path, compression)?.encoder();
         let rs = Some(Writer::from_path(path.clone(), &config, line_width)?);
         Ok(Self { path, rs })
     }
