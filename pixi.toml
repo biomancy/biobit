@@ -57,7 +57,7 @@ pip = "==26.2.1"
 [feature.python.tasks]
 py-ci-ruff = "ruff check"
 py-ci-mypy = { cmd = "mypy --config-file pyproject.toml .", cwd = "biobit/py" }
-py-ci-build = { cmd = "maturin develop", cwd = "biobit/py", depends-on = ["py-ci-ruff", "py-ci-mypy"] }
+py-ci-build = { cmd = "maturin develop --release", cwd = "biobit/py", depends-on = ["py-ci-ruff", "py-ci-mypy"] }
 py-ci-test = { cmd = "pytest -v -x biobit/py", depends-on = ["py-ci-build"] }
 py-ci-stubs = { cmd = "python -m mypy.stubtest --mypy-config-file biobit/py/pyproject.toml --allowlist biobit/py/stubtest.allowlist biobit", depends-on = ["py-ci-build"] }
 py-ci = { depends-on = ["py-ci-test", "py-ci-stubs"] }
