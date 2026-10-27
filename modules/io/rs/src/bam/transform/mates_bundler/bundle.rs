@@ -90,18 +90,43 @@ impl Bundler {
             };
         }
 
-        // Otherwise, insert the record into the cache
-        let inserted = if is_lmate {
-            self.lmate.insert(record)
+        // Retain both records on collision without adding a lookup to normal inserts.
+        let cache = if is_lmate {
+            &mut self.lmate
         } else {
-            self.rmate.insert(record)
+            &mut self.rmate
         };
-
-        if !inserted {
-            return Err(io::Error::new(
+        if let Some(previous) = cache.replace(record) {
+            let incoming = cache
+                .get(&previous)
+                .expect("a newly inserted mate disappeared");
+            let error = io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Duplicate BAM mate: read names and HI hit indices must identify a unique pair",
-            ));
+                format!(
+                    "Duplicate BAM mate: QNAME={:?}, HI={}, mate={}; identical={}. \
+                     Existing (flags, POS, PNEXT, RG): {:?}. \
+                     Incoming (flags, POS, PNEXT, RG): {:?}",
+                    previous.record.name(),
+                    previous.hit_index,
+                    if is_lmate { "first" } else { "last" },
+                    previous.record == incoming.record,
+                    (
+                        u16::from(previous.record.flags()),
+                        previous.record.alignment_start(),
+                        previous.record.mate_alignment_start(),
+                        previous.record.data().get(&Tag::READ_GROUP),
+                    ),
+                    (
+                        u16::from(incoming.record.flags()),
+                        incoming.record.alignment_start(),
+                        incoming.record.mate_alignment_start(),
+                        incoming.record.data().get(&Tag::READ_GROUP),
+                    ),
+                ),
+            );
+            // Preserve the original cached record if the caller inspects or reuses the bundler.
+            let _ = cache.replace(previous);
+            return Err(error);
         }
 
         Ok(None)

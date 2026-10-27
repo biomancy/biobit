@@ -1,7 +1,7 @@
 //! Small synthetic records exercise the BAM pipeline without external fixtures.
 
 use std::collections::VecDeque;
-use std::io::{self, Cursor};
+use std::io::{self, Cursor, Error};
 use std::path::PathBuf;
 
 use higher_kinded_types::prelude::*;
@@ -253,6 +253,16 @@ fn bundles_mates_across_batches_and_preserves_hit_indices() -> io::Result<()> {
 
 #[test]
 fn rejects_ambiguous_mates() -> io::Result<()> {
+    fn test(line: &str) -> Error {
+        let value = record(line).unwrap();
+        let source = Batches::new(vec![Ok(vec![value.clone(), value])]);
+        let mut transform = BundleMates::default();
+        let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
+        let error = iter.next().unwrap().unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{line}");
+        error
+    }
+
     for line in [
         "r0\t0\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1",
         "r0\t1\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1",
@@ -261,19 +271,18 @@ fn rejects_ambiguous_mates() -> io::Result<()> {
         "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:-1",
         "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:Z:1",
         "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*",
-        // Repeated first mates used to panic in debug builds and lose data in release.
-        "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1",
     ] {
-        let value = record(line)?;
-        let source = Batches::new(vec![Ok(vec![value.clone(), value])]);
-        let mut transform = BundleMates::default();
-        let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
-        assert_eq!(
-            iter.next().unwrap().unwrap_err().kind(),
-            io::ErrorKind::InvalidData,
-            "{line}"
-        );
+        test(line);
     }
+
+    // Repeated first mates used to panic in debug builds and lose data in release.
+    let duplicate = "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1";
+    let error = test(duplicate);
+    let message = error.to_string();
+    for detail in ["\"r0\"", "HI=1", "mate=first", "identical=true"] {
+        assert!(message.contains(detail), "{message}");
+    }
+
     Ok(())
 }
 
