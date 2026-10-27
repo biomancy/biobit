@@ -90,7 +90,8 @@ impl Bundler {
             };
         }
 
-        // Retain both records on collision without adding a lookup to normal inserts.
+        // Normal inserts take one probe; diagnostics and restoring the original
+        // record are needed only on collisions.
         let cache = if is_lmate {
             &mut self.lmate
         } else {
@@ -100,33 +101,29 @@ impl Bundler {
             let incoming = cache
                 .get(&previous)
                 .expect("a newly inserted mate disappeared");
-            let error = io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "Duplicate BAM mate: QNAME={:?}, HI={}, mate={}; identical={}. \
-                     Existing (flags, POS, PNEXT, RG): {:?}. \
-                     Incoming (flags, POS, PNEXT, RG): {:?}",
-                    previous.record.name(),
-                    previous.hit_index,
-                    if is_lmate { "first" } else { "last" },
-                    previous.record == incoming.record,
-                    (
-                        u16::from(previous.record.flags()),
-                        previous.record.alignment_start(),
-                        previous.record.mate_alignment_start(),
-                        previous.record.data().get(&Tag::READ_GROUP),
-                    ),
-                    (
-                        u16::from(incoming.record.flags()),
-                        incoming.record.alignment_start(),
-                        incoming.record.mate_alignment_start(),
-                        incoming.record.data().get(&Tag::READ_GROUP),
-                    ),
+            log::warn!(
+                "Ignoring duplicate BAM mate: QNAME={:?}, HI={}, mate={}; identical={}. \
+                 Existing (flags, POS, PNEXT, RG): {:?}. \
+                 Incoming (flags, POS, PNEXT, RG): {:?}",
+                previous.record.name(),
+                previous.hit_index,
+                if is_lmate { "first" } else { "last" },
+                previous.record == incoming.record,
+                (
+                    u16::from(previous.record.flags()),
+                    previous.record.alignment_start(),
+                    previous.record.mate_alignment_start(),
+                    previous.record.data().get(&Tag::READ_GROUP),
+                ),
+                (
+                    u16::from(incoming.record.flags()),
+                    incoming.record.alignment_start(),
+                    incoming.record.mate_alignment_start(),
+                    incoming.record.data().get(&Tag::READ_GROUP),
                 ),
             );
-            // Preserve the original cached record if the caller inspects or reuses the bundler.
+            // Keep the first mate and discard the incoming duplicate.
             let _ = cache.replace(previous);
-            return Err(error);
         }
 
         Ok(None)
