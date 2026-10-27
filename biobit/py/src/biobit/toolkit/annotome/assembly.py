@@ -62,6 +62,17 @@ class Assembly:
         self._refrg: RefRegistry = refrg
         self._annotations: dict[str, Annotation] = dict(annotations)
 
+    def __getstate__(self) -> dict[str, object]:
+        """Serialize unordered metadata deterministically for persistent caches."""
+        state = self.__dict__.copy()
+        state["_organisms"] = tuple(sorted(self._organisms))
+        state["_annotations"] = dict(sorted(self._annotations.items()))
+        return state
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        self.__dict__.update(state)
+        self._organisms = frozenset(self._organisms)
+
     @property
     def name(self) -> str:
         """A unique name for the assembly (e.g., 'GRCh38')."""
