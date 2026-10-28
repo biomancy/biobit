@@ -404,7 +404,7 @@ mod tests {
             to_step_with_offset(Op::GapSecond, 5, 10, 11), // Top
             to_step_with_offset(Op::GapSecond, 5, 10, 5), // Bottom
         ] {
-            assert!(!step.intersects::<u64>(&bait));
+            assert!(!step.intersects::<u64>(bait));
             assert!(!bait.intersects::<u64>(&step));
         }
 
@@ -416,7 +416,7 @@ mod tests {
                 to_step_with_offset(op, 5, 4, 4),   // Bottom
                 to_step_with_offset(op, 6, 4, 4),   // Bottom
             ] {
-                assert!(!step.intersects::<u64>(&bait));
+                assert!(!step.intersects::<u64>(bait));
                 assert!(!bait.intersects::<u64>(&step));
             }
         }
@@ -432,7 +432,7 @@ mod tests {
             to_step_with_offset(Op::GapSecond, 5, 12, 7), // Center
             to_step_with_offset(Op::GapSecond, 5, 14, 7), // Right
         ] {
-            assert!(step.intersects::<u64>(&bait));
+            assert!(step.intersects::<u64>(bait));
             assert!(bait.intersects::<u64>(&step));
         }
 
@@ -478,7 +478,7 @@ mod tests {
             to_step_with_offset(Op::GapSecond, 5, 10, 15), // Top
             to_step_with_offset(Op::GapSecond, 5, 10, 5), // Bottom
         ] {
-            assert!(!step.intersects::<u64>(&bait));
+            assert!(!step.intersects::<u64>(bait));
             assert!(!bait.intersects::<u64>(&step));
         }
 
@@ -493,7 +493,7 @@ mod tests {
                 to_step_with_offset(op, 5, 11, 13), // Right
                 to_step_with_offset(op, 5, 8, 7),   // Right
             ] {
-                assert!(!step.intersects::<u64>(&bait));
+                assert!(!step.intersects::<u64>(bait));
                 assert!(!bait.intersects::<u64>(&step));
             }
         }
@@ -531,7 +531,7 @@ mod tests {
                 to_step_with_offset(op, 10, 6, 8),
                 to_step_with_offset(op, 15, 0, 1),
             ] {
-                assert!(step.intersects::<u64>(&bait));
+                assert!(step.intersects::<u64>(bait));
                 assert!(bait.intersects::<u64>(&step));
             }
         }
@@ -579,7 +579,7 @@ mod tests {
                 to_step_with_offset(Op::GapSecond, 10, 30, 30),
                 to_step_with_offset(Op::GapSecond, 10, 20, 20),
             ] {
-                assert!(!step.intersects::<u64>(&bait));
+                assert!(!step.intersects::<u64>(bait));
                 assert!(!bait.intersects::<u64>(&step));
             }
 
@@ -595,7 +595,7 @@ mod tests {
                     to_step_with_offset(op, 10, 15, 13),
                     to_step_with_offset(op, 10, 9, 0),
                 ] {
-                    assert!(!step.intersects::<u64>(&bait));
+                    assert!(!step.intersects::<u64>(bait));
                     assert!(!bait.intersects::<u64>(&step));
                 }
             }
@@ -629,7 +629,7 @@ mod tests {
                 to_step_with_offset(Op::GapSecond, 10, 15, 15),
                 to_step_with_offset(Op::GapSecond, 10, 19, 19),
             ] {
-                assert!(step.intersects::<u64>(&bait));
+                assert!(step.intersects::<u64>(bait));
                 assert!(bait.intersects::<u64>(&step));
             }
 
@@ -640,7 +640,7 @@ mod tests {
                     to_step_with_offset(op, 10, 10, 10),
                     to_step_with_offset(op, 2, 14, 14),
                 ] {
-                    assert!(step.intersects::<u64>(&bait));
+                    assert!(step.intersects::<u64>(bait));
                     assert!(bait.intersects::<u64>(&step));
                 }
             }

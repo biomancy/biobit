@@ -68,6 +68,7 @@ where
             .scan_all(seq1, seq2, &mut self.scoring, &mut self.tracers);
         self._finalize(seq1, seq2)
     }
+
     pub fn scan_up_triangle<S1, S2>(
         &mut self,
         seq1: &S1,
@@ -78,7 +79,7 @@ where
         S1: Alignable<Symbol = Smb>,
         S2: Alignable<Symbol = Smb>,
     {
-        if seq1.len() == 0 || seq2.len() == 0 {
+        if offset >= seq1.len() || seq2.len() == 0 {
             return vec![];
         }
 

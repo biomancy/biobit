@@ -50,7 +50,7 @@ where
     pub fn len<Acc: PrimUInt + From<StepLen>>(&self) -> Acc {
         let mut total = Acc::zero();
         for step in &self.steps {
-            total = <Acc as From<StepLen>>::from(*step.len());
+            total = total + <Acc as From<StepLen>>::from(*step.len());
         }
         total
     }
@@ -68,11 +68,11 @@ where
     where
         usize: From<Seq1Idx> + From<Seq2Idx> + From<StepLen>,
     {
-        // Fast check if the ranges do not overlap
-        if max(self.seq1.start, other.seq1.start) >= min(self.seq1.end, other.seq1.end) {
+        // Fast reject separated ranges here; the step traversal resolves touching ones.
+        if max(self.seq1.start, other.seq1.start) > min(self.seq1.end, other.seq1.end) {
             return false;
         }
-        if max(self.seq2.start, other.seq2.start) >= min(self.seq2.end, other.seq2.end) {
+        if max(self.seq2.start, other.seq2.start) > min(self.seq2.end, other.seq2.end) {
             return false;
         }
         utils::intersects::<_, _, _, usize>(self.tracked_steps(), other.tracked_steps())
