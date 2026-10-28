@@ -11,6 +11,7 @@ use super::step::{Step, StepWithOffset, StepsWithOffsetsIterator};
 use super::utils;
 
 /// A genomic alignment between two sequences.
+/// The supplied ranges must match the sequence positions consumed by the steps.
 #[derive(Clone, Eq, PartialEq, Debug, Getters, Constructor, Dissolve, From, Into)]
 // derive_more::Constructor generates explicit field names.
 #[allow(clippy::redundant_field_names)]
@@ -34,11 +35,6 @@ where
     Seq1Idx: PrimUInt,
     Seq2Idx: PrimUInt,
 {
-    /// Add a step to the alignment.
-    pub fn push(&mut self, step: Step<StepLen>) {
-        self.steps.push(step);
-    }
-
     /// Checks if the alignment is empty.
     pub fn is_empty(&self) -> bool {
         // Empty alignment is an alignment with no steps.
@@ -86,5 +82,63 @@ where
             self.steps.iter().cloned(),
             (self.seq1.start, self.seq2.start).into(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Alignment;
+    use crate::pairwise::{Op, Step};
+    use itertools::Itertools;
+    use std::collections::BTreeSet;
+
+    type Aln = Alignment<i32, u8, usize, usize>;
+    type Points = BTreeSet<(usize, usize)>;
+
+    fn alignment(steps: Vec<Step<u8>>, start: (usize, usize)) -> (Aln, Points) {
+        let points = Op::unroll(&steps, start).collect();
+        let mut end = start;
+        for step in &steps {
+            step.op().apply(&mut end.0, &mut end.1, *step.len());
+        }
+
+        (
+            Alignment::new(0, steps, start.0..end.0, start.1..end.1),
+            points,
+        )
+    }
+
+    /// Compare an complete set of short paths against directly enumerated visited positions.
+    /// An intersection is equivalent to a shared coordinate in the unrolled path.
+    #[test]
+    fn alignment_intersections_match_visited_positions_for_both_step_partitions() {
+        let mut paths = Vec::new();
+        let unit_steps =
+            [Op::Match, Op::GapFirst, Op::GapSecond].map(|op| Step::new(op, 1u8).unwrap());
+
+        // Cartesian powers generate every operation sequence of lengths 0 through 3.
+        for len in 0..=3 {
+            for steps in std::iter::repeat_n(unit_steps, len).multi_cartesian_product() {
+                // Shift paths relative to each other along either coordinate axis.
+                for start in [(0, 0), (0, 1), (1, 0)] {
+                    let original = alignment(steps.clone(), start);
+                    // Include both unit-step and merged-run representations so the
+                    // intersection result cannot depend on how a path is partitioned.
+                    let mut collapsed = steps.clone();
+                    Step::collapse(&mut collapsed);
+                    let collapsed = alignment(collapsed, start);
+                    paths.extend([original, collapsed]);
+                }
+            }
+        }
+
+        // Check all possible combinations
+        for ((a, points_a), (b, points_b)) in paths.iter().cartesian_product(&paths) {
+            assert_eq!(
+                a.intersects(b),
+                !points_a.is_disjoint(points_b),
+                "{a:?} versus {b:?}",
+            );
+        }
     }
 }

@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use derive_getters::{Dissolve, Getters};
-use derive_more::From;
 use eyre::{Result, ensure};
 use itertools::{Itertools, chain};
 
@@ -12,7 +11,7 @@ use biobit_core_rs::num::PrimInt;
 use bitcode::{Decode, Encode};
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, From, Dissolve, Getters)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Dissolve, Getters)]
 pub struct InvSegment<Idx: PrimInt> {
     left: Interval<Idx>,
     right: Interval<Idx>,

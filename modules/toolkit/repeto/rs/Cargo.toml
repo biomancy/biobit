@@ -24,4 +24,4 @@ rstar = { workspace = true }
 bitcode = { workspace = true, optional = true }
 
 [features]
-bitcode = ["dep:bitcode"]
+bitcode = ["dep:bitcode", "biobit-core-rs/bitcode"]

@@ -108,7 +108,6 @@ where
         Seq1Idx: Into<Accumulator>,
         Seq2Idx: Into<Accumulator>,
     {
-        // Can this mess turned into something more readable / faster?
         match (self.step.op, other.step.op) {
             (Op::GapFirst, Op::GapFirst) => {
                 let self_end_seq1 = self.start.seq1 + self.step.len.into();
@@ -201,25 +200,19 @@ where
                 let self_end_seq1 = self.start.seq1 + self.step.len.into();
                 let other_end_seq1 = other.start.seq1 + other.step.len.into();
 
-                // Projection for one of the axis must overlap (any axis)
+                // The steps must overlap along seq1.
                 if self.start.seq1 >= other_end_seq1 || self_end_seq1 <= other.start.seq1 {
                     return false;
                 }
 
-                // Diff between segments must be identical
-                let seq1_diff = if self.start.seq1 > other.start.seq1 {
-                    self.start.seq1 - other.start.seq1
-                } else {
-                    other.start.seq1 - self.start.seq1
-                };
-
-                let seq2_diff = if self.start.seq2 > other.start.seq2 {
-                    self.start.seq2 - other.start.seq2
-                } else {
-                    other.start.seq2 - self.start.seq2
-                };
-
-                seq1_diff.into() == seq2_diff.into()
+                // At the first shared seq1 position, both steps must have the
+                // same seq2 position to lie on the same diagonal.
+                let shared_seq1 = self.start.seq1.max(other.start.seq1);
+                let self_seq2: Accumulator =
+                    self.start.seq2.into() + (shared_seq1 - self.start.seq1).into();
+                let other_seq2: Accumulator =
+                    other.start.seq2.into() + (shared_seq1 - other.start.seq1).into();
+                self_seq2 == other_seq2
             }
         }
     }
@@ -288,6 +281,46 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::Itertools;
+    use std::collections::BTreeSet;
+
+    /// Check step intersections against positions independently expanded by `Op::unroll`.
+    #[test]
+    fn step_intersections_match_visited_positions() {
+        let operations = [
+            Op::Match,
+            Op::Mismatch,
+            Op::Equivalent,
+            Op::GapFirst,
+            Op::GapSecond,
+        ];
+        let mut steps = Vec::new();
+
+        // 5 operations x 3 lengths x 3 starts on each axis = 135 steps.
+        for (op, len, x, y) in itertools::iproduct!(operations, 1u8..=3, 0usize..3, 0usize..3) {
+            let raw_step = Step::new(op, len).unwrap();
+            let points = Op::unroll([raw_step], (x, y)).collect::<BTreeSet<_>>();
+            let distance = usize::from(len);
+            let end = match op {
+                Op::GapFirst => (x + distance, y),
+                Op::GapSecond => (x, y + distance),
+                Op::Match | Op::Mismatch | Op::Equivalent => (x + distance, y + distance),
+            };
+            let step = StepWithOffset::new(raw_step, Offset::new(x, y));
+
+            assert_eq!(step.end(), Offset::new(end.0, end.1));
+            steps.push((step, points));
+        }
+
+        // All ordered pairs include self-intersections and both argument orders.
+        for ((a, points_a), (b, points_b)) in steps.iter().cartesian_product(&steps) {
+            assert_eq!(
+                a.intersects::<usize>(b),
+                !points_a.is_disjoint(points_b),
+                "{a:?} versus {b:?}",
+            );
+        }
+    }
 
     fn to_steps<L: PrimUInt>(steps: &[(Op, L)]) -> Vec<Step<L>> {
         steps
@@ -306,63 +339,57 @@ mod tests {
     }
 
     #[test]
-    fn test_aligned_step_iterator() -> Result<()> {
+    fn tracked_steps_follow_operations_from_nonzero_start() -> Result<()> {
         let steps = to_steps::<u8>(&[(Op::Match, 1), (Op::GapFirst, 2), (Op::Match, 3)]);
-
-        let mut iter = StepsWithOffsetsIterator::<_, _, u64, u64> {
-            iter: steps.iter().cloned(),
-            offset: Offset { seq1: 10, seq2: 0 },
-            phantom_data: Default::default(),
-        };
+        let tracked: Vec<_> =
+            StepsWithOffsetsIterator::new(steps.into_iter(), Offset::new(10u64, 0u64)).collect();
         assert_eq!(
-            iter.next(),
-            Some(StepWithOffset {
-                step: Step::new(Op::Match, 1)?,
-                start: Offset { seq1: 10, seq2: 0 },
-            })
+            tracked,
+            [
+                StepWithOffset::new(Step::new(Op::Match, 1)?, Offset::new(10, 0)),
+                StepWithOffset::new(Step::new(Op::GapFirst, 2)?, Offset::new(11, 1)),
+                StepWithOffset::new(Step::new(Op::Match, 3)?, Offset::new(13, 1)),
+            ]
         );
-        assert_eq!(
-            iter.next(),
-            Some(StepWithOffset {
-                step: Step::new(Op::GapFirst, 2)?,
-                start: (11, 1).into(),
-            })
-        );
-        assert_eq!(
-            iter.next(),
-            Some(StepWithOffset {
-                step: Step::new(Op::Match, 3)?,
-                start: Offset { seq1: 13, seq2: 1 },
-            })
-        );
-        assert_eq!(iter.next(), None);
-
         Ok(())
     }
 
     #[test]
-    fn test_step_optimize() {
+    fn collapse_preserves_operations_and_splits_long_runs() {
         let mut steps = to_steps::<u8>(&[
             (Op::Match, 10),
             (Op::Match, 20),
-            (Op::Match, 30),
-            (Op::Match, 40),
-            (Op::Match, 50),
+            (Op::Mismatch, 1),
+            (Op::Equivalent, 1),
             (Op::GapFirst, 200),
             (Op::GapFirst, 100),
             (Op::Match, 15),
             (Op::Match, 15),
-            (Op::Match, 15),
+            (Op::GapSecond, 255),
+            (Op::GapSecond, 1),
+            (Op::GapSecond, 254),
+            (Op::GapSecond, 1),
+            (Op::Mismatch, 1),
         ]);
 
         Step::collapse(&mut steps);
         let expected = to_steps::<u8>(&[
-            (Op::Match, 150),
+            (Op::Match, 30),
+            (Op::Mismatch, 1),
+            (Op::Equivalent, 1),
+            // 200 + 100 = 300, split into 255 + 45.
             (Op::GapFirst, 255),
             (Op::GapFirst, 45),
-            (Op::Match, 45),
+            (Op::Match, 30),
+            // 255 + 1 + 254 + 1 = 511, split into 255 + 255 + 1.
+            (Op::GapSecond, 255),
+            (Op::GapSecond, 255),
+            (Op::GapSecond, 1),
+            (Op::Mismatch, 1),
         ]);
 
+        assert_eq!(steps, expected);
+        Step::collapse(&mut steps);
         assert_eq!(steps, expected);
     }
 
@@ -447,7 +474,7 @@ mod tests {
                 to_step_with_offset(op, 10, 8, 6),   // Center
                 to_step_with_offset(op, 5, 8, 6),    // Center
             ] {
-                assert!(step.intersects::<u64>(&bait));
+                assert!(step.intersects::<u64>(bait));
                 assert!(bait.intersects::<u64>(&step));
             }
         }
@@ -510,7 +537,7 @@ mod tests {
             to_step_with_offset(Op::GapSecond, 5, 10, 10), // Identical
             to_step_with_offset(Op::GapSecond, 5, 10, 14), // Top
         ] {
-            assert!(step.intersects::<u64>(&bait));
+            assert!(step.intersects::<u64>(bait));
             assert!(bait.intersects::<u64>(&step));
         }
 
@@ -594,6 +621,9 @@ mod tests {
                     // Diagonal
                     to_step_with_offset(op, 10, 15, 13),
                     to_step_with_offset(op, 10, 9, 0),
+                    // Equal absolute shifts in opposite directions are not a diagonal.
+                    to_step_with_offset(op, 10, 15, 5),
+                    to_step_with_offset(op, 10, 5, 15),
                 ] {
                     assert!(!step.intersects::<u64>(bait));
                     assert!(!bait.intersects::<u64>(&step));

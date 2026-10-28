@@ -70,6 +70,8 @@ use super::step::StepWithOffset;
 //     Ok(lines)
 // }
 
+/// Resolves `Equivalent` steps using the scoring scheme's symbol classifier,
+/// splitting them into runs of matches, mismatches, or retained equivalences.
 pub fn disambiguate<Scheme, Seq1, Seq2>(
     ops: Vec<Step<u8>>,
     scoring: &Scheme,
@@ -142,6 +144,8 @@ where
     result
 }
 
+/// Checks whether two alignment paths visit a common sequence-coordinate pair.
+/// Steps include their starting position and exclude their ending position.
 pub fn intersects<L, Seq1Idx, Seq2Idx, Accumulator>(
     mut iter1: impl Iterator<Item: Borrow<StepWithOffset<L, Seq1Idx, Seq2Idx>>>,
     mut iter2: impl Iterator<Item: Borrow<StepWithOffset<L, Seq1Idx, Seq2Idx>>>,
@@ -161,7 +165,6 @@ where
         Some(x) => x,
     };
 
-    // Main loop - tack seq1 coordinates
     loop {
         let borrow_bbox_1 = bbox_1.borrow();
         let borrow_bbox_2 = bbox_2.borrow();
@@ -170,9 +173,12 @@ where
             return true;
         }
 
-        // If 2 alignments intersect - they must intersect by both projections
-        // If they don't intersect by seq1 - they don't intersect at all
-        match borrow_bbox_1.end().seq1.cmp(&borrow_bbox_2.end().seq1) {
+        // Compare step ends by seq1, then seq2 to break ties. Neither path
+        // moves backward, and a step excludes its end position.
+        //
+        // We can therefore advance the step that ends first: it cannot intersect
+        // any later step of the other path. If both ends are equal, advance both.
+        match borrow_bbox_1.end().cmp(&borrow_bbox_2.end()) {
             std::cmp::Ordering::Less => {
                 bbox_1 = match iter1.next() {
                     None => return false,
@@ -201,10 +207,56 @@ where
 
 #[cfg(test)]
 mod tests {
-    // fn to_steps_with_offsets<'a>(
-    //     steps: &'a [Step<u8>],
-    //     offset: (u32, u32),
-    // ) -> impl Iterator<Item = StepWithOffset<u8, u32, u32>> + 'a {
-    //     StepsWithOffsetsIterator::new(steps.iter().cloned(), offset.into())
-    // }
+    use super::*;
+
+    #[test]
+    fn disambiguation_tracks_offsets_and_gaps_and_preserves_classified_steps() {
+        let scoring = scoring::compose(
+            scoring::symbols::Equality::<i32, u8>::new(1, -1),
+            scoring::gaps::Affine {
+                open: -2,
+                extend: -1,
+            },
+            scoring::equiv::Equality {},
+        );
+        let ops = [
+            (Op::Match, 1),
+            (Op::GapFirst, 1),
+            (Op::Equivalent, 4),
+            (Op::GapSecond, 1),
+            (Op::Mismatch, 1),
+            (Op::Equivalent, 1),
+        ]
+        .into_iter()
+        .map(|(op, len)| Step::new(op, len).unwrap())
+        .collect();
+        // The initial 'a'/'b' and later 'z'/'z' pairs are already classified.
+        let result = disambiguate(
+            ops,
+            &scoring,
+            &b"?aXABCDzE".as_slice(),
+            1,
+            &b"??bABxDYzE".as_slice(),
+            2,
+        );
+        assert_eq!(Step::rle_string(result.iter()), "1=1v2=1X1=1^1X1=");
+
+        let complementarity = scoring::compose(
+            scoring::symbols::RNAComplementarity::new(1i32, -1),
+            scoring::gaps::Affine {
+                open: -2,
+                extend: -1,
+            },
+            scoring::equiv::RNAComplementarity {},
+        );
+        let result = disambiguate(
+            vec![Step::new(Op::Equivalent, 3).unwrap()],
+            &complementarity,
+            &b"AUG".as_slice(),
+            0,
+            &b"UAC".as_slice(),
+            0,
+        );
+        assert_eq!(Step::rle_string(result.iter()), "3~");
+    }
 }

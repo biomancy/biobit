@@ -8,7 +8,8 @@ def run(
     """
     Predict inverted repeats in the given nucleic acid sequence.
 
-    :param seq: raw ASCII string, DNA or RNA sequence
+    :param seq: ASCII DNA or RNA sequence containing A, C, G, U, T, or N (case insensitive).
+        T is converted to U; other bytes are rejected.
     :param filter: filter applied to predicted inverted repeats
     :param scoring: alignment scoring schema
     :return: list of inverted repeats satisfying given constraints together with their alignment scores

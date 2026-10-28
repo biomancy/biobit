@@ -10,6 +10,13 @@ mod dynprog;
 mod index;
 mod trace;
 
+/// Maximizes the total score over repeat combinations supported by interval DP.
+/// Each repeat is selected with all its segments or excluded entirely.
+///
+/// # Known limitation
+/// Repeats can be combined only if they are disjoint or one fits entirely inside
+/// a single gap of the other. Compatible linked repeats with interleaved segments
+/// can be excluded, so the result can miss a higher-scoring valid combination.
 pub fn run<Idx, IR, Score>(ir: &[IR], scores: &[Score]) -> Result<(Vec<usize>, Score)>
 where
     Idx: PrimInt,
@@ -40,11 +47,12 @@ mod tests {
     use crate::repeats::InvSegment;
     use biobit_core_rs::loc::IntervalOp;
 
-    pub type Score = i32;
+    type Score = i32;
+    type Segments = Vec<(Range<isize>, Range<isize>)>;
 
     #[derive(Debug)]
     struct TestCase {
-        pub dsrna: Vec<(Score, Vec<(Range<isize>, Range<isize>)>)>,
+        pub dsrna: Vec<(Score, Segments)>,
         pub expdsrna: Vec<usize>,
     }
 
@@ -65,7 +73,7 @@ mod tests {
         let expscore: Score = tcase.expdsrna.iter().map(|x| scores[*x]).sum();
         let (result, score) = run(&transformed, &scores).unwrap();
         let mut result = result.into_iter().map(|x| &transformed[x]).collect_vec();
-        debug_assert!(score == expscore, "{msg}\nScore: {expscore} vs {score}");
+        assert_eq!(score, expscore, "{msg}");
 
         let mut expected = tcase
             .expdsrna
@@ -75,10 +83,7 @@ mod tests {
         let key = |x: &&InvRepeat<isize>| (x.brange().start(), x.brange().end());
         result.sort_by_key(key);
         expected.sort_by_key(key);
-        debug_assert!(
-            expected == result,
-            "Test case: {msg}\n{expected:?}\n{result:?}"
-        );
+        assert_eq!(expected, result, "{msg}");
     }
 
     #[test]
@@ -161,6 +166,22 @@ mod tests {
             dotest(w);
         }
     }
+
+    // Bring the test back once interleaved nested hypotheses are supported
+    //
+    // #[test]
+    // fn interleaved_nested_repeats_compete_with_a_conflicting_repeat() {
+    //     for (competitor, expected) in [(0, vec![0, 1]), (6, vec![0, 1]), (8, vec![2])] {
+    //         dotest(TestCase {
+    //             dsrna: vec![
+    //                 (3, vec![(0..1, 13..14), (4..5, 9..10)]),
+    //                 (4, vec![(2..3, 11..12), (6..7, 7..8)]),
+    //                 (competitor, vec![(0..3, 11..14)]),
+    //             ],
+    //             expdsrna: expected,
+    //         });
+    //     }
+    // }
 
     #[test]
     fn overlap_no_complex_no_embedded() {

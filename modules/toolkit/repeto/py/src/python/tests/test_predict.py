@@ -1,5 +1,6 @@
 import pickle
 
+import pytest
 from biobit.toolkit import repeto
 
 
@@ -37,9 +38,10 @@ def test_filter():
     assert pickle.loads(pickle.dumps(second)) == first == second
 
 
-def test_predict():
+@pytest.mark.parametrize("seq", [b"AANNUU", b"AANNTT"])
+def test_predict(seq):
     ir, scores = repeto.predict.run(
-        b"AANNUU", repeto.predict.Filter(), repeto.predict.Scoring()
+        seq, repeto.predict.Filter(), repeto.predict.Scoring()
     )
     irs = sorted(zip(scores, ir), key=lambda x: x[0])
 

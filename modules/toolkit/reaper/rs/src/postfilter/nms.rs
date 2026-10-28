@@ -341,6 +341,9 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
     }
 
     /// Filters candidates using the provided normalized signal and control models.
+    ///
+    /// Candidates must be sorted by interval start and non-overlapping; adjacent
+    /// intervals are allowed. Candidate coordinates must be local to `region`.
     pub fn run<Len: PrimUInt, I: Identical<Cnts>>(
         &self,
         orientation: Orientation,
@@ -349,6 +352,12 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         signal: &RleVec<Cnts, Len, I>,
         control: &RleVec<Cnts, Len, I>,
     ) -> Result<Vec<Peak<Idx, Cnts>>> {
+        debug_assert!(
+            peaks
+                .windows(2)
+                .all(|pair| pair[0].interval().end() <= pair[1].interval().start()),
+            "NMS candidates must be sorted by start and non-overlapping"
+        );
         if peaks.is_empty() || self.roi[orientation].is_empty() {
             return Ok(Vec::new());
         }
@@ -359,7 +368,6 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             .to_usize()
             .ok_or_eyre("NMS region length exceeds usize")?;
         let profile = ExcessProfile::new(signal, control, length)?;
-        debug_assert!(peaks.is_sorted_by_key(|peak| peak.interval().start()));
 
         let local_end = region.len();
         debug_assert!(
