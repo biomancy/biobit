@@ -6,15 +6,15 @@ use super::TryMerge;
 use super::implementation::merge_impl;
 use crate::rle_vec::{Identical, RleVec};
 
-pub fn merge<'a, V, L, M, IOriginal, INew>(
+pub fn merge<'a, V, L, M, IOriginal, INew, Output>(
     first: &'a RleVec<V, L, IOriginal>,
     second: &'a RleVec<V, L, IOriginal>,
-) -> MergeSetup<'a, V, L, M, IOriginal, INew>
+) -> MergeSetup<'a, V, L, M, IOriginal, INew, Output>
 where
     L: PrimUInt,
-    M: TryMerge<V>,
+    M: TryMerge<V, Output>,
     IOriginal: Identical<V>,
-    INew: Identical<V>,
+    INew: Identical<Output>,
 {
     MergeSetup {
         first,
@@ -29,21 +29,29 @@ pub struct MergeSetup<
     'a,
     V,
     L: PrimUInt,
-    M: TryMerge<V>,
+    M: TryMerge<V, Output>,
     IOriginal: Identical<V>,
-    INew: Identical<V>,
+    INew: Identical<Output>,
+    Output = V,
 > {
     first: &'a RleVec<V, L, IOriginal>,
     second: &'a RleVec<V, L, IOriginal>,
-    write_to: Option<(Vec<V>, Vec<L>)>,
+    write_to: Option<(Vec<Output>, Vec<L>)>,
     identical: Option<INew>,
     merge: Option<M>,
 }
 
-impl<'a, V, L: PrimUInt, M: TryMerge<V>, IOriginal: Identical<V>, INew: Identical<V>>
-    MergeSetup<'a, V, L, M, IOriginal, INew>
+impl<
+    'a,
+    V,
+    Output,
+    L: PrimUInt,
+    M: TryMerge<V, Output>,
+    IOriginal: Identical<V>,
+    INew: Identical<Output>,
+> MergeSetup<'a, V, L, M, IOriginal, INew, Output>
 {
-    pub fn save_to(mut self, buffer: impl Into<(Vec<V>, Vec<L>)>) -> Self {
+    pub fn save_to(mut self, buffer: impl Into<(Vec<Output>, Vec<L>)>) -> Self {
         let mut buffer = buffer.into();
         buffer.0.clear();
         buffer.1.clear();
@@ -62,7 +70,7 @@ impl<'a, V, L: PrimUInt, M: TryMerge<V>, IOriginal: Identical<V>, INew: Identica
         self
     }
 
-    pub fn build(mut self) -> Result<Merge<'a, V, L, M, IOriginal, INew>> {
+    pub fn build(mut self) -> Result<Merge<'a, V, L, M, IOriginal, INew, Output>> {
         let merge = self
             .merge
             .take()
@@ -86,14 +94,14 @@ impl<'a, V, L: PrimUInt, M: TryMerge<V>, IOriginal: Identical<V>, INew: Identica
     }
 }
 
-impl<'a, V, L, E, Single, Both, IOriginal, INew>
-    MergeSetup<'a, V, L, (Single, Both), IOriginal, INew>
+impl<'a, V, Output, L, E, Single, Both, IOriginal, INew>
+    MergeSetup<'a, V, L, (Single, Both), IOriginal, INew, Output>
 where
     L: PrimUInt,
-    Single: FnMut(&V) -> Result<V, E>,
-    Both: FnMut(&V, &V) -> Result<V, E>,
+    Single: FnMut(&V) -> Result<Output, E>,
+    Both: FnMut(&V, &V) -> Result<Output, E>,
     IOriginal: Identical<V>,
-    INew: Identical<V>,
+    INew: Identical<Output>,
 {
     pub fn with_merge_fns(mut self, single: Single, both: Both) -> Self {
         self.merge = Some((single, both));
@@ -101,17 +109,31 @@ where
     }
 }
 
-pub struct Merge<'a, V, L: PrimUInt, M: TryMerge<V>, IOriginal: Identical<V>, INew: Identical<V>> {
+pub struct Merge<
+    'a,
+    V,
+    L: PrimUInt,
+    M: TryMerge<V, Output>,
+    IOriginal: Identical<V>,
+    INew: Identical<Output>,
+    Output = V,
+> {
     first: &'a RleVec<V, L, IOriginal>,
     second: &'a RleVec<V, L, IOriginal>,
-    write_to: RleVec<V, L, INew>,
+    write_to: RleVec<Output, L, INew>,
     merge: M,
 }
 
-impl<V, L: PrimUInt, M: TryMerge<V>, IOriginal: Identical<V>, INew: Identical<V>>
-    Merge<'_, V, L, M, IOriginal, INew>
+impl<
+    V,
+    Output,
+    L: PrimUInt,
+    M: TryMerge<V, Output>,
+    IOriginal: Identical<V>,
+    INew: Identical<Output>,
+> Merge<'_, V, L, M, IOriginal, INew, Output>
 {
-    pub fn run(self) -> Result<RleVec<V, L, INew>, M::Error> {
+    pub fn run(self) -> Result<RleVec<Output, L, INew>, M::Error> {
         merge_impl(self.first, self.second, self.write_to, self.merge)
     }
 }

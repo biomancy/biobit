@@ -20,8 +20,10 @@ impl PyEnrichment {
         PyEnrichment::new(Enrichment::new())
     }
 
-    fn set_scaling(mut slf: PyRefMut<Self>, signal: f32, control: f32) -> PyResult<PyRefMut<Self>> {
-        slf.rs.set_scaling(signal, control)?;
+    /// Adds a finite, non-negative pseudocount to both scaled profiles (default: 1).
+    /// Positions without modeled signal retain zero enrichment.
+    fn set_pseudocount(mut slf: PyRefMut<Self>, pseudocount: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_pseudocount(pseudocount)?;
         Ok(slf)
     }
 

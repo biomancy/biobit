@@ -4,18 +4,17 @@ import pytest
 from biobit.toolkit.reaper import cmp
 
 
-def test_reaper_enrichment():
-    enrichment1 = cmp.Enrichment().set_scaling(0.5, 2)
-    enrichment2 = cmp.Enrichment().set_scaling(0.5, 2)
+def test_reaper_pseudocount_roundtrip():
+    enrichment = cmp.Enrichment().set_pseudocount(0.5)
+    assert enrichment == cmp.Enrichment().set_pseudocount(0.5)
+    assert enrichment != cmp.Enrichment()
+    assert pickle.loads(pickle.dumps(enrichment)) == enrichment
+    assert enrichment.set_pseudocount(0.0) == cmp.Enrichment().set_pseudocount(0.0)
 
-    assert enrichment1 == enrichment2
 
-    assert pickle.loads(pickle.dumps(enrichment1)) == enrichment1 == enrichment2
-
-
-@pytest.mark.parametrize(
-    "signal, control", [(0, 1), (1, 0), (float("nan"), 1), (1, float("inf"))]
-)
-def test_reaper_enrichment_rejects_invalid_scaling(signal, control):
-    with pytest.raises(RuntimeError):
-        cmp.Enrichment().set_scaling(signal, control)
+@pytest.mark.parametrize("value", [-1.0, float("nan"), float("inf"), -float("inf")])
+def test_reaper_pseudocount_rejects_invalid_values(value):
+    with pytest.raises(
+        RuntimeError, match="Pseudocount must be finite and non-negative"
+    ):
+        cmp.Enrichment().set_pseudocount(value)

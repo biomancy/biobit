@@ -8,6 +8,7 @@ from biobit.toolkit.reaper import model
 def test_reaper_model():
     pileup1 = (
         model.RNAPileup()
+        .set_scaling(0.5, 2.0)
         .set_sensitivity(0.5)
         .set_min_signal(10)
         .set_control_baseline(0.2)
@@ -16,6 +17,7 @@ def test_reaper_model():
     )
     pileup2 = (
         model.RNAPileup()
+        .set_scaling(0.5, 2.0)
         .set_sensitivity(0.5)
         .set_min_signal(10)
         .set_control_baseline(0.2)
@@ -41,3 +43,11 @@ def test_reaper_model_rejects_invalid_numerical_settings():
         model.RNAPileup().set_control_baseline(float("nan"))
     with pytest.raises(RuntimeError):
         model.RNAPileup().set_min_signal(-1)
+
+
+@pytest.mark.parametrize(
+    "signal, control", [(0, 1), (1, 0), (float("nan"), 1), (1, float("inf"))]
+)
+def test_reaper_model_rejects_invalid_scaling(signal, control):
+    with pytest.raises(RuntimeError):
+        model.RNAPileup().set_scaling(signal, control)

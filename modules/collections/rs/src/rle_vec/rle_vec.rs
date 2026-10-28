@@ -195,6 +195,12 @@ impl<V, L: PrimUInt, I: Identical<V>> RleVec<V, L, I> {
         self.lengths.len()
     }
 
+    /// Borrows the stored run values and lengths without expanding or copying them.
+    /// Unlike `runs()`, the slices include any zero-length runs.
+    pub fn as_slices(&self) -> (&[V], &[L]) {
+        (&self.values, &self.lengths)
+    }
+
     pub fn clear(&mut self) {
         self.values.clear();
         self.lengths.clear();

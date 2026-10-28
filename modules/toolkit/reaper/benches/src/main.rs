@@ -128,6 +128,8 @@ fn main() {
     for (name, signal, control) in COMPARISONS {
         let mut model = reaper::model::RNAPileup::new();
         model
+            .set_scaling(1.0, 1.0)
+            .unwrap()
             .set_sensitivity(1e-3f32)
             .unwrap()
             .set_control_baseline(1e-3)
@@ -135,8 +137,7 @@ fn main() {
             .set_min_signal(10.0)
             .unwrap();
 
-        let mut enrichment = reaper::cmp::Enrichment::new();
-        enrichment.set_scaling(1.0, 1.0).unwrap();
+        let enrichment = reaper::cmp::Enrichment::new();
 
         let mut pcalling = reaper::pcalling::ByCutoff::new();
         pcalling

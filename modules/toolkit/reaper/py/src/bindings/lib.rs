@@ -27,5 +27,20 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .add_submodule(&postfilter::construct(py, &format!("{name}.postfilter"))?)?
         .finish();
 
+    module.add(
+        "__all__",
+        [
+            "Config",
+            "Harvest",
+            "HarvestRegion",
+            "Peak",
+            "Reaper",
+            "Workload",
+            "cmp",
+            "model",
+            "pcalling",
+            "postfilter",
+        ],
+    )?;
     Ok(module)
 }

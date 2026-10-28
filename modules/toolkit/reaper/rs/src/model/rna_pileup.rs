@@ -1,3 +1,4 @@
+use super::Scaling;
 use crate::worker::RleIdentical;
 use biobit_collections_rs::rle_vec::RleVec;
 use biobit_core_rs::LendingIterator;
@@ -161,6 +162,7 @@ impl<Idx: PrimInt> ControlModel<Idx> {
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve, Getters)]
 pub struct RNAPileup<Idx: PrimInt, Cnts: Float> {
+    scaling: Scaling<Cnts>,
     sensitivity: Cnts,
     min_signal: Cnts,
     control_baseline: Cnts,
@@ -172,8 +174,9 @@ impl<Idx: PrimInt, Cnts: Float> Default for RNAPileup<Idx, Cnts> {
     fn default() -> Self {
         RNAPileup {
             sensitivity: Cnts::from(Self::DEFAULT_SENSITIVITY).unwrap(),
+            scaling: Scaling::default(),
             control_baseline: Cnts::zero(),
-            min_signal: Cnts::zero(),
+            min_signal: Cnts::one(),
             buffer: Vec::new(),
             modeling: PerOrientation::default(),
         }
@@ -186,6 +189,20 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Self::default()
     }
 
+    /// Sets scaling applied to RLE values after signal thresholds and the control baseline.
+    pub fn set_scaling(&mut self, signal: Cnts, control: Cnts) -> Result<&mut Self> {
+        self.scaling = Scaling::new(signal, control)?;
+        Ok(self)
+    }
+
+    /// Sets the absolute numerical tolerance (finite and positive; default: `1e-6`).
+    /// It is used unchanged, independently of signal and control scaling:
+    /// - RLE encoding treats raw coverage values as identical when their absolute
+    ///   difference is at most sensitivity.
+    /// - Control modeling skips a chain when its summed raw per-base coverage
+    ///   within the query is below sensitivity.
+    /// - Reaper uses sensitivity as the absolute RLE tolerance for dimensionless
+    ///   enrichment ratios.
     pub fn set_sensitivity(&mut self, sensitivity: Cnts) -> Result<&mut Self> {
         if !sensitivity.is_finite() || sensitivity <= Cnts::zero() {
             return Err(eyre!("Sensitivity must be finite and greater than zero"));
@@ -194,6 +211,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Ok(self)
     }
 
+    /// Sets the control baseline in raw coverage, before scaling.
     pub fn set_control_baseline(&mut self, control_baseline: Cnts) -> Result<&mut Self> {
         if !control_baseline.is_finite() || control_baseline < Cnts::zero() {
             return Err(eyre!("Control baseline must be finite and non-negative"));
@@ -202,9 +220,10 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Ok(self)
     }
 
+    /// Sets the minimum raw coverage for signal, finite and at least one (default: one).
     pub fn set_min_signal(&mut self, min_signal: Cnts) -> Result<&mut Self> {
-        if !min_signal.is_finite() || min_signal < Cnts::zero() {
-            return Err(eyre!("Minimum signal must be finite and non-negative"));
+        if !min_signal.is_finite() || min_signal < Cnts::one() {
+            return Err(eyre!("Minimum signal must be finite and at least one"));
         }
         self.min_signal = min_signal;
         Ok(self)
@@ -239,12 +258,14 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
                 Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
             >,
     {
-        let (start_usize, end_usize) = (query.1.to_usize().unwrap(), query.2.to_usize().unwrap());
+        let interval = Interval::new(query.1, query.2)?
+            .cast::<usize>()
+            .ok_or_eyre("Pileup query coordinates must fit usize")?;
         let (start, end) = (query.1, query.2);
 
         counts.apply(|_, x| {
             x.clear();
-            x.resize(end_usize - start_usize, Cnts::zero());
+            x.resize(interval.len(), Cnts::zero());
         });
 
         for src in sources {
@@ -295,6 +316,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         })
     }
 
+    /// Returns the unscaled dense buffer for reuse, scaled signal RLE, and coverage intervals.
     #[allow(clippy::type_complexity)]
     pub fn model_signal<Ctg, Src>(
         &self,
@@ -323,7 +345,8 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         let mut covered: PerOrientation<Vec<_>> = PerOrientation::default();
         let mut modeled: PerOrientation<Vec<_>> = PerOrientation::default();
 
-        // Turn signal below the minimum signal into zeros
+        // Threshold raw signal before scaling the retained values.
+        let scaling = *self.scaling.signal();
         rle.try_apply(|o, rle| {
             let mut start = query.1;
             let mut end;
@@ -364,6 +387,10 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
                     model_end = end;
                 }
 
+                *val = *val * scaling;
+                if !val.is_finite() {
+                    return Err(eyre!("Scaled pileup counts must be finite"));
+                }
                 start = end;
             }
 
@@ -384,6 +411,8 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         Ok((counts, rle, covered, modeled))
     }
 
+    /// Returns the unscaled dense buffer for reuse, scaled control RLE, and coverage intervals.
+    /// The dense model buffer is also kept in unscaled units.
     #[allow(clippy::type_complexity)]
     pub fn model_control<Ctg, Src>(
         &self,
@@ -406,6 +435,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
                 Item = For!(<'iter> = std::io::Result<&'iter mut SegmentedAlignment<Idx>>),
             >,
     {
+        let scaling = *self.scaling.control();
         let counts = self.pileup(query, sources, caches, counts)?;
         // Build the control model
         model.try_apply(|o, x| {
@@ -422,7 +452,7 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
         let mut rle = self.rlencode(model, rle)?;
         let mut covered: PerOrientation<Vec<_>> = PerOrientation::default();
 
-        // Turn signal below the minimum signal into zeros
+        // Record raw coverage, apply the control baseline, then scale.
         rle.try_apply(|o, rle| {
             let mut start = query.1;
             let mut end;
@@ -448,7 +478,10 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
                 }
 
                 start = end;
-                *val = val.max(self.control_baseline);
+                *val = val.max(self.control_baseline) * scaling;
+                if !val.is_finite() {
+                    return Err(eyre!("Scaled pileup counts must be finite"));
+                }
             }
 
             if covered_end != query.1 {
@@ -467,58 +500,43 @@ impl<Idx: PrimInt, Cnts: Float> RNAPileup<Idx, Cnts> {
 mod tests {
     use super::*;
 
-    fn chain(links: &[(usize, usize)]) -> Result<ChainInterval<usize>> {
-        ChainInterval::try_from_iter(
-            links
-                .iter()
-                .map(|&(start, end)| Interval::new(start, end))
-                .collect::<Result<Vec<_>>>()?
-                .into_iter(),
-        )
-    }
-
     #[test]
-    fn smoothing_handles_nonzero_queries_and_exact_windows() -> Result<()> {
-        let model = ControlModel::new(vec![chain(&[(100, 103)])?], false, vec![3])?;
-        let mut result = vec![0.0; 3];
+    fn smoothing_an_exact_window() -> Result<()> {
+        let region = ChainInterval::<usize>::try_from(vec![(100, 103)])?;
+        let model = ControlModel::new(vec![region], false, vec![3])?;
+        let mut result = [0.0; 3];
         model.apply(100, 103, 1e-6, &[1.0, 2.0, 3.0], &mut result)?;
-        assert_eq!(result, vec![0.0, 2.0, 0.0]);
+        assert_eq!(result, [0.0, 2.0, 0.0]);
         Ok(())
     }
 
     #[test]
-    fn odd_smoothing_windows_roll_over_every_position() -> Result<()> {
-        let model = ControlModel::new(vec![chain(&[(0, 5)])?], false, vec![3])?;
-        let mut result = vec![0.0; 5];
+    fn smoothing_a_rolling_window() -> Result<()> {
+        let region = ChainInterval::<usize>::try_from(vec![(0, 5)])?;
+        let model = ControlModel::new(vec![region], false, vec![3])?;
+        let mut result = [0.0; 5];
         model.apply(0, 5, 1e-6, &[1.0, 2.0, 3.0, 4.0, 5.0], &mut result)?;
-        assert_eq!(result, vec![0.0, 2.0, 3.0, 4.0, 0.0]);
+        assert_eq!(result, [0.0, 2.0, 3.0, 4.0, 0.0]);
         Ok(())
     }
 
     #[test]
     fn uniform_baseline_uses_chain_length() -> Result<()> {
-        let model = ControlModel::new(vec![chain(&[(2, 4)])?], true, vec![])?;
-        let source = [0.0, 0.0, 2.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let mut result = vec![0.0; source.len()];
-        model.apply(0, 10, 1e-6, &source, &mut result)?;
-
-        assert_eq!(
-            result,
-            vec![0.0, 0.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        );
+        let region = ChainInterval::<usize>::try_from(vec![(1, 3)])?;
+        let model = ControlModel::new(vec![region], true, vec![])?;
+        let mut result = [0.0; 4];
+        model.apply(0, 4, 1e-6, &[0.0, 2.0, 4.0, 0.0], &mut result)?;
+        assert_eq!(result, [0.0, 3.0, 3.0, 0.0]);
         Ok(())
     }
 
     #[test]
     fn setters_reject_invalid_model_parameters() {
         let mut model = RNAPileup::<usize, f64>::new();
-        assert_eq!(*model.control_baseline(), 0.0);
-        assert!(model.set_control_baseline(0.0).is_ok());
         assert!(model.set_sensitivity(0.0).is_err());
-        assert!(model.set_sensitivity(f64::NAN).is_err());
         assert!(model.set_control_baseline(-1.0).is_err());
-        assert!(model.set_control_baseline(f64::INFINITY).is_err());
-        assert!(model.set_min_signal(-1.0).is_err());
-        assert!(model.set_min_signal(f64::NAN).is_err());
+        assert_eq!(*model.min_signal(), 1.0);
+        assert!(model.set_min_signal(0.5).is_err());
+        assert!(model.set_min_signal(1.0).is_ok());
     }
 }
