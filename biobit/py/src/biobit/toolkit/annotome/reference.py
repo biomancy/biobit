@@ -51,6 +51,17 @@ class Reference:
         if name in self.aliases:
             raise ValueError(f"Reference name '{name}' cannot be its own alias.")
 
+    def __reduce__(
+        self,
+    ) -> tuple[type[Self], tuple[str, int, str, str | None, tuple[str, ...]]]:
+        return type(self), (
+            self.name,
+            self.length,
+            self.label,
+            self.description,
+            tuple(sorted(self.aliases)),
+        )
+
     def __hash__(self):
         return hash(
             (self.name, self.length, self.label, self.description, self.aliases)
@@ -189,6 +200,14 @@ class RefRegistry:
             tuple(descs),
             tuple(aliases),
         )
+
+    def __reduce__(self) -> tuple[type[Self], tuple[tuple[Reference, ...]]]:
+        """Serialize reference values and rebuild derived lookup tables on load."""
+        references = tuple(
+            Reference(ref.name, ref.length, ref.label, ref.description, ref.aliases)
+            for ref in self.references()
+        )
+        return type(self), (references,)
 
     @classmethod
     def _from_buffers(

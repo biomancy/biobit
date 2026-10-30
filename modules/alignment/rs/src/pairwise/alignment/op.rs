@@ -1,12 +1,17 @@
+#[cfg(test)]
+use super::Step;
+#[cfg(test)]
+use std::borrow::Borrow;
+
 use biobit_core_rs::num::PrimUInt;
 
 /// `Op` represents a single operation in a genomic alignment.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub enum Op {
-    /// Represents a gap in the first sequence (v)
+    /// Consumes the first sequence without consuming the second (v).
     GapFirst,
-    /// Represents a gap in the second sequence (^)
+    /// Consumes the second sequence without consuming the first (^).
     GapSecond,
     /// Represents an equivalence, which is ambiguous. It could be a match or mismatch between the target sequences (~).
     /// The interpretation depends on the target problem, e.g. it might represent similar amino acids in two proteins.
@@ -18,6 +23,46 @@ pub enum Op {
 }
 
 impl Op {
+    /// Unrolls steps into visited sequence-coordinate pairs, starting at `start`.
+    /// Each step includes its starting position and excludes its ending position.
+    #[cfg(test)]
+    pub(super) fn unroll<Len, Seq1Idx, Seq2Idx>(
+        steps: impl IntoIterator<Item: Borrow<Step<Len>>>,
+        start: (Seq1Idx, Seq2Idx),
+    ) -> impl Iterator<Item = (Seq1Idx, Seq2Idx)>
+    where
+        Len: PrimUInt,
+        Seq1Idx: PrimUInt,
+        Seq2Idx: PrimUInt,
+    {
+        steps
+            .into_iter()
+            .flat_map(|step| {
+                let step = step.borrow();
+                let op = *step.op();
+                let mut remaining = *step.len();
+                std::iter::from_fn(move || {
+                    if remaining.is_zero() {
+                        return None;
+                    }
+                    remaining = remaining - Len::one();
+                    Some(op)
+                })
+            })
+            .scan(start, |cursor, op| {
+                let current = *cursor;
+                match op {
+                    Op::GapFirst => cursor.0 = cursor.0 + Seq1Idx::one(),
+                    Op::GapSecond => cursor.1 = cursor.1 + Seq2Idx::one(),
+                    Op::Match | Op::Mismatch | Op::Equivalent => {
+                        cursor.0 = cursor.0 + Seq1Idx::one();
+                        cursor.1 = cursor.1 + Seq2Idx::one();
+                    }
+                }
+                Some(current)
+            })
+    }
+
     /// Returns `true` if the operation is represented by a diagonal movement in the alignment matrix.
     pub fn is_diagonal(&self) -> bool {
         matches!(self, Op::Match | Op::Mismatch | Op::Equivalent)
@@ -74,22 +119,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_try_from_char() {
-        assert_eq!(Op::try_from('v'), Ok(Op::GapFirst));
-        assert_eq!(Op::try_from('^'), Ok(Op::GapSecond));
-        assert_eq!(Op::try_from('~'), Ok(Op::Equivalent));
-        assert_eq!(Op::try_from('='), Ok(Op::Match));
-        assert_eq!(Op::try_from('X'), Ok(Op::Mismatch));
+    fn operation_symbols() {
+        for (op, symbol) in [
+            (Op::GapFirst, 'v'),
+            (Op::GapSecond, '^'),
+            (Op::Equivalent, '~'),
+            (Op::Match, '='),
+            (Op::Mismatch, 'X'),
+        ] {
+            assert_eq!(op.symbol(), symbol);
+            assert_eq!(Op::try_from(symbol), Ok(op));
+        }
         assert_eq!(Op::try_from('a'), Err(()));
-    }
-
-    #[test]
-    fn test_symbol() {
-        assert_eq!(Op::GapFirst.symbol(), 'v');
-        assert_eq!(Op::GapSecond.symbol(), '^');
-        assert_eq!(Op::Equivalent.symbol(), '~');
-        assert_eq!(Op::Match.symbol(), '=');
-        assert_eq!(Op::Mismatch.symbol(), 'X');
     }
 
     #[test]

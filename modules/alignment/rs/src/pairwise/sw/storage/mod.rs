@@ -15,7 +15,9 @@ pub struct AlignmentSeed<S: scoring::Score> {
 }
 
 pub trait Storage: Tracer {
-    fn reset(&mut self, newrows: usize, newcols: usize);
+    /// Starts a scan with `(actual_len, used_len)` for each sequence.
+    /// Each used length bounds the prefix visited along that sequence.
+    fn reset(&mut self, seq1: (usize, usize), seq2: (usize, usize));
 
     fn finalize(&mut self) -> Vec<AlignmentSeed<<Self as Tracer>::Score>>;
 }

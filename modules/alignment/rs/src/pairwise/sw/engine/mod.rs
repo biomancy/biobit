@@ -60,31 +60,46 @@ where
         S2: Alignable<Symbol = Smb>,
     {
         if seq1.len() == 0 || seq2.len() == 0 {
+            self.tracers.reset((seq1.len(), 0), (seq2.len(), 0));
             return vec![];
         }
 
-        self.tracers.reset(seq1.len(), seq2.len());
+        self.tracers
+            .reset((seq1.len(), seq1.len()), (seq2.len(), seq2.len()));
         self.algo
             .scan_all(seq1, seq2, &mut self.scoring, &mut self.tracers);
         self._finalize(seq1, seq2)
     }
+
+    /// Scans cells satisfying `row + col + antidiagonal_offset < seq1.len()`, clipped to seq2.
+    /// See [`algo::FullScan::scan_up_triangle`] for details.
     pub fn scan_up_triangle<S1, S2>(
         &mut self,
         seq1: &S1,
         seq2: &S2,
-        offset: usize,
+        antidiagonal_offset: usize,
     ) -> Vec<alignment::Alignment<S, u8, usize, usize>>
     where
         S1: Alignable<Symbol = Smb>,
         S2: Alignable<Symbol = Smb>,
     {
-        if seq1.len() == 0 || seq2.len() == 0 {
+        if antidiagonal_offset >= seq1.len() || seq2.len() == 0 {
+            self.tracers.reset((seq1.len(), 0), (seq2.len(), 0));
             return vec![];
         }
 
-        self.tracers.reset(seq1.len(), seq2.len());
-        self.algo
-            .scan_up_triangle(seq1, seq2, offset, &mut self.scoring, &mut self.tracers);
+        let rows = seq1.len() - antidiagonal_offset;
+        let cols = seq2.len().min(rows);
+
+        self.tracers.reset((seq1.len(), rows), (seq2.len(), cols));
+
+        self.algo.scan_up_triangle(
+            seq1,
+            seq2,
+            antidiagonal_offset,
+            &mut self.scoring,
+            &mut self.tracers,
+        );
         self._finalize(seq1, seq2)
     }
 

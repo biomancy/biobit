@@ -1,6 +1,9 @@
+import os
 from pathlib import Path
 
+import pytest
 from biobit.core.loc import Orientation
+from biobit.io.bam import Reader
 from biobit.toolkit import countit
 from biobit.toolkit.bioproj import Layout, MatesOrientation, Strandedness
 
@@ -52,3 +55,21 @@ def test_countit():
                 resolve,
             )
             assert len(results) == 1
+
+
+def test_worker_errors_reach_python():
+    engine = (
+        countit.rigid.Engine.builder()
+        .set_threads(2)
+        .add_partitions([("missing-contig", (0, 1))])
+        .build()
+    )
+    # Only the header/index are opened; the failed query reads no alignments.
+    path = Path(os.environ["BIOBIT_RESOURCES"]) / "bam" / "RNA-seq.CHM13v2.21-22.bam"
+    source = Reader(path, inflags=3, exflags=2572)
+    layout = Layout.Paired(Strandedness.Unstranded, MatesOrientation.Inward)
+    with pytest.raises(
+        RuntimeError, match="Unknown BAM reference sequence: missing-contig"
+    ) as error:
+        engine.run([("sample", source, layout)], countit.rigid.resolution.AnyOverlap())
+    assert "source 0, partition 0" in str(error.value)

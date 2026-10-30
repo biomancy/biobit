@@ -67,10 +67,10 @@ impl<S: scoring::Score> Tracer for Best<S> {
 }
 
 impl<S: scoring::Score> Storage for Best<S> {
-    fn reset(&mut self, newrows: usize, newcols: usize) {
+    fn reset(&mut self, (_, rows): (usize, usize), (_, cols): (usize, usize)) {
         self.best = AlignmentSeed {
-            row: newrows + 1,
-            col: newcols + 1,
+            row: rows + 1,
+            col: cols + 1,
             score: S::min_value(),
         }
     }

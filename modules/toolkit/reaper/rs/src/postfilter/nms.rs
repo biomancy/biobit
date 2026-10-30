@@ -1,8 +1,9 @@
-use crate::pcalling::ByCutoff;
+use super::excess_profile::ExcessProfile;
 use crate::result::Peak;
+use biobit_collections_rs::rle_vec::{Identical, RleVec};
 use biobit_core_rs::loc::mapping::{ChainMap, Mapping};
 use biobit_core_rs::loc::{ChainInterval, Interval, IntervalOp, Orientation, PerOrientation};
-use biobit_core_rs::num::{Float, PrimInt};
+use biobit_core_rs::num::{Float, PrimInt, PrimUInt};
 #[cfg(feature = "bitcode")]
 use bitcode::{Decode, Encode};
 use derive_getters::Getters;
@@ -31,6 +32,9 @@ impl<Idx: PrimInt> NMSRegions<Idx> {
     }
 }
 
+/// Retains candidate peak positions whose positive excess (max(0, scaled_signal - scaled_control))
+/// meets a multiple of the local mean excess. The local mean is defined over regions covered by
+/// either the signal or control model. That is, zero excess still contributes to the mean's denominator.
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
 #[derive(Clone, PartialEq, Debug, Into, Getters)]
 pub struct NMS<Idx: PrimInt, Cnts> {
@@ -38,7 +42,6 @@ pub struct NMS<Idx: PrimInt, Cnts> {
     group_within: Idx,
     slopfrac: f32,
     sloplim: (Idx, Idx),
-    sensitivity: Cnts,
     roi: PerOrientation<Vec<NMSRegions<Idx>>>,
 }
 
@@ -49,7 +52,6 @@ impl<Idx: PrimInt, Cnts: Float> Default for NMS<Idx, Cnts> {
             group_within: Idx::zero(),
             slopfrac: 1.0,
             sloplim: (Idx::zero(), Idx::max_value()),
-            sensitivity: Cnts::epsilon(),
             roi: PerOrientation::default(),
         }
     }
@@ -100,98 +102,96 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         Ok(self)
     }
 
-    pub fn set_sensitivity(&mut self, sensitivity: Cnts) -> Result<&mut Self> {
-        if !sensitivity.is_finite() || sensitivity <= Cnts::zero() {
-            return Err(eyre!(
-                "NMS sensitivity must be finite and greater than zero"
-            ));
-        }
-
-        self.sensitivity = sensitivity;
-        Ok(self)
-    }
-
     pub fn add_regions(&mut self, orientation: Orientation, regions: NMSRegions<Idx>) -> &mut Self {
         self.roi[orientation].push(regions);
         self
     }
 
-    fn threshold(
+    fn threshold<Len: PrimUInt>(
         &self,
         nms: &[Interval<Idx>],
-        sigcnts: &[Cnts],
-        cntcnts: &[Cnts],
-    ) -> Result<Option<(Cnts, Cnts)>> {
+        profile: &ExcessProfile<Cnts, Len>,
+    ) -> Result<Option<Cnts>> {
         let mut total = 0.0f64;
-        let mut minimum = f64::INFINITY;
         let mut covered = 0usize;
-
-        for pos in nms
-            .iter()
-            .flat_map(|interval| Range::from(interval.cast::<usize>().unwrap()))
-        {
-            if sigcnts[pos] >= self.sensitivity || cntcnts[pos] >= self.sensitivity {
-                let difference = (sigcnts[pos] - cntcnts[pos])
+        for interval in nms {
+            let query = Range::from(interval.cast::<usize>().unwrap());
+            for (overlap, excess) in profile.covered_runs(query) {
+                let width = overlap.end - overlap.start;
+                total += excess
                     .to_f64()
-                    .ok_or_eyre("Failed to convert the NMS signal to f64")?;
-                total += difference;
-                minimum = minimum.min(difference);
-                covered += 1;
+                    .ok_or_eyre("Failed to convert the NMS excess to f64")?
+                    * width as f64;
+                covered += width;
             }
         }
-
+        // Normally, enriched candidates contribute covered bases. Coverage can
+        // still be absent if ROI clipping retains only uncovered parts of a
+        // candidate, or the candidates were derived from different model profiles.
         if covered == 0 {
             return Ok(None);
         }
-
-        let baseline = Cnts::from(total / covered as f64 - minimum)
+        let baseline = Cnts::from(total / covered as f64)
             .ok_or_eyre("Failed to convert the NMS baseline to the count type")?;
-        let minimum = Cnts::from(minimum)
-            .ok_or_eyre("Failed to convert the minimum NMS signal to the count type")?;
         if !baseline.is_finite() {
             return Err(eyre!("NMS baseline is not finite"));
         }
-        if baseline <= self.sensitivity {
+
+        // Excess is non-negative, so a zero mean means the covered background
+        // has no positive excess (apart from numerical underflow). This should
+        // not happen if it includes positive-excess bases from the candidates,
+        // but ROI clipping or different model profiles can break that assumption.
+        // Without a positive reference, return no threshold and skip quietly.
+        if baseline <= Cnts::zero() {
             return Ok(None);
         }
-
         let cutoff = baseline * self.fecutoff;
         if !cutoff.is_finite() {
             return Err(eyre!("NMS cutoff is not finite"));
         }
-        Ok(Some((cutoff, minimum)))
+        Ok(Some(cutoff))
     }
 
-    fn filter_intervals(
+    fn filter_intervals<Len: PrimUInt>(
         cutoff: Cnts,
-        minimum: Cnts,
         intervals: &[Interval<Idx>],
-        sigcnts: &[Cnts],
-        cntcnts: &[Cnts],
+        profile: &ExcessProfile<Cnts, Len>,
         saveto: &mut Vec<Peak<Idx, Cnts>>,
     ) {
-        let caller = ByCutoff {
-            min_length: Idx::one(),
-            merge_within: Idx::zero(),
-            cutoff,
-        };
-
         for interval in intervals {
-            let iter = Range::from(interval.cast::<usize>().unwrap()).map(|pos| {
-                // The round trip is safe: every position came from an Idx interval.
-                let start = Idx::from(pos).unwrap();
-                let end = Idx::from(pos + 1).unwrap();
-                (start, end, (sigcnts[pos] - cntcnts[pos]) - minimum)
-            });
-            caller.run_from_iter(iter, saveto);
+            let query = Range::from(interval.cast::<usize>().unwrap());
+            let mut current: Option<(Idx, Idx, Cnts, Idx)> = None;
+            for (overlap, value) in profile.covered_runs(query) {
+                if value < cutoff {
+                    continue;
+                }
+                let start = Idx::from(overlap.start).unwrap();
+                let end = Idx::from(overlap.end).unwrap();
+                if let Some(peak) = current.as_mut() {
+                    if peak.1 == start {
+                        peak.1 = end;
+                        if value > peak.2 {
+                            peak.2 = value;
+                            peak.3 = start;
+                        }
+                        // Fast path: proceed to the next overlap directly
+                        continue;
+                    }
+                    saveto.push(Peak::new(peak.0, peak.1, peak.2, peak.3).unwrap());
+                }
+
+                current = Some((start, end, value, start));
+            }
+            if let Some(peak) = current {
+                saveto.push(Peak::new(peak.0, peak.1, peak.2, peak.3).unwrap());
+            }
         }
     }
 
-    fn nmsit_uniform(
+    fn nmsit_uniform<Len: PrimUInt>(
         &self,
         nms: &[Interval<Idx>],
-        sigcnts: &[Cnts],
-        cntcnts: &[Cnts],
+        profile: &ExcessProfile<Cnts, Len>,
         peaks: &[Peak<Idx, Cnts>],
         saveto: &mut Vec<Peak<Idx, Cnts>>,
     ) -> Result<()> {
@@ -222,19 +222,18 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             return Ok(());
         }
 
-        let Some((cutoff, minimum)) = self.threshold(nms, sigcnts, cntcnts)? else {
+        let Some(cutoff) = self.threshold(nms, profile)? else {
             return Ok(());
         };
 
-        Self::filter_intervals(cutoff, minimum, &overlapping, sigcnts, cntcnts, saveto);
+        Self::filter_intervals(cutoff, &overlapping, profile, saveto);
         Ok(())
     }
 
-    fn nmsit_slop(
+    fn nmsit_slop<Len: PrimUInt>(
         &self,
         nms: &[Interval<Idx>],
-        sigcnts: &[Cnts],
-        cntcnts: &[Cnts],
+        profile: &ExcessProfile<Cnts, Len>,
         peaks: &[Peak<Idx, Cnts>],
         saveto: &mut Vec<Peak<Idx, Cnts>>,
     ) -> Result<()> {
@@ -285,9 +284,9 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                 Mapping::None => return Err(eyre!("Failed to map an NMS background region")),
             };
 
-            let threshold = self.threshold(chain.links(), sigcnts, cntcnts)?;
+            let threshold = self.threshold(chain.links(), profile)?;
             buffer = chain;
-            let Some((cutoff, minimum)) = threshold else {
+            let Some(cutoff) = threshold else {
                 continue;
             };
 
@@ -296,7 +295,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                     Mapping::Complete(chain) | Mapping::Truncated(chain) => chain,
                     Mapping::None => return Err(eyre!("Failed to map an NMS peak region")),
                 };
-                Self::filter_intervals(cutoff, minimum, chain.links(), sigcnts, cntcnts, saveto);
+                Self::filter_intervals(cutoff, chain.links(), profile, saveto);
                 buffer = chain;
             }
         }
@@ -341,14 +340,24 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
         result
     }
 
-    pub fn run(
+    /// Filters candidates using the provided normalized signal and control models.
+    ///
+    /// Candidates must be sorted by interval start and non-overlapping; adjacent
+    /// intervals are allowed. Candidate coordinates must be local to `region`.
+    pub fn run<Len: PrimUInt, I: Identical<Cnts>>(
         &self,
         orientation: Orientation,
         region: (Idx, Idx),
         peaks: &[Peak<Idx, Cnts>],
-        sigcnts: &[Cnts],
-        cntcnts: &[Cnts],
+        signal: &RleVec<Cnts, Len, I>,
+        control: &RleVec<Cnts, Len, I>,
     ) -> Result<Vec<Peak<Idx, Cnts>>> {
+        debug_assert!(
+            peaks
+                .windows(2)
+                .all(|pair| pair[0].interval().end() <= pair[1].interval().start()),
+            "NMS candidates must be sorted by start and non-overlapping"
+        );
         if peaks.is_empty() || self.roi[orientation].is_empty() {
             return Ok(Vec::new());
         }
@@ -358,14 +367,7 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
             .len()
             .to_usize()
             .ok_or_eyre("NMS region length exceeds usize")?;
-        if sigcnts.len() != length || cntcnts.len() != length {
-            return Err(eyre!(
-                "NMS buffers must match the query length ({length}), got signal={} and control={}",
-                sigcnts.len(),
-                cntcnts.len()
-            ));
-        }
-        debug_assert!(peaks.is_sorted_by_key(|peak| peak.interval().start()));
+        let profile = ExcessProfile::new(signal, control, length)?;
 
         let local_end = region.len();
         debug_assert!(
@@ -397,9 +399,9 @@ impl<Idx: PrimInt, Cnts: Float> NMS<Idx, Cnts> {
                 };
 
                 if config.uniform_baseline {
-                    self.nmsit_uniform(&nms, sigcnts, cntcnts, &peaks[start..], &mut allowed)?;
+                    self.nmsit_uniform(&nms, &profile, &peaks[start..], &mut allowed)?;
                 } else {
-                    self.nmsit_slop(&nms, sigcnts, cntcnts, &peaks[start..], &mut allowed)?;
+                    self.nmsit_slop(&nms, &profile, &peaks[start..], &mut allowed)?;
                 }
             }
         }
@@ -436,6 +438,15 @@ fn group_within<Idx: PrimInt>(
 mod tests {
     use super::*;
 
+    type TestRle = RleVec<f64, u32, fn(&f64, &f64) -> bool>;
+
+    fn rle(values: &[f64]) -> TestRle {
+        RleVec::builder((|a: &f64, b: &f64| a == b) as fn(&f64, &f64) -> bool)
+            .with_dense_values(values)
+            .unwrap()
+            .build()
+    }
+
     fn chain(start: usize, end: usize) -> Result<ChainInterval<usize>> {
         ChainInterval::try_from_iter([Interval::new(start, end)?].into_iter())
     }
@@ -445,17 +456,156 @@ mod tests {
     }
 
     #[test]
-    fn unconfigured_nms_has_no_filtered_peaks() -> Result<()> {
-        let nms = NMS::<usize, f64>::new();
-        let peaks = vec![peak(1, 3, 4.0, 1)];
-        let result = nms.run(
-            Orientation::Forward,
-            (100, 105),
-            &peaks,
-            &[0.0; 5],
-            &[0.0; 5],
+    fn run_weighted_thresholds_and_peaks_match_a_dense_reference() -> Result<()> {
+        use crate::pcalling::ByCutoff;
+
+        let mut nms = NMS::<usize, f64>::new();
+        nms.set_fecutoff(1.5)?;
+        // Exhaust all pairs of four-base profiles over three coverage levels.
+        // This covers independent run boundaries, uncovered gaps, covered zeros,
+        // clipping inside runs, and first-maximum summit selection.
+        for mut code in 0..3usize.pow(8) {
+            let mut values = [0.0; 8];
+            for value in &mut values {
+                *value = [0.0, 0.5, 3.0][code % 3];
+                code /= 3;
+            }
+            let (signal, control) = values.split_at(4);
+            let (s, c) = (rle(signal), rle(control));
+            let profile = ExcessProfile::new(&s, &c, signal.len())?;
+            for start in 0..4 {
+                for end in start + 1..=4 {
+                    let interval = Interval::new(start, end)?;
+                    let mut total = 0.0;
+                    let mut covered = 0;
+                    for pos in start..end {
+                        if signal[pos] > 0.0 || control[pos] > 0.0 {
+                            total += (signal[pos] - control[pos]).max(0.0);
+                            covered += 1;
+                        }
+                    }
+                    let expected = if total > 0.0 {
+                        Some(total / covered as f64 * 1.5)
+                    } else {
+                        None
+                    };
+                    assert_eq!(nms.threshold(&[interval], &profile)?, expected);
+                    if let Some(cutoff) = expected {
+                        let caller = ByCutoff {
+                            min_length: 1,
+                            merge_within: 0,
+                            cutoff,
+                        };
+                        let mut dense = Vec::new();
+                        caller.run_from_iter(
+                            (start..end)
+                                .map(|pos| (pos, pos + 1, (signal[pos] - control[pos]).max(0.0))),
+                            &mut dense,
+                        );
+                        let mut compressed = Vec::new();
+                        NMS::filter_intervals(cutoff, &[interval], &profile, &mut compressed);
+                        assert_eq!(
+                            compressed, dense,
+                            "signal={signal:?}, control={control:?}, interval={interval:?}"
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn indexed_runs_preserve_chained_roi_and_slop_results() -> Result<()> {
+        let chain = ChainInterval::try_from_iter(
+            [Interval::new(101, 105)?, Interval::new(108, 112)?].into_iter(),
         )?;
-        assert!(result.is_empty());
+        let signal = rle(&[
+            0.0, 4.0, 4.0, 2.0, 7.0, 0.0, 0.0, 0.0, 5.0, 5.0, 8.0, 1.0, 0.0, 0.0,
+        ]);
+        let control = rle(&[
+            0.0, 1.0, 1.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 1.0, 0.0, 0.0,
+        ]);
+        let peaks = [peak(0, 6, 7.0, 4), peak(7, 14, 8.0, 10)];
+        for uniform in [false, true] {
+            let mut nms = NMS::new();
+            nms.set_sloplim(100, 100)?;
+            nms.add_regions(
+                Orientation::Forward,
+                NMSRegions::new(vec![chain.clone()], uniform)?,
+            );
+            assert_eq!(
+                nms.run(Orientation::Forward, (100, 114), &peaks, &signal, &control)?,
+                vec![
+                    peak(4, 5, 6.0, 4),
+                    peak(8, 9, 4.0, 8),
+                    peak(10, 11, 6.0, 10)
+                ],
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn constant_profiles_preserve_cutoffs_without_dense_expansion() -> Result<()> {
+        // Even a billion logical bases occupy one run; no per-base work is needed.
+        for length in [4, 1_000_000_000usize] {
+            for uniform in [false, true] {
+                for (signal, control, cutoff, expected) in [
+                    (3.0, 1.0, 1.0, Some(2.0)),
+                    (3.0, 1.0, 2.0, None),
+                    (0.0, 0.0, 1.0, None), // Uncovered background.
+                    (1.0, 1.0, 1.0, None), // Covered, zero excess.
+                    (1.0, 2.0, 1.0, None), // Negative residual is clipped to zero.
+                ] {
+                    let (mut s, mut c) = (rle(&[]), rle(&[]));
+                    s.push(signal, length as u32);
+                    c.push(control, length as u32);
+                    let mut nms = NMS::new();
+                    nms.set_fecutoff(cutoff)?;
+                    nms.add_regions(
+                        Orientation::Forward,
+                        NMSRegions::new(vec![chain(0, length)?], uniform)?,
+                    );
+                    assert_eq!(
+                        nms.run(
+                            Orientation::Forward,
+                            (0, length),
+                            &[peak(0, length, 3.0, 0)],
+                            &s,
+                            &c,
+                        )?,
+                        expected
+                            .map(|excess| peak(0, length, excess, 0))
+                            .into_iter()
+                            .collect::<Vec<_>>(),
+                        "length={length}, uniform={uniform}, signal={signal}, control={control}, cutoff={cutoff}",
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_mismatched_profile_lengths() -> Result<()> {
+        let mut nms = NMS::new();
+        nms.add_regions(
+            Orientation::Forward,
+            NMSRegions::new(vec![chain(0, 5)?], true)?,
+        );
+        for (signal, control) in [(4, 5), (5, 4), (4, 4), (6, 6), (0, 0)] {
+            assert!(
+                nms.run(
+                    Orientation::Forward,
+                    (0, 5),
+                    &[peak(0, 5, 3.0, 0)],
+                    &rle(&vec![3.0; signal]),
+                    &rle(&vec![1.0; control]),
+                )
+                .is_err()
+            );
+        }
         Ok(())
     }
 
@@ -473,33 +623,11 @@ mod tests {
             Orientation::Forward,
             (100, 106),
             &[peak(0, 6, 6.0, 2)],
-            &signal,
-            &control,
+            &rle(&signal),
+            &rle(&control),
         )?;
 
-        assert_eq!(result.len(), 1);
-        assert_eq!(*result[0].interval(), Interval::new(2, 4)?);
-        assert_eq!(*result[0].signal(), 5.0);
-        assert_eq!(*result[0].summit(), 2);
-        Ok(())
-    }
-
-    #[test]
-    fn empty_background_does_not_create_nan_peaks() -> Result<()> {
-        let mut nms = NMS::<usize, f64>::new();
-        nms.add_regions(
-            Orientation::Forward,
-            NMSRegions::new(vec![chain(0, 4)?], true)?,
-        );
-
-        let result = nms.run(
-            Orientation::Forward,
-            (0, 4),
-            &[peak(0, 4, 4.0, 1)],
-            &[0.0; 4],
-            &[0.0; 4],
-        )?;
-        assert!(result.is_empty());
+        assert_eq!(result, vec![peak(2, 4, 5.0, 2)]);
         Ok(())
     }
 
@@ -520,29 +648,11 @@ mod tests {
             Orientation::Forward,
             (0, 10),
             &[peak(4, 6, 4.0, 4)],
-            &signal,
-            &control,
+            &rle(&signal),
+            &rle(&control),
         )?;
 
-        assert_eq!(result.len(), 1);
-        assert_eq!(*result[0].interval(), Interval::new(4, 6)?);
-        Ok(())
-    }
-
-    #[test]
-    fn local_contrast_must_exceed_sensitivity() -> Result<()> {
-        let mut nms = NMS::<usize, f64>::new();
-        nms.set_fecutoff(2.0)?.set_sensitivity(1.0)?;
-        let region = [Interval::new(0, 2)?];
-        let control = [1.0, 1.0];
-
-        assert_eq!(nms.threshold(&region, &[1.0, 2.0], &control)?, None);
-        assert_eq!(nms.threshold(&region, &[1.0, 3.0], &control)?, None);
-        assert_eq!(
-            nms.threshold(&region, &[1.0, 5.0], &control)?,
-            Some((4.0, 0.0))
-        );
-        assert_eq!(nms.threshold(&region, &[1.0, 1.0], &control)?, None);
+        assert_eq!(result, vec![peak(4, 6, 3.0, 4)]);
         Ok(())
     }
 
@@ -567,31 +677,43 @@ mod tests {
             Orientation::Forward,
             (0, 20),
             &[Peak::new(10, 11, 4.0, 10)?],
-            &signal,
-            &control,
+            &rle(&signal),
+            &rle(&control),
         )?;
 
-        assert_eq!(result.len(), 1);
-        assert_eq!(*result[0].interval(), Interval::new(10, 11)?);
+        assert_eq!(result, vec![Peak::new(10, 11, 3.0, 10)?]);
         Ok(())
     }
 
     #[test]
-    fn configured_orientations_define_eligibility() -> Result<()> {
-        let mut nms = NMS::<usize, f64>::new();
-        nms.add_regions(
-            Orientation::Forward,
-            NMSRegions::new(vec![chain(0, 2)?], true)?,
-        );
-
-        let result = nms.run(
-            Orientation::Reverse,
-            (0, 2),
-            &[peak(0, 2, 2.0, 0)],
-            &[1.0; 2],
-            &[1.0; 2],
-        )?;
-        assert!(result.is_empty());
+    fn only_configured_orientations_are_eligible() -> Result<()> {
+        let (signal, control) = (rle(&[3.0; 2]), rle(&[1.0; 2]));
+        for configured in [false, true] {
+            let mut nms = NMS::new();
+            if configured {
+                nms.add_regions(
+                    Orientation::Forward,
+                    NMSRegions::new(vec![chain(0, 2)?], true)?,
+                );
+            }
+            for orientation in [Orientation::Forward, Orientation::Reverse] {
+                let expected = if configured && orientation == Orientation::Forward {
+                    vec![peak(0, 2, 2.0, 0)]
+                } else {
+                    vec![]
+                };
+                assert_eq!(
+                    nms.run(
+                        orientation,
+                        (0, 2),
+                        &[peak(0, 2, 3.0, 0)],
+                        &signal,
+                        &control
+                    )?,
+                    expected,
+                );
+            }
+        }
         Ok(())
     }
 
@@ -602,8 +724,6 @@ mod tests {
         assert!(nms.set_fecutoff(f64::INFINITY).is_err());
         assert!(nms.set_slopfrac(f32::NAN).is_err());
         assert!(nms.set_slopfrac(f32::INFINITY).is_err());
-        assert!(nms.set_sensitivity(0.0).is_err());
-        assert!(nms.set_sensitivity(f64::NAN).is_err());
         assert!(nms.set_sloplim(-1, 1).is_err());
         assert!(nms.set_sloplim(2, 1).is_err());
     }

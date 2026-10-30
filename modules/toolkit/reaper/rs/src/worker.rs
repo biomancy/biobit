@@ -76,7 +76,7 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
     {
         // 1. Calculate pileup for the signal & control sources
         let mut cntmodel = self.cnts_cache.pop().unwrap_or_default();
-        let (ccnts, control, mut cntcov) = config.model.model_control(
+        let (counts, control, mut cntcov) = config.model.model_control(
             query,
             control,
             &mut self.sources_cache,
@@ -84,16 +84,20 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             &mut cntmodel,
             self.rle_cache.pop().unwrap_or_default(),
         )?;
+        // The buffer is not needed anymore and could be reused in later calls
+        self.cnts_cache.push(cntmodel);
 
-        let (sigcnts, signal, mut sigcov, modeled) = config.model.model_signal(
+        // Signal modelling is a straightforward pileup
+        let (counts, signal, mut sigcov, modeled) = config.model.model_signal(
             query,
             signal,
             &mut self.sources_cache,
-            cntmodel,
+            counts, // Reuse counts buffer directly
             self.rle_cache.pop().unwrap_or_default(),
         )?;
+        self.cnts_cache.push(counts);
 
-        // 2. Calculate the enrichment
+        // 2. Calculate enrichment from the same normalized profiles used by NMS.
         let enrichment = self
             .rle_cache
             .pop()
@@ -101,13 +105,9 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
             .try_map::<_, Report>(|orientation, rle| {
                 let signal = &signal[orientation];
                 let control = &control[orientation];
-
-                config.cmp.calculate::<Idx, u32, RleIdentical<Cnts>>(
-                    signal,
-                    control,
-                    config.model.identical(),
-                    rle,
-                )
+                config
+                    .cmp
+                    .calculate(signal, control, config.model.identical(), rle)
             })?;
 
         // 3. Call peaks
@@ -120,8 +120,8 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
                 orientation,
                 (query.1, query.2),
                 &_peaks,
-                &sigcnts[orientation],
-                &ccnts[orientation],
+                &signal[orientation],
+                &control[orientation],
             )?;
 
             for peak in &mut _peaks {
@@ -139,9 +139,6 @@ impl<Ctg: Contig, Idx: PrimInt, Cnts: Float> Worker<Ctg, Idx, Cnts> {
         self.rle_cache.push(signal);
         self.rle_cache.push(control);
         self.rle_cache.push(enrichment);
-
-        self.cnts_cache.push(ccnts);
-        self.cnts_cache.push(sigcnts);
 
         // 4. Save results
         let interval = Interval::new(query.1, query.2)?;

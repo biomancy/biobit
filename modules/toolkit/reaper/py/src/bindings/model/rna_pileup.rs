@@ -23,6 +23,20 @@ impl PyRNAPileup {
         PyRNAPileup::new(RNAPileup::new())
     }
 
+    fn set_scaling(mut slf: PyRefMut<Self>, signal: f32, control: f32) -> PyResult<PyRefMut<Self>> {
+        slf.rs.set_scaling(signal, control)?;
+        Ok(slf)
+    }
+
+    /// Sets the absolute numerical tolerance (finite and positive; default: 1e-6).
+    /// It is used unchanged, independently of signal and control scaling.
+    ///
+    /// Raw coverage values differing by at most sensitivity are treated as
+    /// identical during RLE encoding. Control modeling skips chains whose summed raw
+    /// per-base coverage within the query is below sensitivity. Reaper also
+    /// uses the same tolerance for RLE encoding of enrichment ratios.
+    ///
+    /// This is separate from the min_signal coverage threshold.
     fn set_sensitivity(mut slf: PyRefMut<Self>, sensitivity: f32) -> PyResult<PyRefMut<Self>> {
         slf.rs.set_sensitivity(sensitivity)?;
         Ok(slf)

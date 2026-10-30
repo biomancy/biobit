@@ -5,66 +5,39 @@ use eyre::{Result, eyre};
 
 use biobit_collections_rs::rle_vec;
 use biobit_collections_rs::rle_vec::{Identical, RleVec};
-use biobit_core_rs::num::{Float, PrimInt, PrimUInt};
+use biobit_core_rs::num::{Float, PrimUInt};
 
 #[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
-#[derive(Clone, PartialEq, Debug, Getters, Dissolve)]
-pub struct Scaling<Cnts: Float> {
-    signal: Cnts,
-    control: Cnts,
-}
-
-impl<Cnts: Float> Scaling<Cnts> {
-    pub fn new(signal: Cnts, control: Cnts) -> Result<Self> {
-        if !signal.is_finite() || signal <= Cnts::zero() {
-            return Err(eyre!("Signal scaling must be finite and greater than zero"));
-        }
-        if !control.is_finite() || control <= Cnts::zero() {
-            return Err(eyre!(
-                "Control scaling must be finite and greater than zero"
-            ));
-        }
-        Ok(Self { signal, control })
-    }
-}
-
-#[cfg_attr(feature = "bitcode", derive(Encode, Decode))]
-#[derive(Clone, PartialEq, Debug, Dissolve)]
+#[derive(Clone, PartialEq, Debug, Dissolve, Getters)]
 pub struct Enrichment<Cnts: Float> {
-    // Scaling is left here intentionally.
-    // In the future I might want to do per-step ops with a higher precision and then
-    // downcast the results to lower precision. Fusing scaling into that would be great.
-    pub scaling: Scaling<Cnts>,
-}
-
-impl<Cnts: Float> Default for Scaling<Cnts> {
-    fn default() -> Self {
-        Self {
-            signal: Cnts::one(),
-            control: Cnts::one(),
-        }
-    }
+    pseudocount: Cnts,
 }
 
 impl<Cnts: Float> Default for Enrichment<Cnts> {
     fn default() -> Self {
         Self {
-            scaling: Scaling::default(),
+            pseudocount: Cnts::one(),
         }
     }
 }
 
 impl<Cnts: Float> Enrichment<Cnts> {
     pub fn new() -> Self {
-        Enrichment::default()
+        Self::default()
     }
 
-    pub fn set_scaling(&mut self, signal: Cnts, control: Cnts) -> Result<&mut Self> {
-        self.scaling = Scaling::new(signal, control)?;
+    /// Sets the pseudocount added to both normalized profiles (default: one).
+    pub fn set_pseudocount(&mut self, pseudocount: Cnts) -> Result<&mut Self> {
+        if !pseudocount.is_finite() || pseudocount < Cnts::zero() {
+            return Err(eyre!("Pseudocount must be finite and non-negative"));
+        }
+        self.pseudocount = pseudocount;
         Ok(self)
     }
 
-    pub fn calculate<Idx: PrimInt, Len: PrimUInt, I: Identical<Cnts>>(
+    /// Calculates enrichment from already-normalized signal and control models.
+    /// Returns zero wherever modeled signal is zero. Else returns (signal + p) / (control + p).
+    pub fn calculate<Len: PrimUInt, I: Identical<Cnts>>(
         &self,
         signal: &RleVec<Cnts, Len, I>,
         control: &RleVec<Cnts, Len, I>,
@@ -87,13 +60,13 @@ impl<Cnts: Float> Enrichment<Cnts> {
                     }
                     if signal == Cnts::zero() {
                         Ok(signal)
-                    } else if control == Cnts::zero() {
-                        Err(eyre!(
-                            "Control must be positive wherever signal is positive"
-                        ))
                     } else {
-                        let enrichment =
-                            (signal * self.scaling.signal) / (control * self.scaling.control);
+                        let numerator = signal + self.pseudocount;
+                        let denominator = control + self.pseudocount;
+                        if denominator == Cnts::zero() {
+                            return Err(eyre!("Control plus pseudocount must be positive wherever signal is positive"));
+                        }
+                        let enrichment = numerator / denominator;
                         if enrichment.is_finite() {
                             Ok(enrichment)
                         } else {
@@ -132,37 +105,80 @@ mod tests {
     }
 
     #[test]
-    fn default_scaling_calculates_a_ratio() -> Result<()> {
-        let result = Enrichment::new().calculate::<usize, _, _>(
-            &rle(&[2.0, 0.0, 6.0]),
-            &rle(&[1.0, 0.0, 3.0]),
+    fn custom_pseudocount_and_validation() -> Result<()> {
+        let mut caller = Enrichment::new();
+        caller.set_pseudocount(0.5)?;
+        for invalid in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(caller.set_pseudocount(invalid).is_err());
+            assert_eq!(*caller.pseudocount(), 0.5);
+        }
+        let result = caller.calculate(
+            &rle(&[1.0, 0.0]),
+            &rle(&[0.0, 0.0]),
             identical as fn(&f64, &f64) -> bool,
             rle(&[]),
         )?;
+        assert_eq!(dense(&result), [3.0, 0.0]);
 
-        assert_eq!(dense(&result), vec![2.0, 0.0, 2.0]);
+        caller.set_pseudocount(f64::MAX)?;
+        assert!(
+            caller
+                .calculate(
+                    &rle(&[f64::MAX]),
+                    &rle(&[1.0]),
+                    identical as fn(&f64, &f64) -> bool,
+                    rle(&[]),
+                )
+                .is_err()
+        );
         Ok(())
     }
 
     #[test]
-    fn rejects_zero_control_for_positive_signal() {
-        let result = Enrichment::new().calculate::<usize, _, _>(
+    fn calculates_ratios_from_normalized_profiles() -> Result<()> {
+        let result = Enrichment::new().set_pseudocount(0.0)?.calculate(
+            &rle(&[2.0, 0.0, 6.0, 1.0]),
+            &rle(&[1.0, 0.0, 3.0, 2.0]),
+            identical as fn(&f64, &f64) -> bool,
+            rle(&[]),
+        )?;
+        assert_eq!(dense(&result), vec![2.0, 0.0, 2.0, 0.5]);
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_zero_control_without_a_pseudocount() -> Result<()> {
+        let result = Enrichment::new().set_pseudocount(0.0)?.calculate(
             &rle(&[1.0]),
             &rle(&[0.0]),
             identical as fn(&f64, &f64) -> bool,
             rle(&[]),
         );
         assert!(result.is_err());
+        Ok(())
     }
 
     #[test]
-    fn rejects_invalid_inputs_and_configuration() {
-        let mut enrichment = Enrichment::<f64>::new();
-        assert!(enrichment.set_scaling(0.0, 1.0).is_err());
-        assert!(enrichment.set_scaling(1.0, f64::NAN).is_err());
-        assert!(enrichment.set_scaling(f64::INFINITY, 1.0).is_err());
+    fn rejects_invalid_inputs() {
+        for (signal, control) in [
+            (f64::MAX * 2.0, 1.0),
+            (0.0, f64::INFINITY),
+            (f64::NAN, 1.0),
+            (-1.0, 1.0),
+        ] {
+            assert!(
+                Enrichment::new()
+                    .calculate(
+                        &rle(&[signal]),
+                        &rle(&[control]),
+                        identical as fn(&f64, &f64) -> bool,
+                        rle(&[]),
+                    )
+                    .is_err()
+            );
+        }
 
-        let mismatched = enrichment.calculate::<usize, _, _>(
+        let mismatched = Enrichment::new().calculate(
             &rle(&[1.0, 2.0]),
             &rle(&[1.0]),
             identical as fn(&f64, &f64) -> bool,

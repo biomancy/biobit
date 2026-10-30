@@ -12,10 +12,9 @@ use thread_local::ThreadLocal;
 
 use ahash::HashMap;
 use derive_more::Constructor;
-use eyre::eyre;
 use higher_kinded_types::ForLt;
 use std::io;
-use std::sync::atomic::AtomicBool;
+use std::sync::OnceLock;
 
 #[derive(Constructor)]
 // derive_more::Constructor generates explicit field names.
@@ -97,20 +96,21 @@ where
 
         // Run the counting
         let worker_sources: ThreadLocal<RefCell<HashMap<usize, Src>>> = ThreadLocal::new();
-        let has_failed = AtomicBool::new(false);
+        // Retain the first worker error; its presence also stops further scheduling.
+        let failure = OnceLock::new();
 
         let _srcinds = (0..sources.len()).collect::<Vec<_>>();
         let _prtinds = (0..self.partitions.len()).collect::<Vec<_>>();
         rayon::scope(|s| {
             for srcind in &_srcinds {
                 for prtind in &_prtinds {
-                    // Terminate the loop if an error has occured in any of the threads
-                    if has_failed.load(std::sync::atomic::Ordering::Relaxed) {
+                    // Stop scheduling if any worker has failed.
+                    if failure.get().is_some() {
                         return;
                     }
 
                     s.spawn(|_| {
-                        if has_failed.load(std::sync::atomic::Ordering::Relaxed) {
+                        if failure.get().is_some() {
                             return;
                         }
 
@@ -137,18 +137,23 @@ where
                         );
 
                         if let Err(err) = result {
-                            has_failed.store(true, std::sync::atomic::Ordering::Relaxed);
                             log::error!("CountIt failed: {:?}", err);
+                            let _ = failure.set(err.wrap_err(format!(
+                                "CountIt failed for source {}, partition {} ({:?}, {:?})",
+                                *srcind,
+                                *prtind,
+                                self.partitions[*prtind].contig(),
+                                self.partitions[*prtind].interval(),
+                            )));
                         }
                     });
                 }
             }
         });
 
-        let has_failed = has_failed.into_inner();
-        if has_failed {
-            return Err(eyre!("CountIt internal error. See log for details."));
+        match failure.into_inner() {
+            Some(err) => Err(err),
+            None => Ok(()),
         }
-        Ok(())
     }
 }

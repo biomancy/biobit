@@ -10,5 +10,6 @@ pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModu
         .add_class::<PyByCutoff>()?
         .finish();
 
+    module.add("__all__", ["ByCutoff"])?;
     Ok(module)
 }

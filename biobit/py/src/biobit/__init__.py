@@ -37,10 +37,12 @@ def _masquerade_native_imports(module: _ModuleType, public_name: str) -> None:
 # Import it after defining the helper it uses to expose the native package tree.
 io = _import_module(f"{__name__}.io")
 
-# Other toolkit modules still contain Python implementations. Register only the
-# bioproj subtree so their normal package search paths remain available.
-_masquerade_native_imports(
-    _import_module(f"{__name__}.rs.toolkit.bioproj"), f"{__name__}.toolkit.bioproj"
-)
+# These toolkit packages are entirely native; their Python files provide stubs.
+# Other toolkit packages retain their normal Python implementations and paths.
+for _package in ("bioproj", "reaper"):
+    _masquerade_native_imports(
+        _import_module(f"{__name__}.rs.toolkit.{_package}"),
+        f"{__name__}.toolkit.{_package}",
+    )
 
 __all__ = ["collections", "core", "io", "toolkit"]

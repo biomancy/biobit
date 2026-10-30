@@ -11,7 +11,6 @@ def test_reaper_postfilter():
         .set_fecutoff(10)
         .set_group_within(1)
         .set_slopfrac(0.1)
-        .set_sensitivity(0.5)
         .set_sloplim(1, 2)
         .add_regions("+", True, [[(1, 2), (4, 6)], [(4, 5)]])
         .add_regions("-", False, [[(1, 2), (4, 6), (8, 9)]])
@@ -23,7 +22,6 @@ def test_reaper_postfilter():
         .set_fecutoff(10)
         .set_group_within(1)
         .set_slopfrac(0.1)
-        .set_sensitivity(0.5)
         .set_sloplim(1, 2)
         .add_regions("-", False, [[(1, 2), (4, 6), (8, 9)]])
         .add_regions("+", True, [[(1, 2), (4, 6)], [(4, 5)]])
@@ -46,5 +44,3 @@ def test_reaper_postfilter_rejects_invalid_numerical_settings():
         postfilter.NMS().set_fecutoff(float("nan"))
     with pytest.raises(RuntimeError):
         postfilter.NMS().set_slopfrac(float("inf"))
-    with pytest.raises(RuntimeError):
-        postfilter.NMS().set_sensitivity(0)

@@ -122,8 +122,8 @@ where
     Storage: storage::Storage + algo::Tracer<Score = S>,
     TraceMat: traceback::TraceMat + algo::Tracer<Score = S>,
 {
-    pub fn reset(&mut self, newrows: usize, newcols: usize) {
-        self.storage.reset(newrows, newcols);
-        self.tracemat.reset(newrows, newcols);
+    pub fn reset(&mut self, seq1: (usize, usize), seq2: (usize, usize)) {
+        self.storage.reset(seq1, seq2);
+        self.tracemat.reset(seq1, seq2);
     }
 }

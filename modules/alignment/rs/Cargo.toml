@@ -17,3 +17,6 @@ biobit-core-rs = { path = "../../core/rs" }
 eyre = { workspace = true }
 derive_more = { workspace = true }
 derive-getters = { workspace = true }
+
+[dev-dependencies]
+itertools = { workspace = true }

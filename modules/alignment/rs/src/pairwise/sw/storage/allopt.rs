@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+
 use crate::pairwise::scoring;
 use crate::pairwise::sw::algo::{BestOrientationTracer, GapTracer, Tracer};
 use crate::pairwise::sw::storage::{AlignmentSeed, Storage};
@@ -47,6 +50,8 @@ pub struct AllOptimal<S: scoring::Score> {
 
     // Cache for finished paths in each row
     results: Vec<Vec<Path<S>>>,
+    // Starting column -> result index, preserving the order of first insertion.
+    result_indices: Vec<HashMap<usize, usize>>,
 }
 
 impl<S: scoring::Score> AllOptimal<S> {
@@ -58,6 +63,7 @@ impl<S: scoring::Score> AllOptimal<S> {
             best_gap_row: None,
             best_gap_col: vec![None; 128],
             results: vec![Vec::new(); 128],
+            result_indices: vec![HashMap::new(); 128],
         }
     }
 
@@ -67,17 +73,18 @@ impl<S: scoring::Score> AllOptimal<S> {
         }
 
         let row = p.start.0;
-        for r in &mut self.results[row] {
-            if r.start == p.start {
-                // If match & better score -> update the hit
+        match self.result_indices[row].entry(p.start.1) {
+            Entry::Occupied(entry) => {
+                let r = &mut self.results[row][*entry.get()];
                 if r.score < p.score {
                     *r = p;
                 }
-                return;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(self.results[row].len());
+                self.results[row].push(p);
             }
         }
-        // New match -> store the new path
-        self.results[row].push(p)
     }
 
     #[inline(always)]
@@ -219,20 +226,24 @@ impl<S: scoring::Score> Tracer for AllOptimal<S> {
 }
 
 impl<S: scoring::Score> Storage for AllOptimal<S> {
-    fn reset(&mut self, newrows: usize, _: usize) {
-        self.cache.clear();
+    fn reset(&mut self, (_, rows): (usize, usize), _: (usize, usize)) {
         self.diagonal = None;
         self.best_gap_row = None;
 
-        // TODO: reuse result vectors when possible
-        self.results.clear();
-        self.results.resize(newrows, Vec::new());
+        self.results.resize_with(rows, Vec::new);
+        for results in &mut self.results {
+            results.clear();
+        }
+        self.result_indices.resize_with(rows, HashMap::new);
+        for indices in &mut self.result_indices {
+            indices.clear();
+        }
 
         self.cache.clear();
-        self.cache.resize(newrows, None);
+        self.cache.resize(rows, None);
 
         self.best_gap_col.clear();
-        self.best_gap_col.resize(newrows, None);
+        self.best_gap_col.resize(rows, None);
     }
 
     fn finalize(&mut self) -> Vec<AlignmentSeed<S>> {

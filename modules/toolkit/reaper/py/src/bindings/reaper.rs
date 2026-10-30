@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use eyre::{Result, eyre};
 use pyo3::prelude::*;
 use rayon::ThreadPoolBuilder;
@@ -24,7 +22,7 @@ pub struct PyReaper {
 impl PyReaper {
     fn find_sample(&mut self, tag: &Py<PyAny>, py: Python) -> Result<Option<usize>> {
         for (ind, sample) in self.samples.iter().enumerate() {
-            if sample.bind(py).compare(tag)? == Ordering::Equal {
+            if sample.bind(py).eq(tag)? {
                 return Ok(Some(ind));
             }
         }
@@ -114,11 +112,11 @@ impl PyReaper {
     }
 
     pub fn run(mut slf: PyRefMut<Self>) -> PyResult<Vec<PyHarvest>> {
-        let reaped = slf.reaper.run()?.into_iter().map(PyHarvest::from).collect();
+        let reaped = slf.reaper.run();
         slf.reaper.reset();
         slf.samples.clear();
 
-        Ok(reaped)
+        Ok(reaped?.into_iter().map(PyHarvest::from).collect())
     }
 
     pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {

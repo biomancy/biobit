@@ -7,6 +7,10 @@ use eyre::{OptionExt, Result};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+/// Filters candidate peaks using excess = max(scaled_signal - scaled_control_model, 0).
+/// Retains positions where excess >= fecutoff * mean_background_excess.
+/// The mean includes background bases with positive signal or control.
+/// An empty or zero-mean background retains no peaks.
 #[pyclass(from_py_object, eq, name = "NMS")]
 #[derive(Clone, PartialEq, Debug, Constructor, Dissolve, From, Into)]
 // derive_more::Constructor generates explicit field names.
@@ -46,11 +50,6 @@ impl PyNMS {
         maxslop: usize,
     ) -> PyResult<PyRefMut<Self>> {
         slf.rs.set_sloplim(minslop, maxslop)?;
-        Ok(slf)
-    }
-
-    pub fn set_sensitivity(mut slf: PyRefMut<Self>, sensitivity: f32) -> PyResult<PyRefMut<Self>> {
-        slf.rs.set_sensitivity(sensitivity)?;
         Ok(slf)
     }
 

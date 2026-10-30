@@ -27,17 +27,17 @@ fn append_run<V, L: PrimUInt, I: Identical<V>>(
     }
 }
 
-pub(super) fn merge_impl<V, L, IOriginal, INew, M>(
+pub(super) fn merge_impl<V, Output, L, IOriginal, INew, M>(
     first: &RleVec<V, L, IOriginal>,
     second: &RleVec<V, L, IOriginal>,
-    mut append_to: RleVec<V, L, INew>,
+    mut append_to: RleVec<Output, L, INew>,
     mut merge: M,
-) -> Result<RleVec<V, L, INew>, M::Error>
+) -> Result<RleVec<Output, L, INew>, M::Error>
 where
     L: PrimUInt,
     IOriginal: Identical<V>,
-    INew: Identical<V>,
-    M: TryMerge<V>,
+    INew: Identical<Output>,
+    M: TryMerge<V, Output>,
 {
     let mut first_iter = first.runs().map(|(value, length)| (value, *length));
     let mut second_iter = second.runs().map(|(value, length)| (value, *length));
@@ -210,6 +210,32 @@ mod tests {
                 merged.runs().map(|(x, y)| (*x, *y)).collect::<Vec<_>>(),
                 items
             );
+        }
+    }
+
+    #[test]
+    fn merges_into_a_different_value_type() {
+        for (first, second, expected) in [
+            (vec![], vec![], vec![]),
+            (vec![], vec![1, 1], vec![(Some(1u16), 2)]),
+            (vec![1, 1], vec![], vec![(Some(1), 2)]),
+            (vec![1, 2, 2], vec![3, 2, 2], vec![(Some(4), 3)]),
+            (vec![1, 1, 2], vec![3, 3], vec![(Some(4), 2), (Some(2), 1)]),
+            (vec![3, 3], vec![1, 1, 2], vec![(Some(4), 2), (Some(2), 1)]),
+        ] {
+            let (first, second) = (from_dense(first), from_dense(second));
+            let merged = merge(&first, &second)
+                .with_merge_fns(
+                    |value: &u8| Ok::<_, Infallible>(Some(u16::from(*value))),
+                    |first: &u8, second: &u8| Ok(Some(u16::from(*first) + u16::from(*second))),
+                )
+                .with_identical(PartialEq::eq)
+                .save_to((Vec::<Option<u16>>::new(), Vec::<u8>::new()))
+                .build()
+                .unwrap()
+                .run()
+                .unwrap();
+            assert_eq!(merged.into_iter().collect::<Vec<_>>(), expected);
         }
     }
 

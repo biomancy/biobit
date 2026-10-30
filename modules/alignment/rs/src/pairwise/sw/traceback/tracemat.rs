@@ -58,6 +58,8 @@ impl RunningTrace {
     }
 }
 
+/// Traceback states stored by column, matching the scanner's traversal order.
+/// Row 0 and column 0 hold the zero-score boundary.
 pub struct TraceMatrix<S: scoring::Score> {
     best: Vec<Trace>,
     row_gap: Vec<GapTrace>,
@@ -95,22 +97,22 @@ impl<S: scoring::Score> BestOrientationTracer for TraceMatrix<S> {
 
     #[inline(always)]
     fn gap_row(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.best[(row + 1) * self.cols + (col + 1)] = Trace::GapRow;
+        self.best[(col + 1) * self.rows + (row + 1)] = Trace::GapRow;
     }
 
     #[inline(always)]
     fn gap_col(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.best[(row + 1) * self.cols + (col + 1)] = Trace::GapCol;
+        self.best[(col + 1) * self.rows + (row + 1)] = Trace::GapCol;
     }
 
     #[inline(always)]
     fn equivalent(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.best[(row + 1) * self.cols + (col + 1)] = Trace::Equivalent;
+        self.best[(col + 1) * self.rows + (row + 1)] = Trace::Equivalent;
     }
 
     #[inline(always)]
     fn none(&mut self, row: usize, col: usize) {
-        self.best[(row + 1) * self.cols + (col + 1)] = Trace::Start;
+        self.best[(col + 1) * self.rows + (row + 1)] = Trace::Start;
     }
 }
 
@@ -119,27 +121,27 @@ impl<S: scoring::Score> GapTracer for TraceMatrix<S> {
 
     #[inline(always)]
     fn row_gap_open(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.row_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Open;
+        self.row_gap[(col + 1) * self.rows + (row + 1)] = GapTrace::Open;
     }
 
     #[inline(always)]
     fn row_gap_extend(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.row_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Extend;
+        self.row_gap[(col + 1) * self.rows + (row + 1)] = GapTrace::Extend;
     }
 
     #[inline(always)]
     fn col_gap_open(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.col_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Open;
+        self.col_gap[(col + 1) * self.rows + (row + 1)] = GapTrace::Open;
     }
 
     #[inline(always)]
     fn col_gap_extend(&mut self, row: usize, col: usize, _: Self::Score) {
-        self.col_gap[(row + 1) * self.cols + (col + 1)] = GapTrace::Extend;
+        self.col_gap[(col + 1) * self.rows + (row + 1)] = GapTrace::Extend;
     }
 }
 
 impl<S: scoring::Score> TraceMat for TraceMatrix<S> {
-    fn reset(&mut self, rows: usize, cols: usize) {
+    fn reset(&mut self, (_, rows): (usize, usize), (_, cols): (usize, usize)) {
         self.rows = rows + 1;
         self.cols = cols + 1;
 
@@ -160,7 +162,7 @@ impl<S: scoring::Score> TraceMat for TraceMatrix<S> {
         }
 
         let (mut row, mut col) = (seq1end, seq2end);
-        let seed = match self.best[row * self.cols + col].try_into() {
+        let seed = match self.best[col * self.rows + row].try_into() {
             Err(()) => return Err(eyre!("Invalid seed")),
             Ok(op) => op,
         };
@@ -169,7 +171,7 @@ impl<S: scoring::Score> TraceMat for TraceMatrix<S> {
         let mut trace = RunningTrace::new(seed, 0);
 
         loop {
-            let op = self.best[row * self.cols + col];
+            let op = self.best[col * self.rows + row];
             let aop = match op.try_into() {
                 Err(()) => {
                     trace.save(&mut result);
@@ -191,14 +193,14 @@ impl<S: scoring::Score> TraceMat for TraceMatrix<S> {
                     break;
                 }
                 Trace::GapRow => {
-                    while self.row_gap[row * self.cols + col] != GapTrace::Open {
+                    while self.row_gap[col * self.rows + row] != GapTrace::Open {
                         trace.len += 1;
                         row -= 1;
                     }
                     row -= 1;
                 }
                 Trace::GapCol => {
-                    while self.col_gap[row * self.cols + col] != GapTrace::Open {
+                    while self.col_gap[col * self.rows + row] != GapTrace::Open {
                         trace.len += 1;
                         col -= 1;
                     }

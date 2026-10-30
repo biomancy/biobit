@@ -90,18 +90,40 @@ impl Bundler {
             };
         }
 
-        // Otherwise, insert the record into the cache
-        let inserted = if is_lmate {
-            self.lmate.insert(record)
+        // Normal inserts take one probe; diagnostics and restoring the original
+        // record are needed only on collisions.
+        let cache = if is_lmate {
+            &mut self.lmate
         } else {
-            self.rmate.insert(record)
+            &mut self.rmate
         };
-
-        if !inserted {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Duplicate BAM mate: read names and HI hit indices must identify a unique pair",
-            ));
+        if let Some(previous) = cache.replace(record) {
+            let incoming = cache
+                .get(&previous)
+                .expect("a newly inserted mate disappeared");
+            log::warn!(
+                "Ignoring duplicate BAM mate: QNAME={:?}, HI={}, mate={}; identical={}. \
+                 Existing (flags, POS, PNEXT, RG): {:?}. \
+                 Incoming (flags, POS, PNEXT, RG): {:?}",
+                previous.record.name(),
+                previous.hit_index,
+                if is_lmate { "first" } else { "last" },
+                previous.record == incoming.record,
+                (
+                    u16::from(previous.record.flags()),
+                    previous.record.alignment_start(),
+                    previous.record.mate_alignment_start(),
+                    previous.record.data().get(&Tag::READ_GROUP),
+                ),
+                (
+                    u16::from(incoming.record.flags()),
+                    incoming.record.alignment_start(),
+                    incoming.record.mate_alignment_start(),
+                    incoming.record.data().get(&Tag::READ_GROUP),
+                ),
+            );
+            // Keep the first mate and discard the incoming duplicate.
+            let _ = cache.replace(previous);
         }
 
         Ok(None)

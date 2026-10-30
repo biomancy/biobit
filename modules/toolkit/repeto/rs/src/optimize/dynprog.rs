@@ -16,6 +16,9 @@ use super::{index, trace};
 // 2. If a hypothesis is excluded -> some of its embedded hypothesis might be included
 // Hypothesis => predicted InvertedRepeat
 //
+// Known limitation: a nested hypothesis must fit entirely inside one gap of its parent.
+// Compatible linked hypotheses with interleaved segments can therefore be missed.
+//
 // We need to consdider the matrix with start/ends and the following recursive equation:
 // f(s,e) = max of the following
 // * f(s, e - 1)

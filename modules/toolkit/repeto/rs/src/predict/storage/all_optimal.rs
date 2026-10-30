@@ -76,6 +76,8 @@ pub struct AllOptimal<S: scoring::Score, F: SoftFilter<Score = S>> {
     // ROIs tracking functionality
     rois: ROITracker,
     is_roi: bool,
+    // Original length for mapping reversed seq1 coordinates back to ROIs.
+    seq1_len: usize,
 
     // Main cache
     diagonal: Option<CandidatesTracker<S>>,
@@ -95,6 +97,7 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
             filter,
             rois: ROITracker::new(rois),
             is_roi: false,
+            seq1_len: 0,
             diagonal: None,
             cache: vec![None; 128],
             best_gap_row: None,
@@ -105,7 +108,7 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
 
     fn save(&mut self, candidate: CandidatesTracker<S>) {
         // If path is not valid - skip it completely
-        if !self.filter.is_valid(&candidate.score, &candidate.stats) {
+        if !candidate.is_valid() {
             return;
         }
 
@@ -163,16 +166,26 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> BestOrientationTracer for AllO
     #[inline(always)]
     fn equivalent(&mut self, row: usize, col: usize, score: S) {
         let newdiag = self.cache[row].take();
-        let is_roi = self.is_roi || self.rois.secondary(self.results.len() - row);
+        // Count how many of the two paired bases fall inside ROIs:
+        // 0 - both bases are outside ROIs
+        // 1 - one base is inside, the other is outside
+        // 2 - both bases are inside ROIs
+        let roi_overlap =
+            usize::from(self.is_roi) + usize::from(self.rois.secondary(self.seq1_len - row - 1));
 
         match self.diagonal.take() {
             None => {
                 // Start the new path
-                self.cache[row] = Some(CandidatesTracker::new((row, col), score, is_roi));
+                self.cache[row] = Some(CandidatesTracker::new(
+                    (row, col),
+                    score,
+                    roi_overlap,
+                    &self.filter,
+                ));
             }
             Some(mut diagonal) => {
                 // Extend & consume the diagonal
-                diagonal.equivalent(row, col, score, is_roi, &self.filter);
+                diagonal.equivalent(row, col, score, roi_overlap, &self.filter);
                 self.cache[row] = Some(diagonal);
             }
         }
@@ -265,20 +278,24 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> Tracer for AllOptimal<S, F> {
 }
 
 impl<S: scoring::Score, F: SoftFilter<Score = S>> Storage for AllOptimal<S, F> {
-    fn reset(&mut self, newrows: usize, _: usize) {
-        self.cache.clear();
+    fn reset(&mut self, (seq1_len, rows): (usize, usize), _: (usize, usize)) {
+        self.seq1_len = seq1_len;
+        self.rois.main = 0;
+        self.rois.secondary = 0;
+        self.is_roi = false;
         self.diagonal = None;
         self.best_gap_row = None;
 
-        // TODO: reuse result vectors when possible
-        self.results.clear();
-        self.results.resize(newrows, HashMap::new());
+        self.results.resize_with(rows, HashMap::new);
+        for results in &mut self.results {
+            results.clear();
+        }
 
         self.cache.clear();
-        self.cache.resize(newrows, None);
+        self.cache.resize(rows, None);
 
         self.best_gap_col.clear();
-        self.best_gap_col.resize(newrows, None);
+        self.best_gap_col.resize(rows, None);
     }
 
     fn finalize(&mut self) -> Vec<AlignmentSeed<S>> {

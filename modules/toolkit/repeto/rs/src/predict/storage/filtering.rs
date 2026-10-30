@@ -1,6 +1,10 @@
 pub trait SoftFilter {
     type Score;
 
+    /// The filter must stay fixed during a scan.
+    ///
+    /// Increasing the score or any statistic, with everything else unchanged,
+    /// must never make a passing candidate fail.
     fn is_valid(&self, score: &Self::Score, stats: &EquivRunStats) -> bool;
 }
 

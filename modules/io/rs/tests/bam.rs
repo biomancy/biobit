@@ -1,7 +1,7 @@
 //! Small synthetic records exercise the BAM pipeline without external fixtures.
 
 use std::collections::VecDeque;
-use std::io::{self, Cursor};
+use std::io::{self, Cursor, Error};
 use std::path::PathBuf;
 
 use higher_kinded_types::prelude::*;
@@ -237,22 +237,49 @@ fn bundles_mates_across_batches_and_preserves_hit_indices() -> io::Result<()> {
         ))?;
         pairs.push((left, right));
     }
-    // All pairs share a read name. Keep their right mates in flight together and
-    // return the left mates in a different order to expose truncated HI cache keys.
-    let source = Batches::new(vec![
-        Ok(pairs.iter().rev().map(|(_, right)| right.clone()).collect()),
-        Ok(vec![]),
-        Ok(pairs.iter().map(|(left, _)| left.clone()).collect()),
-    ]);
-    let mut transform = BundleMates::new(0);
-    let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
-    assert_eq!(iter.next().unwrap()?, &pairs);
-    assert!(iter.next().is_none());
+
+    // All pairs share a name. Vary HI order and repeat the waiting mates before
+    // completing the pairs; identical copies must not cause an error or extra pairs.
+    for right_first in [false, true] {
+        let (mut waiting, completing): (Vec<_>, Vec<_>) = pairs
+            .iter()
+            .map(|(left, right)| {
+                if right_first {
+                    (right.clone(), left.clone())
+                } else {
+                    (left.clone(), right.clone())
+                }
+            })
+            .unzip();
+        waiting.reverse();
+        let source = Batches::new(vec![
+            Ok(waiting.clone()),
+            Ok(vec![]),
+            Ok(waiting),
+            Ok(completing),
+        ]);
+        let mut transform = BundleMates::new(0);
+        let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
+        assert_eq!(iter.next().unwrap()?, &pairs);
+        assert!(iter.next().is_none());
+    }
     Ok(())
 }
 
 #[test]
-fn rejects_ambiguous_mates() -> io::Result<()> {
+fn rejects_invalid_mates() -> io::Result<()> {
+    fn test(first: &str, second: &str) -> Error {
+        let source = Batches::new(vec![Ok(vec![
+            record(first).unwrap(),
+            record(second).unwrap(),
+        ])]);
+        let mut transform = BundleMates::default();
+        let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
+        let error = iter.next().unwrap().unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{first}");
+        error
+    }
+
     for line in [
         "r0\t0\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1",
         "r0\t1\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1",
@@ -261,19 +288,24 @@ fn rejects_ambiguous_mates() -> io::Result<()> {
         "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:-1",
         "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:Z:1",
         "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*",
-        // Repeated first mates used to panic in debug builds and lose data in release.
-        "r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1",
     ] {
-        let value = record(line)?;
-        let source = Batches::new(vec![Ok(vec![value.clone(), value])]);
-        let mut transform = BundleMates::default();
-        let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
-        assert_eq!(
-            iter.next().unwrap().unwrap_err().kind(),
-            io::ErrorKind::InvalidData,
-            "{line}"
-        );
+        test(line, line);
     }
+
+    Ok(())
+}
+
+#[test]
+fn skips_conflicting_duplicate_mates_preserving_first_alignment() -> io::Result<()> {
+    let first = record("r0\t65\tchr1\t1\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1")?;
+    let conflicting = record("r0\t65\tchr1\t2\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1")?;
+    let mate = record("r0\t145\tchr1\t11\t60\t5M\t*\t0\t0\t*\t*\tHI:i:1")?;
+    let source = Batches::new(vec![Ok(vec![first.clone(), conflicting, mate.clone()])]);
+    let mut transform = BundleMates::default();
+    let mut iter = <BundleMates as Transform<Records>>::transform(&mut transform, source, &());
+    assert_eq!(iter.next().unwrap()?, &[(first, mate)]);
+    assert!(iter.next().is_none());
+
     Ok(())
 }
 
