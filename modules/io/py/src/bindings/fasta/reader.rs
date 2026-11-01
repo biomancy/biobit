@@ -20,9 +20,9 @@ pub struct PyReader {
 impl PyReader {
     #[new]
     #[pyo3(signature = (path, compression="infer"))]
-    fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
+    fn new(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<Self> {
         let config = compression_format(&path, compression)?.decoder();
-        let rs = Reader::from_path(path.clone(), &config)?;
+        let rs = py.detach(|| Reader::from_path(path.clone(), &config))?;
         Ok(Self { path, rs })
     }
 
@@ -36,19 +36,23 @@ impl PyReader {
             Some(into) => into,
             None => Py::new(py, PyRecord::from(Record::default()))?,
         };
-        if self.rs.read_record(&mut into.borrow_mut(py).rs)? {
-            Ok(Some(into))
-        } else {
-            Ok(None)
-        }
+        let success = {
+            let mut record = into.borrow_mut(py);
+            let record = &mut record.rs;
+            py.detach(|| self.rs.read_record(record))?
+        };
+        if success { Ok(Some(into)) } else { Ok(None) }
     }
 
-    fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
-        let mut result = Vec::new();
-        self.rs.read_to_end(&mut result)?;
+    fn read_to_end(&mut self, py: Python<'_>) -> PyResult<Py<PyList>> {
+        let result = py.detach(|| {
+            let mut result = Vec::new();
+            self.rs.read_to_end(&mut result)?;
+            Ok::<_, eyre::Report>(result)
+        })?;
 
         let iterator = result.into_iter().map(PyRecord::from);
-        Python::attach(|py| -> PyResult<_> { PyList::new(py, iterator).map(|x| x.unbind()) })
+        PyList::new(py, iterator).map(|x| x.unbind())
     }
 
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {

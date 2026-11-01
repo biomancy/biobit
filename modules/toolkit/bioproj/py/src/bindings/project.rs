@@ -12,17 +12,18 @@ use crate::utils::frozen::{Frozen, frozen_wrapper};
 
 define_id_binding!(PyProjectId, rs::ProjectId, "ProjectId");
 
-#[pyclass(from_py_object, frozen, eq, name = "Project")]
+#[pyclass(from_py_object, eq, frozen, name = "Project")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyProject(pub Frozen<rs::Project>);
 frozen_wrapper!(PyProject, rs::Project);
-crate::utils::pickle::pickle_methods!(PyProject, rs::Project, |value| value.0.as_ref());
+crate::utils::pickle::pickle_methods!(PyProject, rs::Project, |value| value.0.as_ref(), detached: true);
 
 #[pymethods]
 impl PyProject {
     #[new]
     #[pyo3(signature = (id, *, provenance, data, designs, meta=None, description=None))]
     fn new(
+        py: pyo3::Python<'_>,
         id: PyProjectId,
         provenance: PyRef<'_, PyProvenance>,
         data: PyRef<'_, PyData>,
@@ -30,15 +31,20 @@ impl PyProject {
         meta: Option<PyMeta>,
         description: Option<String>,
     ) -> PyBioprojResult<Self> {
-        Ok(rs::Project::new(
-            id.0.as_ref().clone(),
-            provenance.0.as_ref().clone(),
-            Borrow::<rs::data::Data>::borrow(&*data).clone(),
-            Borrow::<rs::design::Designs>::borrow(&*designs).clone(),
-            PyMeta::option_into_meta(meta),
-            description.map(rs::Text::new).transpose()?,
-        )?
-        .into())
+        let provenance = &*provenance;
+        let data = &*data;
+        let designs = &*designs;
+        py.detach(|| {
+            Ok(rs::Project::new(
+                id.0.as_ref().clone(),
+                provenance.0.as_ref().clone(),
+                Borrow::<rs::data::Data>::borrow(&*data).clone(),
+                Borrow::<rs::design::Designs>::borrow(&*designs).clone(),
+                PyMeta::option_into_meta(meta),
+                description.map(rs::Text::new).transpose()?,
+            )?
+            .into())
+        })
     }
 
     #[getter]

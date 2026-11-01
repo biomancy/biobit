@@ -49,7 +49,8 @@ impl PySamplePileup {
 
     #[staticmethod]
     pub fn _from_pickle(tag: Py<PyAny>, state: &Bound<PyBytes>) -> PyResult<Self> {
-        let pileups = pickle::from_bytes(state.as_bytes())?;
+        let bytes = state.as_bytes();
+        let pileups = state.py().detach(|| pickle::from_bytes(bytes))?;
         let rs = SamplePileup { tag, pileups };
         Ok(Self { rs })
     }
@@ -60,7 +61,7 @@ impl PySamplePileup {
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
             (
                 self.rs.tag.clone_ref(py),
-                pickle::to_bytes(&self.rs.pileups),
+                py.detach(|| pickle::to_bytes(&self.rs.pileups)),
             ),
         ))
     }

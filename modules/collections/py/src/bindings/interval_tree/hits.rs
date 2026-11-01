@@ -82,10 +82,15 @@ impl PyHits {
             let mut segments = borrow.take();
 
             // Run the segmentation.
-            let query = query.into_iter().map(|x| x.extract_py(py).rs);
-            let data = slf.data.iter().map(ByPyPointer::from_ref);
-
-            segments.build_from_parts(query, &slf.intervals, data)?;
+            let query = query
+                .into_iter()
+                .map(|x| x.extract_py(py).rs)
+                .collect::<Vec<_>>();
+            let hits = &*slf;
+            py.detach(|| {
+                let data = hits.data.iter().map(ByPyPointer::from_ref);
+                segments.build_from_parts(query, &hits.intervals, data)
+            })?;
             borrow.reset(py, segments)?;
         }
 
@@ -138,11 +143,15 @@ impl PyHits {
     }
 
     pub fn __getstate__<'a>(&self, py: Python<'a>) -> PyResult<(Vec<u8>, Bound<'a, PyList>)> {
-        Ok((pickle::to_bytes(&self.intervals), self.data(py)?))
+        Ok((
+            py.detach(|| pickle::to_bytes(&self.intervals)),
+            self.data(py)?,
+        ))
     }
 
     pub fn __setstate__(&mut self, state: (Bound<PyBytes>, Vec<Py<PyAny>>)) -> PyResult<()> {
-        self.intervals = pickle::from_bytes(state.0.as_bytes())?;
+        let bytes = state.0.as_bytes();
+        self.intervals = state.0.py().detach(|| pickle::from_bytes(bytes))?;
         self.data = state.1;
         Ok(())
     }
@@ -276,19 +285,27 @@ impl PyBatchHits {
             // Run the segmentation.
             let query = query
                 .into_iter()
-                .map(|x| x.into_iter().map(|x| x.extract_py(py).rs));
-            let intervals = (0..slf.index.len() - 1).map(|i| {
-                slf.intervals[slf.index[i]..slf.index[i + 1]]
-                    .iter()
-                    .map(|x| x.rs)
-            });
-            let data = (0..slf.index.len() - 1).map(|i| {
-                slf.hits[slf.index[i]..slf.index[i + 1]]
-                    .iter()
-                    .map(ByPyPointer::from_ref)
-            });
+                .map(|x| {
+                    x.into_iter()
+                        .map(|x| x.extract_py(py).rs)
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            let hits = &*slf;
+            py.detach(|| {
+                let intervals = (0..hits.index.len() - 1).map(|i| {
+                    hits.intervals[hits.index[i]..hits.index[i + 1]]
+                        .iter()
+                        .map(|x| x.rs)
+                });
+                let data = (0..hits.index.len() - 1).map(|i| {
+                    hits.hits[hits.index[i]..hits.index[i + 1]]
+                        .iter()
+                        .map(ByPyPointer::from_ref)
+                });
 
-            segments.build_from_parts(query, intervals, data)?;
+                segments.build_from_parts(query, intervals, data)
+            })?;
             borrow.reset(py, segments)?;
         }
 
@@ -347,20 +364,27 @@ impl PyBatchHits {
         &self,
         py: Python<'a>,
     ) -> PyResult<(Vec<u8>, Bound<'a, PyList>, Vec<u8>)> {
-        Ok((
-            pickle::to_bytes(&self.intervals),
-            PyList::new(py, self.hits.iter())?,
-            pickle::to_bytes(&self.index),
-        ))
+        let (intervals, index) = py.detach(|| {
+            (
+                pickle::to_bytes(&self.intervals),
+                pickle::to_bytes(&self.index),
+            )
+        });
+        Ok((intervals, PyList::new(py, self.hits.iter())?, index))
     }
 
     pub fn __setstate__(
         &mut self,
         state: (Bound<PyBytes>, Vec<Py<PyAny>>, Bound<PyBytes>),
     ) -> PyResult<()> {
-        self.intervals = pickle::from_bytes(state.0.as_bytes())?;
+        let (intervals, index) = (state.0.as_bytes(), state.2.as_bytes());
+        let result = state.0.py().detach(|| -> PyResult<(_, _)> {
+            Ok((pickle::from_bytes(intervals)?, pickle::from_bytes(index)?))
+        })?;
+
+        self.intervals = result.0;
         self.hits = state.1;
-        self.index = pickle::from_bytes(state.2.as_bytes())?;
+        self.index = result.1;
         Ok(())
     }
 }

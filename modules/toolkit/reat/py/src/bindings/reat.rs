@@ -65,17 +65,20 @@ impl PyReat {
         threads: isize,
         py: Python,
     ) -> Result<Self> {
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(parallelism::available(threads)?)
-            .build()?;
-        let reference = reference.borrow(py).rs.clone();
+        let reference = reference.borrow(py);
+        let reference = &reference.rs;
         let selector = selector
             .unwrap_or_else(|| PyMismatches::default().into())
             .rs;
 
-        Ok(Self {
-            samples: Vec::new(),
-            reat: Reat::new(pool, reference, min_phred, selector),
+        py.detach(|| {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(parallelism::available(threads)?)
+                .build()?;
+            Ok(Self {
+                samples: Vec::new(),
+                reat: Reat::new(pool, reference.clone(), min_phred, selector),
+            })
         })
     }
 
@@ -97,9 +100,12 @@ impl PyReat {
     }
 
     pub fn run(mut slf: PyRefMut<Self>, tasks: Vec<PyTask>) -> PyResult<Vec<PySamplePileup>> {
-        let tasks = tasks.into_iter().map(|task| task.rs).collect::<Vec<_>>();
         let py = slf.py();
-        let results = slf.reat.run(tasks)?;
+        let reat = &mut slf.reat;
+        let results = py.detach(|| {
+            let tasks = tasks.into_iter().map(|task| task.rs).collect::<Vec<_>>();
+            reat.run(tasks)
+        })?;
         let results = results
             .into_iter()
             .map(|selected| PySamplePileup::new(slf.samples[selected.tag].clone_ref(py), selected))
@@ -108,8 +114,10 @@ impl PyReat {
     }
 
     pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
+        let py = slf.py();
+        let reat = &mut slf.reat;
+        py.detach(|| reat.reset());
         slf.samples.clear();
-        slf.reat.reset();
         slf
     }
 }
@@ -119,48 +127,16 @@ fn to_oriented_records(
     source: IntoPyReader,
     layout: PyLayout,
 ) -> Result<Box<OrientedRecordSource>> {
-    let source = source.0.borrow(py).clone().dissolve();
+    let source = source.0.borrow(py);
+    let source = &source.0;
+    py.detach(|| {
+        let source = source.clone();
 
-    match layout.0 {
-        Layout::Single { strandedness } => match strandedness {
-            Strandedness::Forward => Ok(source
-                .with_transform(
-                    transform::BundleByOrientation::new(strdeductor::deduce::se::forward),
-                    (),
-                )
-                .to_dynsrc()
-                .to_src()
-                .boxed()),
-            Strandedness::Reverse => Ok(source
-                .with_transform(
-                    transform::BundleByOrientation::new(strdeductor::deduce::se::reverse),
-                    (),
-                )
-                .to_dynsrc()
-                .to_src()
-                .boxed()),
-            Strandedness::Unstranded => Ok(source
-                .with_transform(
-                    transform::BundleByOrientation::new(strdeductor::deduce::se::unstranded),
-                    (),
-                )
-                .to_dynsrc()
-                .to_src()
-                .boxed()),
-        },
-        Layout::Paired {
-            strandedness,
-            orientation,
-        } => {
-            if orientation != MatesOrientation::Inward {
-                return Err(eyre!(
-                    "Only inward mates orientation is supported by REAT paired layouts"
-                ));
-            }
-            match strandedness {
+        match layout.0 {
+            Layout::Single { strandedness } => match strandedness {
                 Strandedness::Forward => Ok(source
                     .with_transform(
-                        transform::BundleByOrientation::new(strdeductor::deduce::pe::forward),
+                        transform::BundleByOrientation::new(strdeductor::deduce::se::forward),
                         (),
                     )
                     .to_dynsrc()
@@ -168,7 +144,7 @@ fn to_oriented_records(
                     .boxed()),
                 Strandedness::Reverse => Ok(source
                     .with_transform(
-                        transform::BundleByOrientation::new(strdeductor::deduce::pe::reverse),
+                        transform::BundleByOrientation::new(strdeductor::deduce::se::reverse),
                         (),
                     )
                     .to_dynsrc()
@@ -176,13 +152,51 @@ fn to_oriented_records(
                     .boxed()),
                 Strandedness::Unstranded => Ok(source
                     .with_transform(
-                        transform::BundleByOrientation::new(strdeductor::deduce::pe::unstranded),
+                        transform::BundleByOrientation::new(strdeductor::deduce::se::unstranded),
                         (),
                     )
                     .to_dynsrc()
                     .to_src()
                     .boxed()),
+            },
+            Layout::Paired {
+                strandedness,
+                orientation,
+            } => {
+                if orientation != MatesOrientation::Inward {
+                    return Err(eyre!(
+                        "Only inward mates orientation is supported by REAT paired layouts"
+                    ));
+                }
+                match strandedness {
+                    Strandedness::Forward => Ok(source
+                        .with_transform(
+                            transform::BundleByOrientation::new(strdeductor::deduce::pe::forward),
+                            (),
+                        )
+                        .to_dynsrc()
+                        .to_src()
+                        .boxed()),
+                    Strandedness::Reverse => Ok(source
+                        .with_transform(
+                            transform::BundleByOrientation::new(strdeductor::deduce::pe::reverse),
+                            (),
+                        )
+                        .to_dynsrc()
+                        .to_src()
+                        .boxed()),
+                    Strandedness::Unstranded => Ok(source
+                        .with_transform(
+                            transform::BundleByOrientation::new(
+                                strdeductor::deduce::pe::unstranded,
+                            ),
+                            (),
+                        )
+                        .to_dynsrc()
+                        .to_src()
+                        .boxed()),
+                }
             }
         }
-    }
+    })
 }

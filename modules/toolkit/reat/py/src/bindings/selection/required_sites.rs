@@ -37,8 +37,10 @@ impl PyRequiredSites {
             })
             .collect::<eyre::Result<Vec<_>>>()?;
 
-        Ok(Self {
-            rs: RequiredSites::new(required),
+        py.detach(|| {
+            Ok(Self {
+                rs: RequiredSites::new(required),
+            })
         })
     }
 
@@ -53,15 +55,19 @@ impl PyRequiredSites {
 
     #[staticmethod]
     pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
-        pickle::from_bytes(state.as_bytes())
+        let bytes = state.as_bytes();
+        state
+            .py()
+            .detach(|| pickle::from_bytes(bytes))
             .map(|rs| Self { rs })
             .map_err(|err| err.into())
     }
 
     pub fn __reduce__(&self, py: Python) -> eyre::Result<(Py<PyAny>, (Vec<u8>,))> {
+        let state = py.detach(|| pickle::to_bytes(&self.rs));
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
-            (pickle::to_bytes(&self.rs),),
+            (state,),
         ))
     }
 }

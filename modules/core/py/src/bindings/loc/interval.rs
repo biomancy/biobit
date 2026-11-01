@@ -150,19 +150,23 @@ impl PyInterval {
     #[staticmethod]
     pub fn merge(py: Python, intervals: Vec<IntoPyInterval>) -> Vec<Self> {
         let mut intervals: Vec<_> = intervals.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Interval::merge(&mut intervals)
-            .into_iter()
-            .map(Self::from)
-            .collect()
+        py.detach(|| {
+            Interval::merge(&mut intervals)
+                .into_iter()
+                .map(Self::from)
+                .collect()
+        })
     }
 
     #[staticmethod]
     pub fn merge_within(py: Python, intervals: Vec<IntoPyInterval>, distance: u64) -> Vec<Self> {
         let mut intervals: Vec<_> = intervals.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Interval::merge_within(&mut intervals, distance as i64)
-            .into_iter()
-            .map(Self::from)
-            .collect()
+        py.detach(|| {
+            Interval::merge_within(&mut intervals, distance as i64)
+                .into_iter()
+                .map(Self::from)
+                .collect()
+        })
     }
 
     #[staticmethod]
@@ -173,20 +177,24 @@ impl PyInterval {
     ) -> Vec<Self> {
         let mut source: Vec<_> = source.into_iter().map(|s| s.0.borrow(py).rs).collect();
         let mut exclude: Vec<_> = exclude.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Interval::subtract(&mut source, &mut exclude)
-            .into_iter()
-            .map(Self::from)
-            .collect()
+        py.detach(|| {
+            Interval::subtract(&mut source, &mut exclude)
+                .into_iter()
+                .map(Self::from)
+                .collect()
+        })
     }
 
     #[staticmethod]
     pub fn overlap(py: Python, left: Vec<IntoPyInterval>, right: Vec<IntoPyInterval>) -> Vec<Self> {
         let mut source: Vec<_> = left.into_iter().map(|s| s.0.borrow(py).rs).collect();
         let mut exclude: Vec<_> = right.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Interval::overlap(&mut source, &mut exclude)
-            .into_iter()
-            .map(Self::from)
-            .collect()
+        py.detach(|| {
+            Interval::overlap(&mut source, &mut exclude)
+                .into_iter()
+                .map(Self::from)
+                .collect()
+        })
     }
 
     #[staticmethod]
@@ -197,7 +205,7 @@ impl PyInterval {
     ) -> Vec<bool> {
         let source: Vec<_> = source.into_iter().map(|s| s.0.borrow(py).rs).collect();
         let mut overlap: Vec<_> = overlap.into_iter().map(|s| s.0.borrow(py).rs).collect();
-        Interval::overlaps(&source, &mut overlap)
+        py.detach(|| Interval::overlaps(&source, &mut overlap))
     }
 
     fn __repr__(&self) -> String {

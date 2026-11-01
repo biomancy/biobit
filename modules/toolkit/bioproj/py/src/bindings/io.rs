@@ -9,15 +9,23 @@ use pyo3::types::PyString;
 use std::borrow::Borrow;
 
 #[pyfunction]
-fn read(path: PathBuf) -> PyBioprojResult<PyProject> {
-    Ok(rs::io::json::read(path)?.into())
+fn read(py: pyo3::Python<'_>, path: PathBuf) -> PyBioprojResult<PyProject> {
+    py.detach(|| Ok(rs::io::json::read(path)?.into()))
 }
 
 #[pyfunction]
 #[pyo3(signature = (path, project, pretty = true))]
-fn write(path: PathBuf, project: PyRef<'_, PyProject>, pretty: bool) -> PyBioprojResult<()> {
-    rs::io::json::write(path, Borrow::<rs::Project>::borrow(&*project), pretty)?;
-    Ok(())
+fn write(
+    py: pyo3::Python<'_>,
+    path: PathBuf,
+    project: PyRef<'_, PyProject>,
+    pretty: bool,
+) -> PyBioprojResult<()> {
+    let project = &*project;
+    py.detach(|| {
+        rs::io::json::write(path, Borrow::<rs::Project>::borrow(&*project), pretty)?;
+        Ok(())
+    })
 }
 
 fn json<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {

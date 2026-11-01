@@ -17,44 +17,44 @@ pub struct PyReader {}
 impl PyReader {
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed3(path: PathBuf, compression: Option<&str>) -> Result<PyBed3Reader> {
-        PyBed3Reader::new(path, compression)
+    fn bed3(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed3Reader> {
+        PyBed3Reader::new(py, path, compression)
     }
 
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed4(path: PathBuf, compression: Option<&str>) -> Result<PyBed4Reader> {
-        PyBed4Reader::new(path, compression)
+    fn bed4(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed4Reader> {
+        PyBed4Reader::new(py, path, compression)
     }
 
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed5(path: PathBuf, compression: Option<&str>) -> Result<PyBed5Reader> {
-        PyBed5Reader::new(path, compression)
+    fn bed5(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed5Reader> {
+        PyBed5Reader::new(py, path, compression)
     }
 
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed6(path: PathBuf, compression: Option<&str>) -> Result<PyBed6Reader> {
-        PyBed6Reader::new(path, compression)
+    fn bed6(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed6Reader> {
+        PyBed6Reader::new(py, path, compression)
     }
 
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed8(path: PathBuf, compression: Option<&str>) -> Result<PyBed8Reader> {
-        PyBed8Reader::new(path, compression)
+    fn bed8(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed8Reader> {
+        PyBed8Reader::new(py, path, compression)
     }
 
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed9(path: PathBuf, compression: Option<&str>) -> Result<PyBed9Reader> {
-        PyBed9Reader::new(path, compression)
+    fn bed9(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed9Reader> {
+        PyBed9Reader::new(py, path, compression)
     }
 
     #[staticmethod]
     #[pyo3(signature = (path, compression="infer"))]
-    fn bed12(path: PathBuf, compression: Option<&str>) -> Result<PyBed12Reader> {
-        PyBed12Reader::new(path, compression)
+    fn bed12(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<PyBed12Reader> {
+        PyBed12Reader::new(py, path, compression)
     }
 }
 
@@ -71,9 +71,9 @@ macro_rules! impl_bed_reader {
         impl $Reader {
             #[new]
             #[pyo3(signature = (path, compression="infer"))]
-            pub fn new(path: PathBuf, compression: Option<&str>) -> Result<Self> {
+            pub fn new(py: Python<'_>, path: PathBuf, compression: Option<&str>) -> Result<Self> {
                 let config = compression_format(&path, compression)?.decoder();
-                let rs = Reader::from_path::<$Bed>(&path, &config)?;
+                let rs = py.detach(|| Reader::from_path::<$Bed>(&path, &config))?;
                 Ok(Self { path, rs })
             }
 
@@ -88,18 +88,23 @@ macro_rules! impl_bed_reader {
                     None => Py::new(py, $PyBed::from($Bed::default()))?,
                 };
 
-                let success = self.rs.read_record(&mut into.borrow_mut(py).rs)?;
+                let success = {
+                    let mut record = into.borrow_mut(py);
+                    let record = &mut record.rs;
+                    py.detach(|| self.rs.read_record(record))?
+                };
                 if success { Ok(Some(into)) } else { Ok(None) }
             }
 
-            pub fn read_to_end(&mut self) -> PyResult<Py<PyList>> {
-                let mut result = Vec::new();
-                self.rs.read_to_end(&mut result)?;
+            pub fn read_to_end(&mut self, py: Python<'_>) -> PyResult<Py<PyList>> {
+                let result = py.detach(|| {
+                    let mut result = Vec::new();
+                    self.rs.read_to_end(&mut result)?;
+                    Ok::<_, eyre::Report>(result)
+                })?;
 
                 let iterator = result.into_iter().map(|x| $PyBed::from(x));
-                Python::attach(|py| -> PyResult<_> {
-                    PyList::new(py, iterator).map(|x| x.unbind())
-                })
+                PyList::new(py, iterator).map(|x| x.unbind())
             }
 
             pub fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
