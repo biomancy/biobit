@@ -21,13 +21,14 @@ impl PyWriter {
     #[new]
     #[pyo3(signature = (path, line_width = None, compression = "infer"))]
     pub fn new(
+        py: Python<'_>,
         path: PathBuf,
         line_width: Option<NonZeroUsize>,
         compression: Option<&str>,
     ) -> Result<Self> {
         let line_width = line_width.unwrap_or(DEFAULT_LINE_WIDTH);
         let config = compression_format(&path, compression)?.encoder();
-        let rs = Some(Writer::from_path(path.clone(), &config, line_width)?);
+        let rs = Some(py.detach(|| Writer::from_path(path.clone(), &config, line_width))?);
         Ok(Self { path, rs })
     }
 
@@ -35,10 +36,9 @@ impl PyWriter {
         mut slf: PyRefMut<'a, Self>,
         record: &PyRecord,
     ) -> Result<PyRefMut<'a, Self>> {
-        slf.rs
-            .as_mut()
-            .ok_or_eyre("Writing to a closed writer")?
-            .write_record(&record.rs)?;
+        let py = slf.py();
+        let rs = slf.rs.as_mut().ok_or_eyre("Writing to a closed writer")?;
+        py.detach(|| rs.write_record(&record.rs))?;
         Ok(slf)
     }
 
@@ -53,24 +53,27 @@ impl PyWriter {
             let record = record
                 .extract::<PyRef<'_, PyRecord>>()
                 .map_err(PyErr::from)?;
-            rs.write_record(&record.rs)?;
+            let record = &record.rs;
+            py.detach(|| rs.write_record(record))?;
         }
         Ok(slf)
     }
 
     pub fn flush(mut slf: PyRefMut<Self>) -> Result<PyRefMut<Self>> {
-        slf.rs
-            .as_mut()
-            .ok_or_eyre("Writing to a closed writer")?
-            .flush()?;
+        let py = slf.py();
+        let rs = slf.rs.as_mut().ok_or_eyre("Writing to a closed writer")?;
+        py.detach(|| rs.flush())?;
         Ok(slf)
     }
 
     pub fn close(mut slf: PyRefMut<Self>) -> Result<()> {
+        let py = slf.py();
         let mut rs = slf.rs.take().ok_or_eyre("Writing to a closed writer")?;
-        rs.flush()?;
-        drop(rs);
-        Ok(())
+        py.detach(move || {
+            rs.flush()?;
+            drop(rs);
+            Ok(())
+        })
     }
 
     fn __enter__(slf: PyRefMut<Self>) -> PyRefMut<Self> {

@@ -45,7 +45,9 @@ impl PyBitsBuilder {
     }
 
     fn build(mut slf: PyRefMut<Self>) -> PyBits {
-        let tree = std::mem::take(&mut slf.builder).build();
+        let py = slf.py();
+        let builder = std::mem::take(&mut slf.builder);
+        let tree = py.detach(|| builder.build());
         PyBits { tree }
     }
 
@@ -105,7 +107,7 @@ impl PyBits {
         {
             let mut binding = into.borrow_mut(py);
             let mut buffer = binding.take();
-            self.tree.intersect_interval(&interval, &mut buffer);
+            py.detach(|| self.tree.intersect_interval(&interval, &mut buffer));
             binding.reset(py, buffer);
         }
 
@@ -131,7 +133,7 @@ impl PyBits {
         {
             let mut binding = into.borrow_mut(py);
             let mut buffer = binding.take();
-            self.tree.batch_intersect_intervals(&intervals, &mut buffer);
+            py.detach(|| self.tree.batch_intersect_intervals(&intervals, &mut buffer));
             binding.reset(py, buffer);
         }
 
@@ -175,7 +177,7 @@ impl PyBits {
             let interval = interval.extract_py(state.py()).rs;
             builder = builder.add(interval, data);
         }
-        let tree = builder.build();
+        let tree = state.py().detach(|| builder.build());
         Ok(Self { tree })
     }
 

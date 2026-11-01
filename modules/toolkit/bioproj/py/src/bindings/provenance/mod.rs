@@ -24,31 +24,34 @@ use library::LibraryInput;
 use sample::PySample;
 use source::PySource;
 
-#[pyclass(from_py_object, frozen, eq, name = "Provenance")]
+#[pyclass(from_py_object, eq, frozen, name = "Provenance")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyProvenance(pub Frozen<rs::provenance::Provenance>);
 frozen_wrapper!(PyProvenance, rs::provenance::Provenance);
 crate::utils::pickle::pickle_methods!(PyProvenance, rs::provenance::Provenance, |value| value
     .0
-    .as_ref());
+    .as_ref(), detached: true);
 
 #[pymethods]
 impl PyProvenance {
     #[new]
     #[pyo3(signature = (*, sources, samples, libraries, acquisitions))]
     fn new(
+        py: pyo3::Python<'_>,
         sources: Iterable<PySource>,
         samples: Iterable<PySample>,
         libraries: Iterable<LibraryInput>,
         acquisitions: Iterable<AcquisitionInput>,
     ) -> PyBioprojResult<Self> {
-        Ok(rs::provenance::Provenance::new(
-            sources.into_iter().map(|value| value.0.as_ref().clone()),
-            samples.into_iter().map(|value| value.0.as_ref().clone()),
-            libraries.into_iter().map(Into::into),
-            acquisitions.into_iter().map(Into::into),
-        )?
-        .into())
+        py.detach(|| {
+            Ok(rs::provenance::Provenance::new(
+                sources.into_iter().map(|value| value.0.as_ref().clone()),
+                samples.into_iter().map(|value| value.0.as_ref().clone()),
+                libraries.into_iter().map(Into::into),
+                acquisitions.into_iter().map(Into::into),
+            )?
+            .into())
+        })
     }
 
     #[getter]

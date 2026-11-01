@@ -1,6 +1,7 @@
 pub mod collections;
 
 mod by_py_pointer;
+mod detached;
 mod fallible_py_runtime;
 mod importable_py_module;
 mod type_hinting;

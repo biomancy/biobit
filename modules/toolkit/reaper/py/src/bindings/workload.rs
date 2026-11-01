@@ -70,9 +70,13 @@ impl PyWorkload {
         regions: Vec<(String, usize, usize)>,
         config: PyConfig,
     ) -> PyRefMut<Self> {
-        for (contig, start, end) in regions {
-            slf.regions.push((contig, start, end, config.clone()));
-        }
+        let py = slf.py();
+        let workload = &mut slf.regions;
+        py.detach(|| {
+            for (contig, start, end) in regions {
+                workload.push((contig, start, end, config.clone()));
+            }
+        });
         slf
     }
 

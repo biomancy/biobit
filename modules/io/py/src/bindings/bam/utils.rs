@@ -24,53 +24,16 @@ pub fn to_alignment_segments(
     source: IntoPyReader,
     layout: PyLayout,
 ) -> Result<Box<SegmentedAlignmentSource>> {
-    let source = source.0.borrow(py).clone().dissolve();
+    let source = source.0.borrow(py);
+    let source = &source.0;
+    py.detach(|| {
+        let source = source.clone();
 
-    let source = match layout.0 {
-        Layout::Single { strandedness } => match strandedness {
-            Strandedness::Forward => source
-                .with_transform(
-                    transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::forward),
-                    (),
-                )
-                .to_dynsrc()
-                .to_src()
-                .boxed(),
-            Strandedness::Reverse => source
-                .with_transform(
-                    transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::reverse),
-                    (),
-                )
-                .to_dynsrc()
-                .to_src()
-                .boxed(),
-            Strandedness::Unstranded => source
-                .with_transform(
-                    transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::unstranded),
-                    (),
-                )
-                .to_dynsrc()
-                .to_src()
-                .boxed(),
-        },
-        Layout::Paired {
-            strandedness,
-            orientation,
-        } => {
-            if orientation != MatesOrientation::Inward {
-                Err(eyre!(
-                    "Only inward mates orientation is supported by countit"
-                ))?
-            }
-
-            let source = source.with_transform(transform::BundleMates::default(), ());
-
-            match strandedness {
+        let source = match layout.0 {
+            Layout::Single { strandedness } => match strandedness {
                 Strandedness::Forward => source
                     .with_transform(
-                        transform::ExtractPairedAlignmentSegments::new(
-                            strdeductor::deduce::pe::forward,
-                        ),
+                        transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::forward),
                         (),
                     )
                     .to_dynsrc()
@@ -78,9 +41,7 @@ pub fn to_alignment_segments(
                     .boxed(),
                 Strandedness::Reverse => source
                     .with_transform(
-                        transform::ExtractPairedAlignmentSegments::new(
-                            strdeductor::deduce::pe::reverse,
-                        ),
+                        transform::ExtractAlignmentSegments::new(strdeductor::deduce::se::reverse),
                         (),
                     )
                     .to_dynsrc()
@@ -88,17 +49,62 @@ pub fn to_alignment_segments(
                     .boxed(),
                 Strandedness::Unstranded => source
                     .with_transform(
-                        transform::ExtractPairedAlignmentSegments::new(
-                            strdeductor::deduce::pe::unstranded,
+                        transform::ExtractAlignmentSegments::new(
+                            strdeductor::deduce::se::unstranded,
                         ),
                         (),
                     )
                     .to_dynsrc()
                     .to_src()
                     .boxed(),
-            }
-        }
-    };
+            },
+            Layout::Paired {
+                strandedness,
+                orientation,
+            } => {
+                if orientation != MatesOrientation::Inward {
+                    Err(eyre!(
+                        "Only inward mates orientation is supported by countit"
+                    ))?
+                }
 
-    Ok(source)
+                let source = source.with_transform(transform::BundleMates::default(), ());
+
+                match strandedness {
+                    Strandedness::Forward => source
+                        .with_transform(
+                            transform::ExtractPairedAlignmentSegments::new(
+                                strdeductor::deduce::pe::forward,
+                            ),
+                            (),
+                        )
+                        .to_dynsrc()
+                        .to_src()
+                        .boxed(),
+                    Strandedness::Reverse => source
+                        .with_transform(
+                            transform::ExtractPairedAlignmentSegments::new(
+                                strdeductor::deduce::pe::reverse,
+                            ),
+                            (),
+                        )
+                        .to_dynsrc()
+                        .to_src()
+                        .boxed(),
+                    Strandedness::Unstranded => source
+                        .with_transform(
+                            transform::ExtractPairedAlignmentSegments::new(
+                                strdeductor::deduce::pe::unstranded,
+                            ),
+                            (),
+                        )
+                        .to_dynsrc()
+                        .to_src()
+                        .boxed(),
+                }
+            }
+        };
+
+        Ok(source)
+    })
 }

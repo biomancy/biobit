@@ -6,19 +6,20 @@ use pyo3::{Bound, PyResult};
 use crate::repeats::PyInvRepeat;
 
 #[pyfunction]
-pub fn run(ir: Vec<Py<PyInvRepeat>>, scores: Vec<i64>) -> PyResult<(Vec<Py<PyInvRepeat>>, i64)> {
-    // Transform to an optimized Rust representation
-    let rs = Python::attach(|py| {
-        ir.iter()
-            .map(|x| x.borrow(py).rs.clone())
-            .collect::<Vec<_>>()
-    });
-
-    // Run the solution
-    let (solution, total_score) = ::biobit_repeto_rs::optimize::run(&rs, &scores)?;
+pub fn run(
+    py: Python<'_>,
+    ir: Vec<Py<PyInvRepeat>>,
+    scores: Vec<i64>,
+) -> PyResult<(Vec<Py<PyInvRepeat>>, i64)> {
+    let rs = ir
+        .iter()
+        .map(|repeat| repeat.borrow(py).rs.clone())
+        .collect::<Vec<_>>();
+    let (solution, total_score) =
+        py.detach(move || ::biobit_repeto_rs::optimize::run(&rs, &scores))?;
 
     // Shallow copy solution repeats
-    let ir = Python::attach(|py| solution.into_iter().map(|x| ir[x].clone_ref(py)).collect());
+    let ir = solution.into_iter().map(|x| ir[x].clone_ref(py)).collect();
 
     // Return the result
     Ok((ir, total_score))

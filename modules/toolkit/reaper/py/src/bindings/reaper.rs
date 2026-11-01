@@ -44,13 +44,15 @@ impl PyReaper {
 impl PyReaper {
     #[new]
     #[pyo3(signature = (threads = -1), text_signature = "(threads=-1)")]
-    pub fn new(threads: isize) -> Result<Self> {
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(parallelism::available(threads)?)
-            .build()?;
-        Ok(PyReaper {
-            samples: Vec::new(),
-            reaper: Reaper::new(pool),
+    pub fn new(py: Python<'_>, threads: isize) -> Result<Self> {
+        py.detach(|| {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(parallelism::available(threads)?)
+                .build()?;
+            Ok(PyReaper {
+                samples: Vec::new(),
+                reaper: Reaper::new(pool),
+            })
         })
     }
 
@@ -106,21 +108,28 @@ impl PyReaper {
         })?;
 
         // Add the comparison normally
-        slf.reaper
-            .add_comparison(tag, &signal, &control, workload.into())?;
+        let reaper = &mut slf.reaper;
+        py.detach(|| reaper.add_comparison(tag, &signal, &control, workload.into()))?;
         Ok(slf)
     }
 
     pub fn run(mut slf: PyRefMut<Self>) -> PyResult<Vec<PyHarvest>> {
-        let reaped = slf.reaper.run();
-        slf.reaper.reset();
+        let py = slf.py();
+        let reaper = &mut slf.reaper;
+        let reaped = py.detach(|| {
+            let reaped = reaper.run();
+            reaper.reset();
+            reaped
+        });
         slf.samples.clear();
 
         Ok(reaped?.into_iter().map(PyHarvest::from).collect())
     }
 
     pub fn reset(mut slf: PyRefMut<Self>) -> PyRefMut<Self> {
-        slf.reaper.reset();
+        let py = slf.py();
+        let reaper = &mut slf.reaper;
+        py.detach(|| reaper.reset());
         slf.samples.clear();
         slf
     }

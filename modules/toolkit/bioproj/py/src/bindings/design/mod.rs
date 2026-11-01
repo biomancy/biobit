@@ -40,22 +40,28 @@ define_family_conversions! {
     }
 }
 
-#[pyclass(from_py_object, frozen, eq, name = "Designs")]
+#[pyclass(from_py_object, eq, frozen, name = "Designs")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyDesigns(pub Frozen<rs::design::Designs>);
 frozen_wrapper!(PyDesigns, rs::design::Designs);
-crate::utils::pickle::pickle_methods!(PyDesigns, rs::design::Designs, |value| value.0.as_ref());
+crate::utils::pickle::pickle_methods!(PyDesigns, rs::design::Designs, |value| value.0.as_ref(), detached: true);
 
 #[pymethods]
 impl PyDesigns {
     #[new]
     #[pyo3(signature = (*, units, designs))]
-    fn new(units: Iterable<PyUnit>, designs: Iterable<DesignInput>) -> PyBioprojResult<Self> {
-        Ok(rs::design::Designs::new(
-            units.into_iter().map(|value| value.0.as_ref().clone()),
-            designs.into_iter().map(Into::into),
-        )?
-        .into())
+    fn new(
+        py: pyo3::Python<'_>,
+        units: Iterable<PyUnit>,
+        designs: Iterable<DesignInput>,
+    ) -> PyBioprojResult<Self> {
+        py.detach(|| {
+            Ok(rs::design::Designs::new(
+                units.into_iter().map(|value| value.0.as_ref().clone()),
+                designs.into_iter().map(Into::into),
+            )?
+            .into())
+        })
     }
 
     #[getter]

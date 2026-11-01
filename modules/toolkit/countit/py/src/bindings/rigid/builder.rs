@@ -23,12 +23,16 @@ impl PyEngineBuilder {
     }
 
     pub fn set_threads(mut slf: PyRefMut<Self>, threads: isize) -> PyResult<PyRefMut<Self>> {
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(parallelism::available(threads).unwrap())
-            .build()
-            .wrap_err_with(|| "Failed to build the thread pool")?;
-
-        slf.0 = std::mem::take(&mut slf.0).set_thread_pool(pool);
+        let py = slf.py();
+        let builder = &mut slf.0;
+        py.detach(|| -> PyResult<()> {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(parallelism::available(threads).unwrap())
+                .build()
+                .wrap_err_with(|| "Failed to build the thread pool")?;
+            *builder = std::mem::take(builder).set_thread_pool(pool);
+            Ok(())
+        })?;
         Ok(slf)
     }
 
@@ -79,7 +83,9 @@ impl PyEngineBuilder {
     }
 
     pub fn build(mut slf: PyRefMut<Self>) -> PyEngine {
-        PyEngine(std::mem::take(&mut slf.0).build())
+        let py = slf.py();
+        let builder = std::mem::take(&mut slf.0);
+        py.detach(|| PyEngine(builder.build()))
     }
 
     #[classmethod]

@@ -19,7 +19,9 @@ pub fn interval_to_py(interval: biobit_core_rs::loc::Interval<u64>) -> PyResult<
     })
 }
 
-#[pyclass(from_py_object, eq, name = "Pileup")]
+biobit_core_py::impl_detached_clone!(PyPileup);
+
+#[pyclass(skip_from_py_object, eq, name = "Pileup")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Default, Dissolve, From, Into)]
 pub struct PyPileup {
@@ -43,10 +45,10 @@ impl PyPileup {
     }
 
     #[staticmethod]
-    pub fn zeros(len: usize) -> Self {
-        Self {
+    pub fn zeros(py: pyo3::Python<'_>, len: usize) -> Self {
+        py.detach(|| Self {
             rs: Pileup::zeros(len),
-        }
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -81,29 +83,36 @@ impl PyPileup {
         self.rs.deletion().to_vec()
     }
 
-    pub fn coverage(&self) -> Vec<u32> {
-        self.rs
-            .iter()
-            .map(|site| site.coverage())
-            .collect::<Vec<_>>()
+    pub fn coverage(&self, py: pyo3::Python<'_>) -> Vec<u32> {
+        py.detach(|| {
+            self.rs
+                .iter()
+                .map(|site| site.coverage())
+                .collect::<Vec<_>>()
+        })
     }
 
     #[staticmethod]
     pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
-        pickle::from_bytes(state.as_bytes())
-            .map(|rs| Self { rs })
-            .map_err(|err| err.into())
+        let bytes = state.as_bytes();
+        state.py().detach(|| {
+            pickle::from_bytes(bytes)
+                .map(|rs| Self { rs })
+                .map_err(|err| err.into())
+        })
     }
 
     pub fn __reduce__(&self, py: Python) -> eyre::Result<(Py<PyAny>, (Vec<u8>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
-            (pickle::to_bytes(&self.rs),),
+            (py.detach(|| pickle::to_bytes(&self.rs)),),
         ))
     }
 }
 
-#[pyclass(from_py_object, eq, name = "SparsePileup")]
+biobit_core_py::impl_detached_clone!(PySparsePileup);
+
+#[pyclass(skip_from_py_object, eq, name = "SparsePileup")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve, From, Into)]
 pub struct PySparsePileup {
@@ -123,8 +132,8 @@ impl PySparsePileup {
         self.rs.positions().to_vec()
     }
 
-    pub fn counts(&self) -> PyPileup {
-        self.rs.counts().clone().into()
+    pub fn counts(&self, py: pyo3::Python<'_>) -> PyPileup {
+        py.detach(|| self.rs.counts().clone().into())
     }
 
     #[getter]
@@ -142,7 +151,10 @@ impl PySparsePileup {
 
     #[staticmethod]
     pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
-        pickle::from_bytes(state.as_bytes())
+        let bytes = state.as_bytes();
+        state
+            .py()
+            .detach(|| pickle::from_bytes(bytes))
             .map(|rs| Self { rs })
             .map_err(|err| err.into())
     }
@@ -150,12 +162,14 @@ impl PySparsePileup {
     pub fn __reduce__(&self, py: Python) -> eyre::Result<(Py<PyAny>, (Vec<u8>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
-            (pickle::to_bytes(&self.rs),),
+            (py.detach(|| pickle::to_bytes(&self.rs)),),
         ))
     }
 }
 
-#[pyclass(from_py_object, eq, name = "TaskPileup")]
+biobit_core_py::impl_detached_clone!(PyTaskPileup);
+
+#[pyclass(skip_from_py_object, eq, name = "TaskPileup")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve, From, Into)]
 pub struct PyTaskPileup {
@@ -165,37 +179,45 @@ pub struct PyTaskPileup {
 #[pymethods]
 impl PyTaskPileup {
     #[new]
-    pub fn new(pileup: PySparsePileup, reference: Vec<String>) -> eyre::Result<Self> {
-        let mut refseq = Vec::with_capacity(reference.len());
-        for symbol in reference.iter() {
-            ensure!(
-                symbol.len() == 1,
-                "reference symbol must contain exactly one character"
-            );
-            refseq.push(match symbol.as_bytes()[0] {
-                b'A' | b'a' => Reference::A,
-                b'C' | b'c' => Reference::C,
-                b'G' | b'g' => Reference::G,
-                b'T' | b't' => Reference::T,
-                b'N' | b'n' => Reference::N,
-                _ => eyre::bail!("unsupported reference symbol: {symbol}"),
-            });
-        }
-        Ok(Self {
-            rs: TaskPileup::new(pileup.rs, refseq)?,
+    pub fn new(
+        py: pyo3::Python<'_>,
+        pileup: PySparsePileup,
+        reference: Vec<String>,
+    ) -> eyre::Result<Self> {
+        py.detach(|| {
+            let mut refseq = Vec::with_capacity(reference.len());
+            for symbol in reference.iter() {
+                ensure!(
+                    symbol.len() == 1,
+                    "reference symbol must contain exactly one character"
+                );
+                refseq.push(match symbol.as_bytes()[0] {
+                    b'A' | b'a' => Reference::A,
+                    b'C' | b'c' => Reference::C,
+                    b'G' | b'g' => Reference::G,
+                    b'T' | b't' => Reference::T,
+                    b'N' | b'n' => Reference::N,
+                    _ => eyre::bail!("unsupported reference symbol: {symbol}"),
+                });
+            }
+            Ok(Self {
+                rs: TaskPileup::new(pileup.rs, refseq)?,
+            })
         })
     }
 
-    pub fn pileup(&self) -> PySparsePileup {
-        self.rs.pileup().clone().into()
+    pub fn pileup(&self, py: pyo3::Python<'_>) -> PySparsePileup {
+        py.detach(|| self.rs.pileup().clone().into())
     }
 
-    pub fn reference(&self) -> Vec<String> {
-        self.rs
-            .reference()
-            .iter()
-            .map(|reference| reference.symbol().to_string())
-            .collect()
+    pub fn reference(&self, py: pyo3::Python<'_>) -> Vec<String> {
+        py.detach(|| {
+            self.rs
+                .reference()
+                .iter()
+                .map(|reference| reference.symbol().to_string())
+                .collect()
+        })
     }
 
     #[getter]
@@ -213,7 +235,10 @@ impl PyTaskPileup {
 
     #[staticmethod]
     pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
-        pickle::from_bytes(state.as_bytes())
+        let bytes = state.as_bytes();
+        state
+            .py()
+            .detach(|| pickle::from_bytes(bytes))
             .map(|rs| Self { rs })
             .map_err(|err| err.into())
     }
@@ -221,7 +246,7 @@ impl PyTaskPileup {
     pub fn __reduce__(&self, py: Python) -> eyre::Result<(Py<PyAny>, (Vec<u8>,))> {
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
-            (pickle::to_bytes(&self.rs),),
+            (py.detach(|| pickle::to_bytes(&self.rs)),),
         ))
     }
 }

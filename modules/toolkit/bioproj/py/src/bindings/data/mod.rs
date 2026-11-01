@@ -17,25 +17,28 @@ use asset::AssetInput;
 use dataset::DatasetInput;
 use index::{PyAssetIndex, PyDatasetIndex};
 
-#[pyclass(from_py_object, frozen, eq, name = "Data")]
+#[pyclass(from_py_object, eq, frozen, name = "Data")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyData(pub Frozen<rs::data::Data>);
 frozen_wrapper!(PyData, rs::data::Data);
-crate::utils::pickle::pickle_methods!(PyData, rs::data::Data, |value| value.0.as_ref());
+crate::utils::pickle::pickle_methods!(PyData, rs::data::Data, |value| value.0.as_ref(), detached: true);
 
 #[pymethods]
 impl PyData {
     #[new]
     #[pyo3(signature = (*, assets, datasets))]
     fn new(
+        py: pyo3::Python<'_>,
         assets: Iterable<AssetInput>,
         datasets: Iterable<DatasetInput>,
     ) -> PyBioprojResult<Self> {
-        Ok(rs::data::Data::new(
-            assets.into_iter().map(Into::into),
-            datasets.into_iter().map(Into::into),
-        )?
-        .into())
+        py.detach(|| {
+            Ok(rs::data::Data::new(
+                assets.into_iter().map(Into::into),
+                datasets.into_iter().map(Into::into),
+            )?
+            .into())
+        })
     }
 
     #[getter]

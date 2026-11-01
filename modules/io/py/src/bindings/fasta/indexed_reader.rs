@@ -25,22 +25,26 @@ impl PyIndexedSources {
             path.extract::<Iterable<PathBuf>>()?.into_iter().collect()
         };
 
-        let sources = paths
-            .into_iter()
-            .map(|path| {
-                let decoder = Decoder::from_path(&path, EXTENSIONS)?;
-                Ok((path, decoder))
-            })
-            .collect::<Result<Vec<_>, io::Error>>()?;
+        path.py().detach(|| {
+            let sources = paths
+                .into_iter()
+                .map(|path| {
+                    let decoder = Decoder::from_path(&path, EXTENSIONS)?;
+                    Ok((path, decoder))
+                })
+                .collect::<Result<Vec<_>, io::Error>>()?;
 
-        Ok(Self {
-            rs: IndexedSources::new(sources),
+            Ok(Self {
+                rs: IndexedSources::new(sources),
+            })
         })
     }
 
-    fn open(&self) -> Result<PyIndexedReader> {
-        Ok(PyIndexedReader {
-            rs: self.rs.open()?,
+    fn open(&self, py: Python<'_>) -> Result<PyIndexedReader> {
+        py.detach(|| {
+            Ok(PyIndexedReader {
+                rs: self.rs.open()?,
+            })
         })
     }
 }
@@ -57,18 +61,26 @@ impl PyIndexedReader {
         self.rs.lengths()
     }
 
-    fn fetch(&mut self, seqid: &str, interval: IntoPyInterval) -> Result<String> {
-        let interval = Python::attach(|py| interval.0.borrow(py).rs.cast::<u64>())
+    fn fetch(&mut self, py: Python<'_>, seqid: &str, interval: IntoPyInterval) -> Result<String> {
+        let interval = interval
+            .0
+            .borrow(py)
+            .rs
+            .cast::<u64>()
             .wrap_err("Failed to cast interval to u64")?;
 
-        let mut buffer = Vec::new();
-        self.rs.fetch(seqid, interval, &mut buffer)?;
-        Ok(String::from_utf8(buffer)?)
+        py.detach(|| {
+            let mut buffer = Vec::new();
+            self.rs.fetch(seqid, interval, &mut buffer)?;
+            Ok(String::from_utf8(buffer)?)
+        })
     }
 
-    fn fetch_full_seq(&mut self, seqid: &str) -> Result<String> {
-        let mut buffer = Vec::new();
-        self.rs.fetch_full_seq(seqid, &mut buffer)?;
-        Ok(String::from_utf8(buffer)?)
+    fn fetch_full_seq(&mut self, py: Python<'_>, seqid: &str) -> Result<String> {
+        py.detach(|| {
+            let mut buffer = Vec::new();
+            self.rs.fetch_full_seq(seqid, &mut buffer)?;
+            Ok(String::from_utf8(buffer)?)
+        })
     }
 }

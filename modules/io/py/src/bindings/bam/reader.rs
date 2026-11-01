@@ -18,7 +18,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
             obj.cast::<PyReader>()?.into_bound().unbind()
         } else if obj.is_instance_of::<PyString>() {
             let filename = obj.extract::<PathBuf>()?;
-            let reader = PyReader::new(filename, 0, 516, 0, 1024)?;
+            let reader = PyReader::new(obj.py(), filename, 0, 516, 0, 1024)?;
             Py::new(obj.py(), reader)?
         } else {
             return Err(PyValueError::new_err(format!("Unknown reader: {:?}", obj)));
@@ -28,7 +28,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
     }
 }
 
-#[pyclass(from_py_object, eq, frozen, name = "Reader")]
+biobit_core_py::impl_detached_clone!(PyReader);
+
+#[pyclass(skip_from_py_object, frozen, eq, name = "Reader")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, From, Into, Dissolve)]
 pub struct PyReader(pub Reader);
@@ -38,26 +40,30 @@ impl PyReader {
     #[new]
     #[pyo3(signature = (filename, inflags = 0, exflags = 516, minmapq = 0, batch_size = 1024))]
     pub fn new(
+        py: Python<'_>,
         filename: PathBuf,
         inflags: u16,
         exflags: u16,
         minmapq: u8,
         batch_size: usize,
     ) -> PyResult<Self> {
-        if !filename.exists() {
-            return Err(PyValueError::new_err(format!(
-                "File not found: {:?}",
-                filename
-            )));
-        }
+        // Detach, because reading from disk is slow and should not block the main thread
+        py.detach(|| {
+            if !filename.exists() {
+                return Err(PyValueError::new_err(format!(
+                    "File not found: {:?}",
+                    filename
+                )));
+            }
 
-        let reader = ReaderBuilder::new(filename)
-            .with_inflags(inflags)
-            .with_exflags(exflags)
-            .with_minmapq(minmapq)
-            .with_batch_size(batch_size)
-            .build()?;
-        Ok(Self(reader))
+            let reader = ReaderBuilder::new(filename)
+                .with_inflags(inflags)
+                .with_exflags(exflags)
+                .with_minmapq(minmapq)
+                .with_batch_size(batch_size)
+                .build()?;
+            Ok(Self(reader))
+        })
     }
 
     #[getter]

@@ -14,6 +14,7 @@ mod scoring;
 
 #[pyfunction]
 pub fn run(
+    py: Python<'_>,
     seq: &[u8],
     filter: PyFilter,
     scoring: PyScoring,
@@ -21,16 +22,18 @@ pub fn run(
     let filter = filter.into();
     let scoring = scoring.into();
 
-    let (ir, scores) = rs::run(seq, filter, scoring)?;
+    py.detach(|| {
+        let (ir, scores) = rs::run(seq, filter, scoring)?;
 
-    // Convert to Py-wrappers
-    let ir = ir
-        .into_iter()
-        .map(|x| x.cast().map(PyInvRepeat::from))
-        .collect::<Option<Vec<_>>>()
-        .ok_or_eyre("Failed to cast IR from usize to i64")?;
+        // Convert to Py-wrappers
+        let ir = ir
+            .into_iter()
+            .map(|x| x.cast().map(PyInvRepeat::from))
+            .collect::<Option<Vec<_>>>()
+            .ok_or_eyre("Failed to cast IR from usize to i64")?;
 
-    Ok((ir, scores))
+        Ok((ir, scores))
+    })
 }
 
 pub fn construct<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyModule>> {

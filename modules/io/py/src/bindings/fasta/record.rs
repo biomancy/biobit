@@ -19,9 +19,11 @@ pub struct PyRecord {
 #[pymethods]
 impl PyRecord {
     #[new]
-    pub fn new(header: String, sequence: String) -> Result<Self> {
-        Ok(Self {
-            rs: Record::new(header, sequence.into_bytes())?,
+    pub fn new(py: pyo3::Python<'_>, header: String, sequence: String) -> Result<Self> {
+        py.detach(|| {
+            Ok(Self {
+                rs: Record::new(header, sequence.into_bytes())?,
+            })
         })
     }
 
@@ -42,9 +44,11 @@ impl PyRecord {
     }
 
     #[setter]
-    pub fn set_seq(&mut self, seq: String) -> Result<()> {
-        self.rs.set_seq(seq.into_bytes())?;
-        Ok(())
+    pub fn set_seq(&mut self, py: pyo3::Python<'_>, seq: String) -> Result<()> {
+        py.detach(|| {
+            self.rs.set_seq(seq.into_bytes())?;
+            Ok(())
+        })
     }
 
     pub fn __hash__(&self) -> u64 {
@@ -59,13 +63,17 @@ impl PyRecord {
 
     #[staticmethod]
     pub fn _from_pickle(state: &Bound<PyBytes>) -> PyResult<Self> {
-        pickle::from_bytes(state.as_bytes()).map_err(|e| e.into())
+        let bytes = state.as_bytes();
+        state
+            .py()
+            .detach(|| -> PyResult<_> { pickle::from_bytes(bytes).map_err(|e| e.into()) })
     }
 
     pub fn __reduce__(&self, py: Python) -> Result<(Py<PyAny>, (Vec<u8>,))> {
+        let state = py.detach(|| pickle::to_bytes(self));
         Ok((
             Self::type_object(py).getattr("_from_pickle")?.unbind(),
-            (pickle::to_bytes(self),),
+            (state,),
         ))
     }
 }

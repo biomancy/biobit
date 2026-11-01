@@ -50,10 +50,12 @@ impl PyTask {
                 Ok((seqid, interval))
             })
             .collect::<eyre::Result<Vec<_>>>()?;
-        Ok(Task::from_intervals(intervals, max_task_size)?
-            .into_iter()
-            .map(Self::from)
-            .collect())
+        py.detach(|| {
+            Ok(Task::from_intervals(intervals, max_task_size)?
+                .into_iter()
+                .map(Self::from)
+                .collect())
+        })
     }
 
     #[getter]
