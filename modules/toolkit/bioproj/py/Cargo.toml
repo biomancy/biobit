@@ -7,7 +7,6 @@ authors.workspace = true
 description = "Python bindings for bioproj"
 documentation = "TODO"
 readme = "README.md"
-homepage = "TODO"
 repository.workspace = true
 license.workspace = true
 categories.workspace = true

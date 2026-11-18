@@ -10,7 +10,7 @@ macro_rules! define_record_index {
         key: |$key_py:ident, $key_view:ident| $key:block,
         value: |$value_py:ident, $value_view:ident| $value:block
     ) => {
-        #[pyclass(skip_from_py_object, frozen, name = $name)]
+        #[pyclass(frozen, name = $name)]
         #[derive(Clone)]
         pub struct $index(pub $crate::utils::frozen::Frozen<$domain>);
 

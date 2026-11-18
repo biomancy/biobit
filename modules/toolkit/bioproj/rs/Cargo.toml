@@ -7,7 +7,6 @@ authors.workspace = true
 description = "Immutable released biological-project descriptions"
 documentation = "TODO"
 readme = "README.md"
-homepage = "TODO"
 repository.workspace = true
 license.workspace = true
 categories.workspace = true

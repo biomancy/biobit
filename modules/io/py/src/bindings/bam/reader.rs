@@ -30,7 +30,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for IntoPyReader {
 
 biobit_core_py::impl_detached_clone!(PyReader);
 
-#[pyclass(skip_from_py_object, frozen, eq, name = "Reader")]
+#[pyclass(frozen, eq, name = "Reader")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, From, Into, Dissolve)]
 pub struct PyReader(pub Reader);

@@ -7,7 +7,6 @@ authors.workspace = true
 description.workspace = true
 documentation.workspace = true
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 categories.workspace = true
@@ -23,11 +22,10 @@ eyre = { workspace = true }
 anymap3 = { workspace = true }
 lock_api = { workspace = true }
 bitcode = { workspace = true, optional = true }
-serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true, features = ["send_guard"] }
 
 [features]
 bitcode = ["dep:bitcode"]
-serde = ["dep:serde"]
+serde = [] # Retained for downstream manifests that enable this feature.

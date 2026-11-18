@@ -21,7 +21,7 @@ pub fn interval_to_py(interval: biobit_core_rs::loc::Interval<u64>) -> PyResult<
 
 biobit_core_py::impl_detached_clone!(PyPileup);
 
-#[pyclass(skip_from_py_object, eq, name = "Pileup")]
+#[pyclass(eq, name = "Pileup")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Default, Dissolve, From, Into)]
 pub struct PyPileup {
@@ -112,7 +112,7 @@ impl PyPileup {
 
 biobit_core_py::impl_detached_clone!(PySparsePileup);
 
-#[pyclass(skip_from_py_object, eq, name = "SparsePileup")]
+#[pyclass(eq, name = "SparsePileup")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve, From, Into)]
 pub struct PySparsePileup {
@@ -169,7 +169,7 @@ impl PySparsePileup {
 
 biobit_core_py::impl_detached_clone!(PyTaskPileup);
 
-#[pyclass(skip_from_py_object, eq, name = "TaskPileup")]
+#[pyclass(eq, name = "TaskPileup")]
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Debug, Dissolve, From, Into)]
 pub struct PyTaskPileup {

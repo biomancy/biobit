@@ -1,0 +1,14 @@
+[package]
+name = "biobit-bitpack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Bit-packed scalar storage primitives."
+readme = "README.md"
+documentation.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[dependencies]

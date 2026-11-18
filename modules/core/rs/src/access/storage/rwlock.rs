@@ -4,7 +4,6 @@ use crate::access::{
     Mode, Read, Result, Session, Store, StoreId, StoreIdentity, StoreMut, Write,
 };
 use lock_api::{RawRwLock, RwLock};
-use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::sync::{Arc, Weak};
 
@@ -38,8 +37,8 @@ impl<L: RawRwLock, T> Allocation<L, T> {
 /// taking a lease. Leases keep the allocation alive even after all handles drop.
 ///
 /// Store capabilities require `L` and `T` to be `Send + Sync`, and
-/// `L::GuardMarker` to allow a lease to be dropped on another thread. For
-/// `parking_lot::RawRwLock`, enable the `send_guard` feature.
+/// both of `L`'s raw guard types to be `Send` so leases can be dropped on
+/// another thread. For `parking_lot::RawRwLock`, enable the `send_guard` feature.
 pub struct ArcRwLock<L: RawRwLock + 'static, T: 'static> {
     inner: Arc<Allocation<L, T>>,
 }
@@ -74,8 +73,7 @@ impl<L: RawRwLock + 'static, T> StoreIdentity for ArcRwLock<L, T> {
 
 impl<L, T> DynAccess for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn kind(&self) -> Kind<'_> {
@@ -85,8 +83,7 @@ where
 
 impl<L, T> DynAccessMut for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn kind_mut(&self) -> KindMut<'_> {
@@ -96,8 +93,7 @@ where
 
 impl<L, T> Access for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     type Target = T;
@@ -109,8 +105,7 @@ where
 
 impl<L, T> AccessMut for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn borrow_mut<'a>(&'a self, session: &'a Session) -> Result<Write<'a, T>> {
@@ -120,8 +115,7 @@ where
 
 impl<L, T> DynStore for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn retain(&self) -> Arc<dyn DynStore + Sync + 'static> {
@@ -135,8 +129,7 @@ where
 
 impl<L, T> DynStoreMut for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn retain_mut(&self) -> Arc<dyn DynStoreMut + Sync + 'static> {
@@ -150,8 +143,7 @@ where
 
 impl<L, T> Store for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn ptr(&self) -> NonNull<T> {
@@ -162,8 +154,7 @@ where
 
 impl<L, T> StoreMut for ArcRwLock<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
 }
@@ -178,8 +169,7 @@ impl<L: RawRwLock, T> StoreIdentity for Allocation<L, T> {
 
 impl<L, T> DynAccess for Allocation<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn kind(&self) -> Kind<'_> {
@@ -189,8 +179,7 @@ where
 
 impl<L, T> DynAccessMut for Allocation<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn kind_mut(&self) -> KindMut<'_> {
@@ -200,8 +189,7 @@ where
 
 impl<L, T> DynStore for Allocation<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn retain(&self) -> Arc<dyn DynStore + Sync + 'static> {
@@ -215,8 +203,7 @@ where
 
 impl<L, T> DynStoreMut for Allocation<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn retain_mut(&self) -> Arc<dyn DynStoreMut + Sync + 'static> {
@@ -228,34 +215,33 @@ where
     }
 }
 
+enum RawGuard<L: RawRwLock> {
+    Read(L::SharedGuard),
+    Write(L::ExclusiveGuard),
+}
+
 struct HeapLease<L: RawRwLock, T> {
     owner: Arc<Allocation<L, T>>,
-    mode: Mode,
-    // Respect the raw backend's guard thread affinity, even without its guards.
-    marker: PhantomData<L::GuardMarker>,
+    guard: Option<RawGuard<L>>,
 }
 
 impl<L, T> HeapLease<L, T>
 where
-    L: RawRwLock + Send + Sync + 'static,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
     fn acquire(owner: Arc<Allocation<L, T>>, mode: Mode) -> Result<Box<dyn Lease>> {
         // SAFETY: this backend never creates lock_api guards or exposes the
         // RwLock. Only a successfully acquired lease can unlock it.
         let raw = unsafe { owner.lock.raw() };
-        let acquired = match mode {
-            Mode::Read => raw.try_lock_shared(),
-            Mode::Write => raw.try_lock_exclusive(),
-        };
-        if !acquired {
-            return Err(Error::Busy);
+        let guard = match mode {
+            Mode::Read => raw.try_lock_shared().map(RawGuard::Read),
+            Mode::Write => raw.try_lock_exclusive().map(RawGuard::Write),
         }
+        .ok_or(Error::Busy)?;
         Ok(Box::new(Self {
             owner,
-            mode,
-            marker: PhantomData,
+            guard: Some(guard),
         }))
     }
 }
@@ -270,21 +256,20 @@ impl<L: RawRwLock, T> StoreIdentity for HeapLease<L, T> {
 
 impl<L, T> Lease for HeapLease<L, T>
 where
-    L: RawRwLock + Send + Sync,
-    L::GuardMarker: Send,
+    L: RawRwLock<SharedGuard: Send, ExclusiveGuard: Send> + Send + Sync,
     T: Send + Sync,
 {
 }
 
 impl<L: RawRwLock, T> Drop for HeapLease<L, T> {
     fn drop(&mut self) {
-        // SAFETY: construction acquired exactly this mode, and the lease
-        // retains the allocation and the backend's required thread affinity.
+        let guard = self.guard.take().expect("a live lease holds a lock");
+        // SAFETY: the guard state comes from this lock and matches its acquired
+        // mode. The lease retains the allocation and outlives its data borrows.
         unsafe {
-            let raw = self.owner.lock.raw();
-            match self.mode {
-                Mode::Read => raw.unlock_shared(),
-                Mode::Write => raw.unlock_exclusive(),
+            match guard {
+                RawGuard::Read(state) => self.owner.lock.force_unlock_read(state),
+                RawGuard::Write(state) => self.owner.lock.force_unlock_write(state),
             }
         }
     }

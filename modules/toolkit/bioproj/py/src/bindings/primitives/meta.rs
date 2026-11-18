@@ -11,7 +11,7 @@ use biobit_core_py::utils::collections::{
 };
 
 /// A read-only Python mapping that retains the Rust owner of its metadata.
-#[pyclass(skip_from_py_object, frozen, name = "Meta")]
+#[pyclass(frozen, name = "Meta")]
 #[derive(Clone, Debug)]
 pub struct PyMeta(pub Frozen<Meta>);
 

@@ -24,7 +24,7 @@ impl PyLayout {
 
 // Variant classes carry no additional Rust data. Their constructors create the
 // matching native enum in the base, preserving isinstance and pattern matching.
-#[pyclass(skip_from_py_object, frozen, extends = PyLayout, name = "Single")]
+#[pyclass(frozen, extends = PyLayout, name = "Single")]
 pub(super) struct PyLayoutSingle;
 
 crate::utils::pickle::pickle_methods!(
@@ -49,7 +49,7 @@ impl PyLayoutSingle {
     const __match_args__: (&'static str,) = ("strandedness",);
 }
 
-#[pyclass(skip_from_py_object, frozen, extends = PyLayout, name = "Paired")]
+#[pyclass(frozen, extends = PyLayout, name = "Paired")]
 pub(super) struct PyLayoutPaired;
 
 crate::utils::pickle::pickle_methods!(

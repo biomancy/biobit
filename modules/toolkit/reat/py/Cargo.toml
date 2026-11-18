@@ -3,7 +3,6 @@ name = "biobit-reat-py"
 description = "TODO"
 documentation = "TODO"
 readme = "README.md"
-homepage = "TODO"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

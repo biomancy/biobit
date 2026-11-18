@@ -9,7 +9,7 @@ use std::io;
 use std::path::PathBuf;
 use substratum_compress::Decoder;
 
-#[pyclass(name = "IndexedSources", skip_from_py_object)]
+#[pyclass(name = "IndexedSources")]
 #[derive(Clone, Into)]
 pub struct PyIndexedSources {
     pub rs: IndexedSources,

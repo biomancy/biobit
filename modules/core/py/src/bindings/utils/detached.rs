@@ -3,7 +3,7 @@
 /// Reserve this for I/O or large array copies. Routine records should use
 /// PyO3's generated `from_py_object` implementation to avoid the transition.
 ///
-/// The class must use `skip_from_py_object`. Its `Clone` implementation must not
+/// Omit the `from_py_object` option on the class. Its `Clone` implementation must not
 /// call Python or clone Python-owned handles. The borrow guard remains in the
 /// calling scope, preventing mutation while the native clone runs.
 #[macro_export]

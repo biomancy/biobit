@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use crate::utils::error::PyBioprojResult;
 use crate::utils::frozen::{Frozen, frozen_wrapper};
 
-#[pyclass(skip_from_py_object, frozen, eq, ord, hash, name = "FilePath")]
+#[pyclass(frozen, eq, ord, hash, name = "FilePath")]
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PyFilePath(pub Frozen<biobit_bioproj_rs::FilePath>);
 
