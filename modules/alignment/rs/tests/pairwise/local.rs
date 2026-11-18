@@ -1,4 +1,4 @@
-use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
+use biobit_alignment_rs::pairwise::{alignment, dp, scoring};
 
 pub type Score = i32;
 pub type Symbol = u8;
@@ -22,11 +22,9 @@ pub fn invrle(rle: &str) -> String {
 pub mod best {
     use super::*;
 
-    type Engine = sw::Engine<
-        Score,
-        Symbol,
-        sw::storage::Best<Score>,
-        sw::traceback::TraceMatrix<Score>,
+    type Engine = dp::Engine<
+        dp::tracer::Best<Score>,
+        dp::tracer::TraceMatrix<Score>,
         scoring::Delegate<
             Score,
             Symbol,
@@ -47,7 +45,7 @@ pub mod best {
         let invrle = invrle(w.rle);
 
         for (seq1, seq2, rle) in [(w.seq1, w.seq2, w.rle), (w.seq2, w.seq1, &invrle)] {
-            let mut result = aligner.scan_all(&seq1.0, &seq2.0);
+            let mut result = aligner.scan(&dp::Scan::full(seq1.0, seq2.0).unwrap());
             assert_eq!(result.len(), 1);
             let result = result.pop().unwrap();
             //     .expect(
@@ -70,7 +68,7 @@ pub mod best {
         ];
 
         for (seq1, seq2) in workload {
-            let result = aligner.scan_all(&seq1, &seq2);
+            let result = aligner.scan(&dp::Scan::full(seq1, seq2).unwrap());
             assert!(result.is_empty());
         }
     }
@@ -177,8 +175,8 @@ pub mod best {
     #[test]
     pub fn test_all() {
         let mut engine = Engine::new(
-            sw::storage::Best::new(),
-            sw::traceback::TraceMatrix::new(),
+            dp::tracer::Best::new(),
+            dp::tracer::TraceMatrix::new(),
             scoring::compose(
                 scoring::symbols::Equality::new(1, -2),
                 scoring::gaps::Affine {
@@ -209,11 +207,9 @@ pub mod alloptimal {
 
     use super::*;
 
-    type Engine = sw::Engine<
-        Score,
-        Symbol,
-        sw::storage::AllOptimal<Score>,
-        sw::traceback::TraceMatrix<Score>,
+    type Engine = dp::Engine<
+        dp::tracer::AllOptimal<Score>,
+        dp::tracer::TraceMatrix<Score>,
         scoring::Delegate<
             Score,
             Symbol,
@@ -240,7 +236,7 @@ pub mod alloptimal {
         fn check<'a>(engine: &mut Engine, seq1: &'a [u8], seq2: &'a [u8], expected: &mut Vec<Hit>) {
             expected.sort_by_key(|x| (x.score, x.start));
 
-            let mut hits = engine.scan_all(&seq1, &seq2);
+            let mut hits = engine.scan(&dp::Scan::full(seq1, seq2).unwrap());
             hits.sort_by_key(|x| (*x.score(), (x.seq1().start, x.seq2().start)));
 
             assert_eq!(hits.len(), expected.len());
@@ -279,7 +275,7 @@ pub mod alloptimal {
             },
             scoring::equiv::Equality {},
         ));
-        engine.storage().minscore = 21;
+        engine.endpoints().minscore = 21;
         let mut w = Workload {
             seq1: b"CCAATCTACTACTGCTTGCAGTAC",
             seq2: b"AGTCCGAGGGCTACTCTACTGAAC",
@@ -353,8 +349,8 @@ pub mod alloptimal {
     #[test]
     fn test_all() {
         let mut engine = Engine::new(
-            sw::storage::AllOptimal::new(0),
-            sw::traceback::TraceMatrix::new(),
+            dp::tracer::AllOptimal::new(0),
+            dp::tracer::TraceMatrix::new(),
             scoring::compose(
                 scoring::symbols::Equality::new(1, -2),
                 scoring::gaps::Affine {

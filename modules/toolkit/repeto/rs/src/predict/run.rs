@@ -3,7 +3,7 @@ use rstar::{AABB, RTree, RTreeObject};
 
 use biobit_alignment_rs::alignable::Reversed;
 use biobit_alignment_rs::pairwise::alignment::Alignment;
-use biobit_alignment_rs::pairwise::{alignment, scoring, sw};
+use biobit_alignment_rs::pairwise::{alignment, dp, scoring};
 use biobit_collections_rs::interval_tree::{BitsBuilder, Builder};
 use biobit_core_rs::loc::{Interval, IntervalOp};
 
@@ -89,6 +89,9 @@ pub fn run<S: scoring::Score>(
         });
     }
     let seq = normalized.as_slice();
+    if seq.len() < 2 {
+        return Ok((Vec::new(), Vec::new()));
+    }
     let scoring = scoring::compose(
         scoring::symbols::RNAComplementarity::new(scoring.complementary, scoring.mismatch),
         scoring::gaps::Affine {
@@ -99,29 +102,22 @@ pub fn run<S: scoring::Score>(
     );
     let rois = filter.rois().to_vec();
 
-    let mut aligner = sw::Engine::new(
-        AllOptimal::new(filter, rois.clone()),
-        sw::traceback::TraceMatrix::new(),
+    let mut aligner = dp::Engine::new(
+        AllOptimal::new(filter, rois.clone(), seq.len()),
+        dp::tracer::TraceMatrix::new(),
         scoring,
     );
 
-    // sequence orientation:
-    // ------>
-    // ^    /
-    // |   /
-    // |  /
-    // | /
-    // |/
-    // let seq = seq[..seq.len() - 1];
-    let alignments = aligner.scan_up_triangle(&Reversed::new(&seq), &seq, 1);
+    // Offset one keeps the forward position strictly before its partner in the original sequence.
+    let scan = dp::Scan::above_anti_diagonal(Reversed::new(seq), seq, 1)?;
+    let alignments = aligner.scan(&scan);
 
     // During the alignment all overlaps between ROIs and alignments are judged based on diagonal
     // runs that can be either matches or mismatches. However, the threshold for ROI overlaps
     // assumed that the overlap calculated over matches only. Therefore, we need to recalculate
     // the overlap and filter out the alignments that do not meet the criteria.
     let (rois, filter) = {
-        let (_, _, tracer) = aligner.dissolve();
-        let (allopt, _, _) = tracer.dissolve();
+        let (_, _, allopt, _) = aligner.into_parts();
         let filter = allopt.dissolve().0;
 
         let mut index = BitsBuilder::default();
@@ -277,6 +273,13 @@ mod tests {
     #[test]
     fn input_is_normalized_and_validated() -> Result<()> {
         let filter = Filter::<i32>::default();
+        for seq in [b"".as_slice(), b"A"] {
+            assert_eq!(
+                run(seq, filter.clone(), Scoring::default())?,
+                (Vec::new(), Vec::new())
+            );
+        }
+        assert!(run(b"X", filter.clone(), Scoring::default()).is_err());
         let rna = run(b"ACGNNCGU", filter.clone(), Scoring::default())?;
         assert!(rna.1.contains(&3));
         for seq in [b"acgnncgu", b"aCgNnCgU", b"ACGNNCGT", b"acgnncgt"] {

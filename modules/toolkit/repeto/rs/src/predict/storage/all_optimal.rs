@@ -4,9 +4,12 @@ use std::collections::hash_map::Entry;
 use derive_getters::Dissolve;
 
 use biobit_alignment_rs::pairwise::{
+    dp::{
+        Cursor,
+        layout::Layout,
+        tracer::{AlignmentSeed, BestTrace, CellScores, EndpointTracker, Trace, Tracer},
+    },
     scoring,
-    sw::algo::{BestOrientationTracer, GapTracer, Tracer},
-    sw::storage::{AlignmentSeed, Storage},
 };
 use biobit_core_rs::loc::{Interval, IntervalOp};
 
@@ -92,17 +95,17 @@ pub struct AllOptimal<S: scoring::Score, F: SoftFilter<Score = S>> {
 }
 
 impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
-    pub fn new(filter: F, rois: Vec<Interval<usize>>) -> Self {
+    pub fn new(filter: F, rois: Vec<Interval<usize>>, seq1_len: usize) -> Self {
         Self {
             filter,
             rois: ROITracker::new(rois),
             is_roi: false,
-            seq1_len: 0,
+            seq1_len,
             diagonal: None,
-            cache: vec![None; 128],
+            cache: Vec::new(),
             best_gap_row: None,
-            best_gap_col: vec![None; 128],
-            results: vec![HashMap::new(); 128],
+            best_gap_col: Vec::new(),
+            results: Vec::new(),
         }
     }
 
@@ -138,9 +141,7 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
     }
 }
 
-impl<S: scoring::Score, F: SoftFilter<Score = S>> BestOrientationTracer for AllOptimal<S, F> {
-    type Score = S;
-
+impl<S: scoring::Score, F: SoftFilter<Score = S>> AllOptimal<S, F> {
     #[inline(always)]
     fn gap_row(&mut self, row: usize, _: usize, _: S) {
         let newdiag = self.cache[row].take();
@@ -197,10 +198,6 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> BestOrientationTracer for AllO
         let newdiag = self.cache[row].take();
         self.update_diagonal(newdiag);
     }
-}
-
-impl<S: scoring::Score, F: SoftFilter<Score = S>> GapTracer for AllOptimal<S, F> {
-    type Score = S;
 
     #[inline(always)]
     fn row_gap_open(&mut self, row: usize, col: usize, score: S) {
@@ -253,51 +250,94 @@ impl<S: scoring::Score, F: SoftFilter<Score = S>> GapTracer for AllOptimal<S, F>
             }
         }
     }
+
+    #[inline]
+    fn record(&mut self, col: usize, row: usize, scores: &CellScores<S>, trace: Trace) {
+        if scores.row_gap > S::zero() {
+            if trace.row_gap_extends() {
+                self.row_gap_extend(row, col, scores.row_gap);
+            } else {
+                self.row_gap_open(row, col, scores.row_gap);
+            }
+        }
+        if scores.col_gap > S::zero() {
+            if trace.col_gap_extends() {
+                self.col_gap_extend(row, col, scores.col_gap);
+            } else {
+                self.col_gap_open(row, col, scores.col_gap);
+            }
+        }
+        match trace.best() {
+            BestTrace::Start => self.none(row, col),
+            BestTrace::GapRow => self.gap_row(row, col, scores.best),
+            BestTrace::GapCol => self.gap_col(row, col, scores.best),
+            BestTrace::Equivalent => self.equivalent(row, col, scores.best),
+        }
+    }
 }
 
 impl<S: scoring::Score, F: SoftFilter<Score = S>> Tracer for AllOptimal<S, F> {
     type Score = S;
 
-    fn first_col_start(&mut self) {
-        self.is_roi = self.rois.main(0);
-    }
-    fn first_col_end(&mut self) {
-        self.diagonal = None;
-    }
-
-    fn col_start(&mut self, col: usize) {
-        self.is_roi = self.rois.main(col);
-    }
-    fn col_end(&mut self, _: usize) {
-        if let Some(diagonal) = self.diagonal.take() {
-            self.save(diagonal);
-        };
-        self.diagonal = None;
-        self.best_gap_row = None;
-    }
-}
-
-impl<S: scoring::Score, F: SoftFilter<Score = S>> Storage for AllOptimal<S, F> {
-    fn reset(&mut self, (seq1_len, rows): (usize, usize), _: (usize, usize)) {
-        self.seq1_len = seq1_len;
+    fn initialize(&mut self, layout: &impl Layout) {
         self.rois.main = 0;
         self.rois.secondary = 0;
         self.is_roi = false;
         self.diagonal = None;
         self.best_gap_row = None;
+        let rows = layout.max_rows();
 
-        self.results.resize_with(rows, HashMap::new);
+        // Keep the per-row allocations for reuse after a smaller scan.
+        if rows > self.results.len() {
+            self.results.resize_with(rows, HashMap::new);
+        }
         for results in &mut self.results {
             results.clear();
         }
 
         self.cache.clear();
         self.cache.resize(rows, None);
-
         self.best_gap_col.clear();
         self.best_gap_col.resize(rows, None);
     }
 
+    #[inline]
+    fn chunk<const N: usize>(
+        &mut self,
+        _: &impl Layout,
+        pointer: &Cursor,
+        scores: &[CellScores<S>; N],
+        traces: &[Trace; N],
+    ) {
+        for (i, (score, trace)) in scores.iter().zip(traces.iter().copied()).enumerate() {
+            self.record(pointer.col, pointer.row + i, score, trace);
+        }
+    }
+
+    #[inline]
+    fn tail(
+        &mut self,
+        _: &impl Layout,
+        pointer: &Cursor,
+        scores: &[CellScores<S>],
+        traces: &[Trace],
+    ) {
+        for (i, (score, trace)) in scores.iter().zip(traces.iter().copied()).enumerate() {
+            self.record(pointer.col, pointer.row + i, score, trace);
+        }
+    }
+
+    fn col_start(&mut self, _: &impl Layout, col: usize) {
+        self.is_roi = self.rois.main(col);
+    }
+
+    fn col_end(&mut self, _: &impl Layout, _: usize) {
+        self.update_diagonal(None);
+        self.best_gap_row = None;
+    }
+}
+
+impl<S: scoring::Score, F: SoftFilter<Score = S>> EndpointTracker for AllOptimal<S, F> {
     fn finalize(&mut self) -> Vec<AlignmentSeed<S>> {
         {
             let mut cache = Vec::new();

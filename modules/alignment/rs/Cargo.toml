@@ -19,4 +19,10 @@ derive_more = { workspace = true }
 derive-getters = { workspace = true }
 
 [dev-dependencies]
+biobit-io-rs = { path = "../../io/rs" }
+criterion = { workspace = true }
 itertools = { workspace = true }
+
+[[bench]]
+name = "pairwise"
+harness = false

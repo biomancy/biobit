@@ -3,8 +3,8 @@
 //! The reference stores the full score matrix and tries every gap length.
 //! We compare final best scores and independently validate the returned alignments.
 
-use super::refimpl;
-use biobit_alignment_rs::pairwise::sw;
+use super::refimpl::{self, Region};
+use biobit_alignment_rs::pairwise::dp;
 use itertools::Itertools;
 
 #[test]
@@ -27,21 +27,28 @@ fn full_and_triangle_scans_match_dummy_reference_and_return_valid_alignments() {
             positional,
         };
         let mut best = refimpl::Engine::new(
-            sw::storage::Best::new(),
-            sw::traceback::TraceMatrix::new(),
+            dp::tracer::Best::new(),
+            dp::tracer::TraceMatrix::new(),
             scores,
         );
         let mut all = refimpl::Engine::new(
-            sw::storage::AllOptimal::new(0),
-            sw::traceback::TraceMatrix::new(),
+            dp::tracer::AllOptimal::new(0),
+            dp::tracer::TraceMatrix::new(),
             scores,
         );
+        best.set_chunk_size(dp::ChunkSize::Rows4);
+        all.set_chunk_size(dp::ChunkSize::Rows1);
         for (a, b) in sequences.iter().cartesian_product(&sequences) {
-            refimpl::compare(&mut best, a, b, scores, None);
-            refimpl::compare(&mut all, a, b, scores, None);
-            for antidiagonal_offset in (0..=a.len() + 1).chain([usize::MAX]) {
-                refimpl::compare(&mut best, a, b, scores, Some(antidiagonal_offset));
-                refimpl::compare(&mut all, a, b, scores, Some(antidiagonal_offset));
+            refimpl::compare(&mut best, a, b, scores, Region::Full);
+            refimpl::compare(&mut all, a, b, scores, Region::Full);
+            for side in 0..=a.len().min(b.len()) {
+                for region in [
+                    Region::AntiDiagonal(a.len() - side),
+                    Region::Diagonal(b.len() - side),
+                ] {
+                    refimpl::compare(&mut best, a, b, scores, region);
+                    refimpl::compare(&mut all, a, b, scores, region);
+                }
             }
         }
     }
@@ -57,8 +64,8 @@ fn boundary_gaps_and_runs_longer_than_a_trace_step_preserve_score_and_coordinate
         positional: false,
     };
     let mut engine = refimpl::Engine::new(
-        sw::storage::Best::new(),
-        sw::traceback::TraceMatrix::new(),
+        dp::tracer::Best::new(),
+        dp::tracer::TraceMatrix::new(),
         scores,
     );
     for (a, b, expected_score) in [
@@ -78,13 +85,13 @@ fn boundary_gaps_and_runs_longer_than_a_trace_step_preserve_score_and_coordinate
         ),
     ] {
         for (a, b) in [(&a, &b), (&b, &a)] {
-            let hits = engine.scan_all(a, b);
+            let hits = engine.scan(&dp::Scan::full(a, b).unwrap());
             assert_eq!(hits.len(), 1);
             let hit = &hits[0];
             assert_eq!(*hit.score(), expected_score);
             assert_eq!(hit.seq1(), &(0..a.len()));
             assert_eq!(hit.seq2(), &(0..b.len()));
-            refimpl::assert_valid_alignment(hit, a, b, scores, None);
+            refimpl::assert_valid_alignment(hit, a, b, scores, Region::Full);
         }
     }
 }
@@ -99,15 +106,15 @@ fn all_optimal_retains_distinct_starts_and_resets_between_scans() {
         positional: false,
     };
     let mut engine = refimpl::Engine::new(
-        sw::storage::AllOptimal::new(0),
-        sw::traceback::TraceMatrix::new(),
+        dp::tracer::AllOptimal::new(0),
+        dp::tracer::TraceMatrix::new(),
         scores,
     );
     // Every A starts a distinct one-base hit in each column. Reuse the engine
     // across smaller, empty, and larger scans to check that its index is reset.
     for (a, len) in [(b"ANA".as_slice(), 4096), (b"A", 2), (b"", 0), (b"ANA", 3)] {
         let b = vec![b'A'; len];
-        let hits = engine.scan_all(&a, &b);
+        let hits = engine.scan(&dp::Scan::full(a, &b).unwrap());
         let expected: Vec<_> = a
             .iter()
             .enumerate()
@@ -120,7 +127,7 @@ fn all_optimal_retains_distinct_starts_and_resets_between_scans() {
             .collect();
         assert_eq!(actual, expected);
         for hit in hits {
-            refimpl::assert_valid_alignment(&hit, a, &b, scores, None);
+            refimpl::assert_valid_alignment(&hit, a, &b, scores, Region::Full);
         }
     }
 }

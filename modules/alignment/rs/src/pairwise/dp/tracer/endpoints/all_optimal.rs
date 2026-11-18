@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
+use super::{AlignmentSeed, EndpointTracker};
+use crate::pairwise::dp::tracer::{BestTrace, CellScores, Trace, Tracer};
+use crate::pairwise::dp::{Cursor, layout::Layout};
 use crate::pairwise::scoring;
-use crate::pairwise::sw::algo::{BestOrientationTracer, GapTracer, Tracer};
-use crate::pairwise::sw::storage::{AlignmentSeed, Storage};
 
 // An efficient algorithm to locate all locally optimal alignments between two sequences allowing for gaps
 // 10.1093/bioinformatics/9.6.729
@@ -59,11 +60,11 @@ impl<S: scoring::Score> AllOptimal<S> {
         Self {
             minscore,
             diagonal: None,
-            cache: vec![None; 128],
+            cache: Vec::new(),
             best_gap_row: None,
-            best_gap_col: vec![None; 128],
-            results: vec![Vec::new(); 128],
-            result_indices: vec![HashMap::new(); 128],
+            best_gap_col: Vec::new(),
+            results: Vec::new(),
+            result_indices: Vec::new(),
         }
     }
 
@@ -99,9 +100,7 @@ impl<S: scoring::Score> AllOptimal<S> {
     }
 }
 
-impl<S: scoring::Score> BestOrientationTracer for AllOptimal<S> {
-    type Score = S;
-
+impl<S: scoring::Score> AllOptimal<S> {
     #[inline(always)]
     fn gap_row(&mut self, row: usize, _: usize, _: S) {
         let newdiag = self.cache[row].take();
@@ -149,10 +148,6 @@ impl<S: scoring::Score> BestOrientationTracer for AllOptimal<S> {
         let newdiag = self.cache[row].take();
         self.update_diagonal(newdiag);
     }
-}
-
-impl<S: scoring::Score> GapTracer for AllOptimal<S> {
-    type Score = S;
 
     #[inline(always)]
     fn row_gap_open(&mut self, row: usize, col: usize, score: S) {
@@ -205,47 +200,90 @@ impl<S: scoring::Score> GapTracer for AllOptimal<S> {
             }
         }
     }
+
+    #[inline(always)]
+    fn record(&mut self, col: usize, row: usize, scores: &CellScores<S>, trace: Trace) {
+        // Update both gap paths before consuming the winning path.
+        match (scores.row_gap > S::zero(), trace.row_gap_extends()) {
+            (true, true) => self.row_gap_extend(row, col, scores.row_gap),
+            (true, false) => self.row_gap_open(row, col, scores.row_gap),
+            (false, _) => {}
+        }
+        match (scores.col_gap > S::zero(), trace.col_gap_extends()) {
+            (true, true) => self.col_gap_extend(row, col, scores.col_gap),
+            (true, false) => self.col_gap_open(row, col, scores.col_gap),
+            (false, _) => {}
+        }
+        match trace.best() {
+            BestTrace::Start => self.none(row, col),
+            BestTrace::GapRow => self.gap_row(row, col, scores.best),
+            BestTrace::GapCol => self.gap_col(row, col, scores.best),
+            BestTrace::Equivalent => self.equivalent(row, col, scores.best),
+        }
+    }
 }
 
 impl<S: scoring::Score> Tracer for AllOptimal<S> {
     type Score = S;
 
-    #[inline(always)]
-    fn first_col_end(&mut self) {
-        self.diagonal = None;
-    }
-
-    #[inline(always)]
-    fn col_end(&mut self, _: usize) {
-        if let Some(diagonal) = self.diagonal.take() {
-            self.save(diagonal);
-        };
+    fn initialize(&mut self, layout: &impl Layout) {
         self.diagonal = None;
         self.best_gap_row = None;
-    }
-}
+        let rows = layout.max_rows();
 
-impl<S: scoring::Score> Storage for AllOptimal<S> {
-    fn reset(&mut self, (_, rows): (usize, usize), _: (usize, usize)) {
-        self.diagonal = None;
-        self.best_gap_row = None;
-
-        self.results.resize_with(rows, Vec::new);
+        // Keep the per-row allocations for reuse after a smaller scan.
+        if rows > self.results.len() {
+            self.results.resize_with(rows, Vec::new);
+            self.result_indices.resize_with(rows, HashMap::new);
+        }
         for results in &mut self.results {
             results.clear();
         }
-        self.result_indices.resize_with(rows, HashMap::new);
         for indices in &mut self.result_indices {
             indices.clear();
         }
 
         self.cache.clear();
         self.cache.resize(rows, None);
-
         self.best_gap_col.clear();
         self.best_gap_col.resize(rows, None);
     }
 
+    #[inline]
+    fn chunk<const N: usize>(
+        &mut self,
+        _: &impl Layout,
+        pointer: &Cursor,
+        scores: &[CellScores<S>; N],
+        traces: &[Trace; N],
+    ) {
+        for (i, (score, trace)) in scores.iter().zip(traces.iter().copied()).enumerate() {
+            self.record(pointer.col, pointer.row + i, score, trace);
+        }
+    }
+
+    // A tail runs at most once per column. Keep its path-tracking loop out of the scoring loop.
+    #[inline(never)]
+    fn tail(
+        &mut self,
+        _: &impl Layout,
+        pointer: &Cursor,
+        scores: &[CellScores<S>],
+        traces: &[Trace],
+    ) {
+        for (i, (score, trace)) in scores.iter().zip(traces.iter().copied()).enumerate() {
+            self.record(pointer.col, pointer.row + i, score, trace);
+        }
+    }
+
+    #[inline(always)]
+    fn col_end(&mut self, _: &impl Layout, _: usize) {
+        self.update_diagonal(None);
+        self.best_gap_row = None;
+    }
+}
+
+impl<S: scoring::Score> EndpointTracker for AllOptimal<S> {
     fn finalize(&mut self) -> Vec<AlignmentSeed<S>> {
         {
             let mut cache = Vec::new();

@@ -21,11 +21,30 @@ pub trait Alignable {
     fn at(&self, pos: usize) -> &Self::Symbol;
 
     /// Return the reversed version of the alignable object.
-    fn reversed(&self) -> Reversed<'_, Self>
+    fn reversed(&self) -> Reversed<&Self>
     where
         Self: Sized,
     {
         Reversed::new(self)
+    }
+}
+
+impl<A: Alignable + ?Sized> Alignable for &A {
+    type Symbol = A::Symbol;
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        (**self).is_empty()
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+
+    #[inline]
+    fn at(&self, pos: usize) -> &Self::Symbol {
+        (**self).at(pos)
     }
 }
 
@@ -34,7 +53,7 @@ impl<T: Copy> Alignable for &[T] {
 
     #[inline(always)]
     fn len(&self) -> usize {
-        (self as &[Self::Symbol]).len()
+        <[T]>::len(self)
     }
 
     #[inline(always)]
@@ -57,15 +76,15 @@ impl<T: Copy> Alignable for Vec<T> {
     }
 }
 
-/// A helper struct that reverses the order of an alignable object.
+/// A sequence viewed in reverse order. Pass a slice or shared reference to borrow its symbols.
 #[derive(Dissolve, Constructor, Debug, Clone, PartialEq, Eq, Hash)]
 // derive_more::Constructor generates explicit field names.
 #[allow(clippy::redundant_field_names)]
-pub struct Reversed<'a, T: Alignable> {
-    base: &'a T,
+pub struct Reversed<T: Alignable> {
+    base: T,
 }
 
-impl<T: Alignable> Alignable for Reversed<'_, T> {
+impl<T: Alignable> Alignable for Reversed<T> {
     type Symbol = T::Symbol;
 
     /// Returns true if the reversed object is empty.

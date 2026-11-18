@@ -1,10 +1,27 @@
 //! Simple reference aligner, scoring scheme, and checks for completed alignments.
 
-use biobit_alignment_rs::pairwise::{Op, alignment::Alignment, scoring, sw};
+use biobit_alignment_rs::pairwise::{Op, alignment::Alignment, dp, scoring};
 use scoring::{gaps::Scorer as _, symbols::Scorer as _};
 
 type Aln = Alignment<i32, u8, usize, usize>;
-pub type Engine<Store> = sw::Engine<i32, u8, Store, sw::traceback::TraceMatrix<i32>, Scores>;
+pub type Engine<Store> = dp::Engine<Store, dp::tracer::TraceMatrix<i32>, Scores>;
+
+#[derive(Clone, Copy, Debug)]
+pub enum Region {
+    Full,
+    AntiDiagonal(usize),
+    Diagonal(usize),
+}
+
+impl Region {
+    pub fn contains(self, seq1_len: usize, row: usize, col: usize) -> bool {
+        match self {
+            Self::Full => true,
+            Self::AntiDiagonal(offset) => row + col < seq1_len - offset,
+            Self::Diagonal(offset) => col.checked_sub(row).is_some_and(|d| d >= offset),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Scores {
@@ -67,15 +84,13 @@ impl scoring::Scheme for Scores {
 
 // Dummy implementation: enumerate gap lengths instead of maintaining affine-gap states.
 // It does not use the production scanner, storage, or traceback implementation.
-fn dummy_best_score(a: &[u8], b: &[u8], scores: Scores, antidiagonal_offset: Option<usize>) -> i32 {
+fn dummy_best_score(a: &[u8], b: &[u8], scores: Scores, region: Region) -> i32 {
     let mut matrix = vec![vec![0; b.len() + 1]; a.len() + 1];
     let mut best = 0;
     for i in 1..=a.len() {
         for j in 1..=b.len() {
             let (row, col) = (i - 1, j - 1);
-            if antidiagonal_offset.is_some_and(|antidiagonal_offset| {
-                row + col >= a.len().saturating_sub(antidiagonal_offset)
-            }) {
+            if !region.contains(a.len(), row, col) {
                 continue;
             }
             let diagonal = matrix[i - 1][j - 1] + scores.score(row, &a[row], col, &b[col]);
@@ -106,13 +121,7 @@ fn dummy_best_score(a: &[u8], b: &[u8], scores: Scores, antidiagonal_offset: Opt
     best
 }
 
-pub fn assert_valid_alignment(
-    alignment: &Aln,
-    a: &[u8],
-    b: &[u8],
-    scores: Scores,
-    antidiagonal_offset: Option<usize>,
-) {
+pub fn assert_valid_alignment(alignment: &Aln, a: &[u8], b: &[u8], scores: Scores, region: Region) {
     assert!(!alignment.is_empty());
     assert!(*alignment.score() > 0);
     let (mut x, mut y) = (alignment.seq1().start, alignment.seq2().start);
@@ -153,9 +162,7 @@ pub fn assert_valid_alignment(
                 }
                 Op::Equivalent => panic!("equality classification must disambiguate every symbol"),
             };
-            if let Some(antidiagonal_offset) = antidiagonal_offset {
-                assert!(row + col < a.len().saturating_sub(antidiagonal_offset));
-            }
+            assert!(region.contains(a.len(), row, col));
             previous = Some(*step.op());
         }
     }
@@ -168,26 +175,31 @@ pub fn compare<Store>(
     a: &[u8],
     b: &[u8],
     scores: Scores,
-    antidiagonal_offset: Option<usize>,
+    region: Region,
 ) where
-    Store: sw::storage::Storage + sw::algo::Tracer<Score = i32>,
+    Store: dp::tracer::EndpointTracker<Score = i32>,
 {
-    let hits = match antidiagonal_offset {
-        Some(antidiagonal_offset) => engine.scan_up_triangle(&a, &b, antidiagonal_offset),
-        None => engine.scan_all(&a, &b),
+    let hits = match region {
+        Region::Full => engine.scan(&dp::Scan::full(a, b).unwrap()),
+        Region::AntiDiagonal(offset) => {
+            engine.scan(&dp::Scan::above_anti_diagonal(a, b, offset).unwrap())
+        }
+        Region::Diagonal(offset) => {
+            engine.scan(&dp::Scan::above_main_diagonal(a, b, offset).unwrap())
+        }
     };
     assert_eq!(
         hits.iter().map(|hit| *hit.score()).max().unwrap_or(0),
-        dummy_best_score(a, b, scores, antidiagonal_offset),
-        "a={a:?}, b={b:?}, scores={scores:?}, antidiagonal_offset={antidiagonal_offset:?}, hits={hits:?}",
+        dummy_best_score(a, b, scores, region),
+        "a={a:?}, b={b:?}, scores={scores:?}, region={region:?}, hits={hits:?}",
     );
     if hits.is_empty() {
         assert!(
-            engine.storage().finalize().is_empty(),
+            engine.endpoints().finalize().is_empty(),
             "an empty scan must discard previously stored results",
         );
     }
     for alignment in hits {
-        assert_valid_alignment(&alignment, a, b, scores, antidiagonal_offset);
+        assert_valid_alignment(&alignment, a, b, scores, region);
     }
 }
