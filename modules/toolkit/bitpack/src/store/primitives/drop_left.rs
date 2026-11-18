@@ -10,7 +10,13 @@ macro_rules! impl_drop_left_same_store {
                 where
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
-                    *self <<= ScalarLayout::BITS.get();
+                    let width = ScalarLayout::BITS.get();
+
+                    if width == <$array_store as StaticStore>::CAPACITY_BITS.get() {
+                        *self = <$array_store as StaticStore>::ZERO;
+                    } else {
+                        *self <<= width;
+                    }
                 }
             }
 

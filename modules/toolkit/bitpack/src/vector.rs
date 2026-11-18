@@ -1,3 +1,4 @@
+use crate::store::words::utils::WordOffset;
 use crate::{BitComplement, Codec, len, scalar, store};
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
@@ -78,6 +79,7 @@ where
         self.words
     }
 
+    /// Number of elements currently stored.
     #[inline(always)]
     #[must_use]
     pub const fn len(&self) -> usize {
@@ -90,10 +92,11 @@ where
         self.len == 0
     }
 
+    /// Maximum element count supported by the current allocation and `usize` indexing.
     #[inline(always)]
     #[must_use]
     pub fn capacity(&self) -> usize {
-        self.capacity_bits() / Self::BITS
+        Self::elements_for_words(self.word_capacity())
     }
 
     #[inline(always)]
@@ -116,27 +119,21 @@ where
 
     #[inline(always)]
     #[must_use]
-    pub const fn used_bits(&self) -> usize {
-        Self::BITS.get() * self.len
-    }
-
-    #[inline(always)]
-    #[must_use]
-    pub fn capacity_bits(&self) -> usize {
-        store::Store::capacity_bits(&self.words)
-    }
-
-    #[inline(always)]
-    #[must_use]
     pub const fn padding_bits(&self) -> usize {
-        (self.words.len() * Self::WORD_BITS) - self.used_bits()
+        let end = WordOffset::new(self.len, Self::BITS.get());
+        (Self::WORD_BITS - end.offset) % Self::WORD_BITS
     }
 
     #[inline(always)]
     fn words_for_len(len: usize) -> usize {
-        len.checked_mul(Self::BITS.get())
-            .expect("packed vector bit capacity overflow")
-            .div_ceil(Self::WORD_BITS)
+        let end = WordOffset::new(len, Self::BITS.get());
+        end.index + usize::from(end.offset != 0)
+    }
+
+    #[inline(always)]
+    fn elements_for_words(words: usize) -> usize {
+        let elements = words as u128 * Self::WORD_BITS as u128 / Self::BITS.get() as u128;
+        usize::try_from(elements).unwrap_or(usize::MAX)
     }
 
     #[inline(always)]
@@ -144,7 +141,7 @@ where
         let words = Self::words_for_len(len);
 
         if words > self.words.capacity() {
-            self.words.reserve(words - self.words.capacity());
+            self.words.reserve(words - self.words.len());
         }
     }
 
@@ -277,9 +274,7 @@ where
     where
         L: len::Length,
     {
-        let mut scalars = L::array_from_fn(|_| unsafe {
-            scalar::Scalar::new_unchecked(<<C as scalar::Layout>::Store as scalar::Store>::ZERO)
-        });
+        let mut scalars = L::array_from_fn(|_| scalar::Scalar::<C>::ZERO);
         let stores = unsafe { scalar::Scalar::<C>::as_store_slice_mut_unchecked(scalars.as_mut()) };
 
         unsafe { self.words.unpack_unchecked::<C>(stores) };
@@ -563,5 +558,29 @@ where
     #[inline(always)]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Dna;
+
+    #[test]
+    fn element_counts_survive_bit_count_overflow() {
+        type V = PackedVec<Dna>;
+        let len = usize::MAX / 2 + 1;
+        let words = len / 32;
+        assert_eq!(V::words_for_len(len - 1), words);
+        assert_eq!(V::words_for_len(len), words);
+        assert_eq!(V::elements_for_words(words), len);
+
+        let offset = WordOffset::new(len + 1, 2);
+        assert_eq!(offset.index, words);
+        assert_eq!(offset.offset, 2);
+        assert_eq!(
+            V::elements_for_words(V::words_for_len(usize::MAX)),
+            usize::MAX
+        );
     }
 }

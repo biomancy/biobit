@@ -36,11 +36,10 @@ macro_rules! impl_slide {
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
                     let width = ScalarLayout::BITS.get();
-                    let used = len * width;
                     let words = self.as_words_mut();
 
                     utils::shift_right(words, width);
-                    utils::clear_after(words, used);
+                    utils::clear_after(words, len, width);
                     utils::set_unchecked(words, width, 0, scalar as u64);
                 }
 
@@ -69,11 +68,10 @@ macro_rules! impl_slide {
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
                     let width = ScalarLayout::BITS.get();
-                    let used = len * width;
                     let words = self.as_words_mut();
 
                     utils::shift_left(words, width);
-                    utils::clear_after(words, used);
+                    utils::clear_after(words, len, width);
                     utils::set_unchecked(words, width, len - 1, scalar as u64);
                 }
             }

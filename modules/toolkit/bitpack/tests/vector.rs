@@ -2,10 +2,20 @@ mod utils;
 
 use std::vec;
 
-use biobit_bitpack::{Codec, PackedVec};
+use biobit_bitpack::{Codec, Dna, PackedVec};
 use utils::ops::Raw;
 
 use crate::utils::ops::{Apply, Op};
+
+#[test]
+fn reserve_grows_an_empty_vector_past_its_capacity() {
+    let mut vector = PackedVec::<Dna>::with_capacity(32);
+    let required = vector.capacity() + 1;
+
+    vector.reserve(required);
+
+    assert!(vector.capacity() >= required);
+}
 
 #[test]
 fn empty_vector_reports_failed_position_dependent_ops() {

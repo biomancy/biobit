@@ -226,13 +226,41 @@ fn word_backed_grows_and_shrinks_across_word_counts() {
 
 #[test]
 fn word_backed_arrays_can_shrink_to_u64() {
-    let symbols: Vec<_> = (0..33).map(|pos| (pos & 3) as u8).collect();
+    let symbols: Vec<_> = (0..32).map(|pos| (pos & 3) as u8).chain([3]).collect();
     let scalars: Vec<_> = symbols.iter().map(Raw::<2>::encode).collect();
     let array = PackedArray::<Raw<2>, Len<33>>::try_from_slice(&scalars).unwrap();
+
+    // The final scalar occupies the highest two bits of the second word.
+    let first_word = 0x1b1b_1b1b_1b1b_1b1b;
+    assert_eq!(*array.store(), [first_word, 0b11 << 62]);
 
     let dropped = array.clone().drop_left();
     utils::assert_symbols::<Raw<2>, _>(&dropped, &symbols[1..]);
 
     let dropped = array.drop_right();
     utils::assert_symbols::<Raw<2>, _>(&dropped, &symbols[..32]);
+    assert_eq!(*dropped.store(), first_word);
+}
+
+#[test]
+fn drop_right_then_append_uses_the_new_scalar() {
+    let scalars = [0, 0, 7].map(|value| Raw::<3>::encode(&value));
+    let array = PackedArray::<_, Len<3>>::from_array(&scalars);
+    // Narrowing turns part of the removed field into low-order padding.
+    let dropped = array.drop_right();
+    let result = dropped.clone().push_right(Raw::<3>::encode(&0));
+
+    assert_eq!(result.to_array().map(Raw::<3>::decode), [0, 0, 0]);
+    assert_eq!(*dropped.store(), 0);
+}
+
+#[test]
+fn drop_right_to_u64_clears_padding() {
+    let scalars = [0, 0, 0, 0, 0, 0, 0, 511].map(|value| Raw::<9>::encode(&value));
+    let array = PackedArray::<_, Len<8>>::from_array(&scalars);
+    let dropped = array.drop_right();
+
+    // The removed scalar straddled the word boundary, leaving one padding bit.
+    utils::assert_symbols::<Raw<9>, _>(&dropped, &[0; 7]);
+    assert_eq!(*dropped.store(), 0);
 }

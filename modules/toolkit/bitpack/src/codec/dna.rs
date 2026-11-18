@@ -11,7 +11,8 @@ pub enum Dna {
     T = 3,
 }
 
-impl Codec for Dna {
+// SAFETY: The four discriminants cover the entire two-bit range and each decodes to its base.
+unsafe impl Codec for Dna {
     type Symbol = Self;
     type Bits = Bits<2>;
 

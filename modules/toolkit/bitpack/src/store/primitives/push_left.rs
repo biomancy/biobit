@@ -15,10 +15,13 @@ macro_rules! impl_push_left_same_store {
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
                     let width = ScalarLayout::BITS.get();
-                    let scalar = (scalar as $array_store)
-                        << (<$array_store as StaticStore>::CAPACITY_BITS.get() - width);
+                    let capacity = <$array_store as StaticStore>::CAPACITY_BITS.get();
 
-                    *self = scalar | (*self >> width);
+                    if width == capacity {
+                        *self = scalar as $array_store;
+                    } else {
+                        *self = ((scalar as $array_store) << (capacity - width)) | (*self >> width);
+                    }
                 }
             }
 

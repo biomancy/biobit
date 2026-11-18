@@ -12,6 +12,7 @@ license.workspace = true
 categories.workspace = true
 
 [dependencies]
+biobit-bitpack = { path = "../../toolkit/bitpack" }
 biobit-core-rs = { path = "../../core/rs" }
 eyre = { workspace = true }
 derive_more = { workspace = true }

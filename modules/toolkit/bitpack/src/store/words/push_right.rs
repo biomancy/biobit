@@ -21,11 +21,10 @@ macro_rules! impl_push_right_words {
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
                     let width = ScalarLayout::BITS.get();
-                    let used = (len + 1) * width;
                     let words = self.as_words_mut();
 
                     utils::set_unchecked(words, width, len, scalar as u64);
-                    utils::clear_after(words, used);
+                    utils::clear_after(words, len + 1, width);
                 }
             }
 
@@ -104,11 +103,10 @@ macro_rules! impl_push_right_primitive_to_words {
                     L: len::Next,
                 {
                     let width = ScalarLayout::BITS.get();
-                    let used = (L::LEN.get() + 1) * width;
-                    let mut next = utils::u64_to_words(self);
+                    let mut next = [self, 0];
 
                     utils::set_unchecked(next.as_mut_slice(), width, L::LEN.get(), scalar as u64);
-                    utils::clear_after(next.as_mut_slice(), used);
+                    utils::clear_after(next.as_mut_slice(), L::LEN.get() + 1, width);
 
                     next
                 }

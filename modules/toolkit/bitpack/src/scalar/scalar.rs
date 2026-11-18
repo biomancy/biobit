@@ -78,19 +78,26 @@ impl<C: Codec> Scalar<C>
 where
     C: layout::Layout,
 {
+    /// Every codec's valid codewords start at zero.
+    pub(crate) const ZERO: Self = Self {
+        store: <<C as layout::Layout>::Store as store::Store>::ZERO,
+    };
+
+    /// Creates a scalar when `store` is in the codec's `0..=C::MAX_CODE` range.
     #[inline(always)]
     pub fn new(store: <C as layout::Layout>::Store) -> Option<Self> {
-        (store & !<C as layout::Layout>::MASK
-            == <<C as layout::Layout>::Store as store::Store>::ZERO)
-            .then_some(Self { store })
+        if store <= C::MAX_CODE {
+            Some(Self { store })
+        } else {
+            None
+        }
     }
 
     /// Creates a scalar without checking the layout or codec invariant.
     ///
     /// # Safety
     ///
-    /// `store` must not contain any set bit outside the mask defined by `C`.
-    /// The codeword must also be valid for codec `C`.
+    /// `store` must be in the codec's `0..=C::MAX_CODE` range.
     #[inline(always)]
     pub const unsafe fn new_unchecked(store: <C as layout::Layout>::Store) -> Self {
         Self { store }

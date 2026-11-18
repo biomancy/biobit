@@ -247,9 +247,7 @@ where
     where
         L: len::Length,
     {
-        let mut scalars = L::array_from_fn(|_| unsafe {
-            scalar::Scalar::new_unchecked(<<C as scalar::Layout>::Store as scalar::Store>::ZERO)
-        });
+        let mut scalars = L::array_from_fn(|_| scalar::Scalar::<C>::ZERO);
         let stores = unsafe { scalar::Scalar::<C>::as_store_slice_mut_unchecked(scalars.as_mut()) };
 
         unsafe { self.store.unpack_unchecked::<C>(stores) };

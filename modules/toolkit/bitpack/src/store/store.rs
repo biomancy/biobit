@@ -9,11 +9,7 @@ use std::num::NonZeroUsize;
 /// abstract numeric value, the first scalar occupies the most significant used
 /// bits, subsequent scalars move toward less significant bits, and every
 /// unused low-order padding bit is zero.
-pub trait Store: Debug + Send + Sync {
-    /// Returns the number of bits addressable by this store value.
-    #[must_use]
-    fn capacity_bits(&self) -> usize;
-}
+pub trait Store: Debug + Send + Sync {}
 
 /// Fixed-capacity owned storage for packed scalar fields.
 pub trait StaticStore:

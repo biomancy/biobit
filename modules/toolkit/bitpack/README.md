@@ -4,15 +4,12 @@
 workspace. It stores fixed-width codec scalars densely in primitive integers,
 fixed arrays of `u64` words, or a growable `Vec<u64>`.
 
-The crate is intended to remain independent from domain crates. Domain code
-defines a `Codec` for symbols such as DNA bases, while this crate owns the
-storage layouts, packing operations, and container APIs.
-
 ## Current Status
 
 Implemented:
 
 - `Codec`, `Bits<N>`, and `Scalar<C>` for codec-valid fixed-width values.
+- `Dna` codec for two-bit DNA symbols.
 - Type-level lengths through `Len<N>`, `Length`, `Next`, and `Prev`.
 - `PackedArray<C, L>` for fixed-length arrays with type-level length.
 - `PackedBuffer<C, S>` for fixed-capacity, runtime-length buffers.
@@ -42,6 +39,8 @@ A user defines a `Codec`:
 - `Codec::encode` maps a symbol into a codec-valid `Scalar<C>`.
 - `Codec::decode` maps a scalar back into a symbol.
 
+Implementing `Codec` requires `unsafe impl` as many conventions are assumed by the generated code but aren't enforced by the type system.
+
 `Scalar<C>` is a transparent wrapper around the generated scalar store
 (`u8`, `u16`, `u32`, or `u64`). The scalar value is always low-bit aligned.
 
@@ -67,7 +66,8 @@ use biobit_bitpack::{Bits, Codec, Len, PackedArray, Scalar};
 #[derive(Clone, Copy)]
 struct TwoBit;
 
-impl Codec for TwoBit {
+// SAFETY: Every two-bit code decodes to the corresponding integer symbol.
+unsafe impl Codec for TwoBit {
     type Symbol = u8;
     type Bits = Bits<2>;
 
@@ -144,28 +144,3 @@ The test layout is intentionally layered:
   codeword is valid. This keeps bitpack tests independent from domain crates.
 - store module unit tests cover low-level implementation details and specialized
   bit-manipulation paths.
-
-Domain crates should not test bitpack container correctness. For example,
-`biobit-core` tests DNA codec semantics, while this crate tests packed
-storage behavior using `Raw<N>`.
-
-## Development Notes
-
-Run the standard workspace checks with:
-
-```sh
-pixi run fmt
-pixi run check
-pixi run clippy
-pixi run test
-```
-
-For quieter full test output during development:
-
-```sh
-pixi run cargo test --all-features -q
-```
-
-When resuming this project, start with the integration tests in
-`crates/bitpack/tests/`. They describe the intended public API behavior more
-clearly than the low-level store implementations.

@@ -20,7 +20,8 @@ pub trait TestCodec: Codec + Sized {
 #[derive(Clone, Copy, Debug)]
 pub struct Raw<const BITS: usize>;
 
-impl<const BITS: usize> Codec for Raw<BITS>
+// SAFETY: Every masked integer is a valid symbol and decodes to itself.
+unsafe impl<const BITS: usize> Codec for Raw<BITS>
 where
     Bits<BITS>: scalar::Layout,
 {

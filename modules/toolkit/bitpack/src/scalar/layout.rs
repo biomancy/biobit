@@ -3,15 +3,15 @@ use std::num::NonZeroUsize;
 
 /// Compile-time layout for a single scalar.
 ///
-/// Compile-time generated implementations map `Bits<N>` to the smallest
-/// supported scalar store and a mask covering the low `N` bits of that store.
+/// The generated [`Bits<N>`](crate::Bits) layouts use the smallest scalar store
+/// that fits `N` bits. Codecs inherit the layout of their [`Codec::Bits`](crate::Codec::Bits).
 ///
-/// Besides `Bits<N>`, codecs implement `Layout` through a blanket impl that
-/// delegates all details to their associated `bits::Bits<N>` marker.
+/// # Safety
 ///
-/// This allows Scalar values to carry all necessary layout information
-/// and remain Codec-bound for type safety.
-pub trait Layout: Copy + Send + Sync + 'static {
+/// `BITS` must be in `1..=64` and fit in `Store`. `MASK` must have exactly
+/// the lowest `BITS` bits set. Packed writes rely on this mask to keep each
+/// codeword within its field.
+pub unsafe trait Layout: Copy + Send + Sync + 'static {
     type Store: Store;
 
     const BITS: NonZeroUsize;

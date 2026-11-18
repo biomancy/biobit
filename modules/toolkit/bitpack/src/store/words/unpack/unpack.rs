@@ -163,6 +163,8 @@ mod tests {
 
     #[test]
     fn tiled_array_helper_is_const_capable() {
+        const EMPTY: [u8; 0] = unsafe { tiled::unpack_to_array_u8::<Bits<2>, 0>(&[]) };
+        assert!(EMPTY.is_empty());
         const U8: [u8; 32] = unsafe { tiled::unpack_to_array_u8::<Bits<2>, 32>(&[u64::MAX]) };
         const U16: [u16; 4] = unsafe { tiled::unpack_to_array_u16::<Bits<16>, 4>(&[u64::MAX]) };
         const U32: [u32; 2] = unsafe { tiled::unpack_to_array_u32::<Bits<32>, 2>(&[u64::MAX]) };

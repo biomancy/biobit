@@ -16,9 +16,7 @@ macro_rules! impl_drop_right_words {
                 where
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
-                    let used = (len - 1) * ScalarLayout::BITS.get();
-
-                    utils::clear_after(self.as_words_mut(), used);
+                    utils::clear_after(self.as_words_mut(), len - 1, ScalarLayout::BITS.get());
                 }
             }
 
@@ -88,7 +86,8 @@ macro_rules! impl_drop_right_words_to_u64 {
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                     L: len::Prev,
                 {
-                    self[0]
+                    let used = (L::LEN.get() - 1) * ScalarLayout::BITS.get();
+                    self[0] & utils::high_mask(used)
                 }
             }
 

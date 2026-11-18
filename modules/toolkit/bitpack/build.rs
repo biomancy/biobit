@@ -49,8 +49,9 @@ fn generate_bitpack_scalar_layout_impls() -> String {
             format!("<{scalar_store}>::MAX >> {}", scalar_store_bits - n)
         };
 
+        // SAFETY: The selected integer fits n bits and the mask selects exactly its low n bits.
         scalar.push_str(&format!(
-            "impl crate::scalar::Layout for crate::codec::Bits<{n}> {{
+            "unsafe impl crate::scalar::Layout for crate::codec::Bits<{n}> {{
                 type Store = {scalar_store};
                 const BITS: std::num::NonZeroUsize = std::num::NonZeroUsize::new({n}).unwrap();
                 const MASK: Self::Store = {scalar_mask};
@@ -78,8 +79,9 @@ fn generate_bitpack_array_layout_impls() -> String {
                 }
             };
 
+            // SAFETY: The capacity ranges and rounded word count select the smallest fitting store.
             array.push_str(&format!(
-                "impl crate::array::Layout<crate::len::Len<{len}>> for crate::codec::Bits<{bits}> {{
+                "unsafe impl crate::array::Layout<crate::len::Len<{len}>> for crate::codec::Bits<{bits}> {{
                     type Store = {array_store};
                 }}\n"
             ));
@@ -96,12 +98,7 @@ fn generate_bitpack_word_store_impls() -> String {
         let capacity_bits = words * 64;
 
         store.push_str(&format!(
-            "impl crate::store::Store for [u64; {words}] {{
-                #[inline(always)]
-                fn capacity_bits(&self) -> usize {{
-                    <Self as crate::store::StaticStore>::CAPACITY_BITS.get()
-                }}
-            }}\n"
+            "impl crate::store::Store for [u64; {words}] {{}}\n"
         ));
 
         store.push_str(&format!(

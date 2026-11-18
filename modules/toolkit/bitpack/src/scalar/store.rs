@@ -35,7 +35,9 @@ pub trait Store:
     const ZERO: Self;
     const CAPACITY_BITS: NonZeroUsize;
 
-    /// Converts a `u64` to `Self` using the given `ScalarLayout`.
+    /// Truncates a `u64` to the store width and applies the scalar layout mask.
+    ///
+    /// Packed reads may pass extra high bits from adjacent fields.
     #[inline(always)]
     fn from_u64<ScalarLayout>(word: u64) -> Self
     where
@@ -44,12 +46,14 @@ pub trait Store:
         (unsafe { Self::from_u64_unchecked(word) }) & ScalarLayout::MASK
     }
 
-    /// Converts a `u64` without masking or range checks.
+    /// Converts a `u64` by keeping the low bits that fit in `Self`.
+    ///
+    /// This truncates like an integer cast, without applying a scalar layout mask.
     ///
     /// # Safety
     ///
-    /// `word` must already be representable as `Self` and satisfy any scalar
-    /// layout invariant required by the caller.
+    /// If the result is used as a scalar directly, the retained bits must
+    /// satisfy that scalar's layout invariants.
     unsafe fn from_u64_unchecked(word: u64) -> Self;
 }
 

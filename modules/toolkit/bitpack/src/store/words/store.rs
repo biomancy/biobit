@@ -10,12 +10,7 @@ pub(crate) trait WordStoreMut: WordStore {
     fn as_words_mut(&mut self) -> &mut [u64];
 }
 
-impl Store for [u64] {
-    #[inline(always)]
-    fn capacity_bits(&self) -> usize {
-        self.len().saturating_mul(u64::BITS as usize)
-    }
-}
+impl Store for [u64] {}
 
 impl WordStore for [u64] {
     #[inline(always)]
@@ -31,12 +26,7 @@ impl WordStoreMut for [u64] {
     }
 }
 
-impl Store for Vec<u64> {
-    #[inline(always)]
-    fn capacity_bits(&self) -> usize {
-        self.capacity().saturating_mul(u64::BITS as usize)
-    }
-}
+impl Store for Vec<u64> {}
 
 impl WordStore for Vec<u64> {
     #[inline(always)]

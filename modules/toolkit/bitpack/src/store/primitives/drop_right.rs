@@ -56,13 +56,16 @@ macro_rules! impl_drop_right_shrink_store {
         $(
             unsafe impl NarrowRight<$prev_store, $scalar_store> for $array_store {
                 #[inline(always)]
-                unsafe fn narrow_right_unchecked<ScalarLayout, L>(self) -> $prev_store
+                unsafe fn narrow_right_unchecked<ScalarLayout, L>(mut self) -> $prev_store
                 where
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                     L: len::Prev,
                 {
                     let shift = <$array_store as StaticStore>::CAPACITY_BITS.get()
                         - <$prev_store as StaticStore>::CAPACITY_BITS.get();
+
+                    // Clear the removed field before taking the high bits.
+                    unsafe { self.drop_right_unchecked::<ScalarLayout>(L::LEN.get()) };
 
                     (self >> shift) as $prev_store
                 }

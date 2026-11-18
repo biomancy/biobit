@@ -4,12 +4,7 @@ use std::num::NonZeroUsize;
 macro_rules! impl_store {
     ($($store:ty),+ $(,)?) => {
         $(
-            impl Store for $store {
-                #[inline(always)]
-                fn capacity_bits(&self) -> usize {
-                    <$store as StaticStore>::CAPACITY_BITS.get()
-                }
-            }
+            impl Store for $store {}
 
             impl StaticStore for $store {
                 const ZERO: Self = 0;

@@ -38,6 +38,10 @@ macro_rules! impl_unpack_to_array {
             {
                 let width = ScalarLayout::BITS.get();
                 let mut scalars = [<$scalar_store as scalar::Store>::ZERO; LEN];
+                if LEN == 0 {
+                    return scalars;
+                }
+
                 let mut pos = 0;
                 let mut word = 0;
 

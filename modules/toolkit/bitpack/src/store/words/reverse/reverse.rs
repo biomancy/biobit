@@ -2,14 +2,16 @@ use crate::store::Reverse;
 use crate::{Bits, scalar};
 
 use super::super::store::WordStoreMut;
+use super::super::utils::WordOffset;
 use super::{generic, tiled};
 
 #[inline(always)]
 fn reverse_unchecked(words: &mut [u64], width: usize, len: usize) {
-    let used = width * len;
+    let end = WordOffset::new(len, width);
+    debug_assert!(len > 1 && end.index + usize::from(end.offset != 0) <= words.len());
 
-    if width.is_power_of_two() && used.is_multiple_of(u64::BITS as usize) {
-        tiled::reverse_full_words(words, used / u64::BITS as usize, width);
+    if width.is_power_of_two() && end.offset == 0 {
+        tiled::reverse_full_words(words, end.index, width);
     } else {
         generic::reverse_fields(words, width, len);
     }
@@ -26,13 +28,6 @@ macro_rules! impl_reverse {
                 #[inline(always)]
                 unsafe fn reverse_unchecked(&mut self, len: usize) {
                     let words = self.as_words_mut();
-
-                    unsafe {
-                        std::hint::assert_unchecked(len > 1);
-                        std::hint::assert_unchecked(
-                            len <= (words.len() * u64::BITS as usize / $bits),
-                        );
-                    }
 
                     reverse_unchecked(words, $bits, len);
                 }

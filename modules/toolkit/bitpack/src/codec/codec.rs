@@ -11,20 +11,56 @@ pub struct Bits<const BITS: usize>;
 
 /// Converts semantic symbols to and from fixed-width packed values.
 ///
-/// A codec is the semantic layer over the generated bit layouts. `Bits` selects
-/// the raw width and storage implementations, while `Scalar<Codec>` and
-/// `PackedArray<Codec, L>` carry the stronger invariant that their bit-packed
-/// representations are valid for this codec.
+/// [`Self::Bits`] selects the field width. Assign codewords from zero upwards.
+/// A standalone [`scalar::Scalar`] holds its codeword in its least significant
+/// bits. Packed sequences place the first codeword in the most significant field.
 ///
-/// The blanket layout impls below are the key trick: Rust cannot currently use
-/// `Self::BITS_PER_SYMBOL` in const-generic type positions, so each codec names
-/// its generated `bits::Bits<N>` marker as an associated type instead.
-pub trait Codec: Copy + Send + Sync + 'static {
+/// A two-bit field can also store a three-symbol alphabet.
+///
+/// ```
+/// use biobit_bitpack::{Bits, Codec, Scalar};
+///
+/// #[derive(Clone, Copy)]
+/// struct Trit;
+///
+/// // SAFETY: The valid symbols 0, 1, and 2 encode and decode as themselves.
+/// unsafe impl Codec for Trit {
+///     type Symbol = u8;
+///     type Bits = Bits<2>;
+///     const MAX_CODE: u8 = 2;
+///
+///     fn encode(symbol: &u8) -> Scalar<Self> {
+///         Scalar::new(*symbol).unwrap()
+///     }
+///
+///     fn decode(scalar: Scalar<Self>) -> u8 {
+///         scalar.store()
+///     }
+/// }
+///
+/// for value in 0..=2 {
+///     assert_eq!(Scalar::<Trit>::new(value).map(Trit::decode), Some(value));
+/// }
+/// assert!(Scalar::<Trit>::new(3).is_none());
+/// ```
+///
+/// # Safety
+///
+/// The valid codewords must be exactly `0..=Self::MAX_CODE`, and `MAX_CODE`
+/// must fit within the mask of [`Self::Bits`]. [`Self::encode`] must return
+/// a codeword in this range for each valid symbol. [`Self::decode`] must accept
+/// every codeword in the range. [`scalar::Scalar::new`] relies on the upper
+/// bound, and unpacking uses zero to initialize scalar arrays.
+pub unsafe trait Codec: Copy + Send + Sync + 'static {
     /// The semantic symbol type for this codec.
     type Symbol;
 
-    /// One of the `bits::Bits<N>` markers
+    /// Scalar layout, usually a generated [`Bits<N>`](Bits) marker.
     type Bits: scalar::Layout;
+
+    /// Largest valid codeword, inclusive. Defaults to the full field mask.
+    /// A three-symbol codec with [`Bits<2>`](Bits) sets this to `2`.
+    const MAX_CODE: <Self as scalar::Layout>::Store = <Self as scalar::Layout>::MASK;
 
     /// Converts a semantic symbol into a codec-valid scalar.
     ///
@@ -32,9 +68,6 @@ pub trait Codec: Copy + Send + Sync + 'static {
     fn encode(symbol: &Self::Symbol) -> scalar::Scalar<Self>;
 
     /// Converts a codec-valid scalar back into a semantic symbol.
-    ///
-    /// This is infallible because `scalar::Scalar<Self>` is only
-    /// constructed from `Self::encode`-provided scalars.
     fn decode(scalar: scalar::Scalar<Self>) -> Self::Symbol;
 }
 
@@ -42,18 +75,20 @@ pub trait Codec: Copy + Send + Sync + 'static {
 ///
 /// # Safety
 ///
-/// Implementors must guarantee that every masked scalar codeword is valid and
-/// that `codeword ^ Self::MASK` decodes to the semantic complement.
+/// `Self::MAX_CODE` must equal the field mask, and flipping every bit in a
+/// codeword within that mask must produce its semantic complement.
 pub unsafe trait BitComplement: Codec {}
 
-impl<C: Codec> scalar::Layout for C {
+// SAFETY: The store, width, and mask all come from the same scalar layout.
+unsafe impl<C: Codec> scalar::Layout for C {
     type Store = <C::Bits as scalar::Layout>::Store;
 
     const BITS: NonZeroUsize = <C::Bits as scalar::Layout>::BITS;
     const MASK: Self::Store = <C::Bits as scalar::Layout>::MASK;
 }
 
-impl<C, L> array::Layout<L> for C
+// SAFETY: The associated bit layout selects the store for this exact length.
+unsafe impl<C, L> array::Layout<L> for C
 where
     C: Codec,
     L: Length,

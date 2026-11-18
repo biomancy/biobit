@@ -17,20 +17,13 @@ macro_rules! impl_complement {
                     ScalarLayout: scalar::Layout<Store = $scalar_store>,
                 {
                     let words = self.as_words_mut();
-                    let used = len * ScalarLayout::BITS.get();
-                    let active_words = used.div_ceil(u64::BITS as usize);
-                    let tail = used % u64::BITS as usize;
-                    let mut word = 0;
-
-                    while word < active_words - 1 {
-                        words[word] ^= u64::MAX;
-                        word += 1;
+                    let end = utils::WordOffset::new(len, ScalarLayout::BITS.get());
+                    for word in &mut words[..end.index] {
+                        *word = !*word;
                     }
 
-                    if tail != 0 {
-                        words[word] ^= utils::high_mask(tail);
-                    } else {
-                        words[word] ^= u64::MAX;
+                    if end.offset != 0 {
+                        words[end.index] ^= utils::high_mask(end.offset);
                     }
                 }
             }
